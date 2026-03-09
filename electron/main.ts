@@ -12,6 +12,7 @@ process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL
 
 let mainWindow: BrowserWindow | null = null
 let engine: StressEngine | null = null
+let runningTestPromise: Promise<TestResult> | null = null
 
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
@@ -40,8 +41,14 @@ function loadHistory(): TestResult[] {
   if (!fs.existsSync(historyPath)) {
     return []
   }
-  const data = fs.readFileSync(historyPath, 'utf-8')
-  return JSON.parse(data)
+  try {
+    const data = fs.readFileSync(historyPath, 'utf-8')
+    const parsed = JSON.parse(data)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+  } catch {
+    return []
+  }
 }
 
 function saveHistory(history: TestResult[]): void {
@@ -74,16 +81,17 @@ function createWindow() {
 
 // IPC Handlers
 ipcMain.handle('test:start', async (_event, config: TestConfig) => {
-  if (engine) {
+  if (engine || runningTestPromise) {
     throw new Error('Teste já em execução')
   }
 
   engine = new StressEngine()
 
   try {
-    const result = await engine.run(config, (progress) => {
+    runningTestPromise = engine.run(config, (progress) => {
       mainWindow?.webContents.send('test:progress', progress)
     })
+    const result = await runningTestPromise
 
     const history = loadHistory()
     history.unshift(result)
@@ -93,9 +101,11 @@ ipcMain.handle('test:start', async (_event, config: TestConfig) => {
     saveHistory(history)
 
     engine = null
+    runningTestPromise = null
     return result
   } catch (error) {
     engine = null
+    runningTestPromise = null
     throw error
   }
 })
@@ -103,7 +113,12 @@ ipcMain.handle('test:start', async (_event, config: TestConfig) => {
 ipcMain.handle('test:cancel', async () => {
   if (engine) {
     engine.cancel()
+    // Aguarda o teste finalizar antes de liberar
+    if (runningTestPromise) {
+      try { await runningTestPromise } catch { /* expected */ }
+    }
     engine = null
+    runningTestPromise = null
     return true
   }
   return false

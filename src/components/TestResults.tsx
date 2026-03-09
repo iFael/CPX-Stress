@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useTestStore } from '@/stores/test-store'
 import { MetricsChart } from '@/components/MetricsChart'
+import { ProtectionReportSection } from '@/components/ProtectionReport'
 import { generatePDF } from '@/services/pdf-generator'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -39,11 +40,56 @@ function getHealthInfo(result: TestResult): {
   bg: string
   border: string
 } {
+  // Taxa de erro HTTP (403/429/5xx) — proteção bloqueando requests
+  const httpErrorCount = Object.entries(result.statusCodes || {})
+    .filter(([code]) => code === '403' || code === '429' || Number(code) >= 500)
+    .reduce((sum, [, count]) => sum + count, 0)
+  const httpErrorRate = result.totalRequests > 0
+    ? (httpErrorCount / result.totalRequests) * 100
+    : 0
+
+  // Falha total de conexão: todos os requests falharam sem resposta
+  if (
+    result.errorRate >= 95 ||
+    (result.totalRequests === result.totalErrors && result.latency.avg === 0)
+  ) {
+    return {
+      score: 0,
+      label: 'Crítico',
+      color: 'text-sf-danger',
+      bg: 'bg-sf-danger/10',
+      border: 'border-sf-danger/30',
+    }
+  }
+
+  // Bloqueio quase total via HTTP (WAF/rate-limiter rejeitando quase tudo)
+  if (httpErrorRate >= 90) {
+    return {
+      score: 5,
+      label: 'Crítico',
+      color: 'text-sf-danger',
+      bg: 'bg-sf-danger/10',
+      border: 'border-sf-danger/30',
+    }
+  }
+
   let score = 100
-  if (result.errorRate > 50) score -= 40
-  else if (result.errorRate > 20) score -= 30
-  else if (result.errorRate > 5) score -= 20
-  else if (result.errorRate > 1) score -= 10
+
+  // Penalidades por taxa de erro de conexão
+  if (result.errorRate > 50) score -= 60
+  else if (result.errorRate > 20) score -= 40
+  else if (result.errorRate > 5) score -= 25
+  else if (result.errorRate > 1) score -= 15
+  else if (result.errorRate > 0.5) score -= 5
+
+  // Penalidades por respostas HTTP de erro (WAF/rate-limit)
+  if (httpErrorRate > 50) score -= 40
+  else if (httpErrorRate > 20) score -= 25
+  else if (httpErrorRate > 5) score -= 10
+
+  // Penalidade por zero throughput (servidor não enviou dados)
+  if (result.totalBytes === 0 && result.totalRequests > 0) score -= 30
+
   if (result.latency.p95 > 10000) score -= 30
   else if (result.latency.p95 > 5000) score -= 20
   else if (result.latency.p95 > 2000) score -= 15
@@ -89,6 +135,61 @@ function getHealthInfo(result: TestResult): {
   }
 }
 
+/**
+ * Calcula health score considerando apenas dados PRÉ-bloqueio.
+ * Se proteção bloqueou no segundo 28, avalia apenas segundos 1-27.
+ */
+function getPreBlockingHealth(result: TestResult): {
+  score: ReturnType<typeof getHealthInfo>
+  blockSecond: number
+} | null {
+  const report = result.protectionReport
+  if (!report) return null
+
+  const blockingPattern = report.behavioralPatterns.find(
+    (p) => p.type === 'blocking' && p.startSecond !== undefined
+  )
+  if (!blockingPattern || blockingPattern.startSecond === undefined) return null
+
+  const blockSecond = blockingPattern.startSecond
+  const preBlock = result.timeline.filter((s) => s.second < blockSecond)
+
+  if (preBlock.length < 2) return null
+
+  const totalReqs = preBlock.reduce((sum, s) => sum + s.requests, 0)
+  const totalErrs = preBlock.reduce((sum, s) => sum + s.errors, 0)
+  const errorRate = totalReqs > 0 ? Math.round((totalErrs / totalReqs) * 10000) / 100 : 0
+  const totalBytes = preBlock.reduce((sum, s) => sum + s.bytesReceived, 0)
+  const safeTotalReqs = Math.max(totalReqs, 1)
+  const p50 = preBlock.reduce((sum, s) => sum + s.latencyP50 * s.requests, 0) / safeTotalReqs
+  const p90 = preBlock.reduce((sum, s) => sum + s.latencyP90 * s.requests, 0) / safeTotalReqs
+  const p95 = preBlock.reduce((sum, s) => sum + s.latencyP95 * s.requests, 0) / safeTotalReqs
+  const p99 = preBlock.reduce((sum, s) => sum + s.latencyP99 * s.requests, 0) / safeTotalReqs
+  const avg = preBlock.reduce((sum, s) => sum + s.latencyAvg * s.requests, 0) / safeTotalReqs
+  const nonEmpty = preBlock.filter(s => s.requests > 0)
+  const min = nonEmpty.length > 0 ? Math.min(...nonEmpty.map(s => s.latencyMin)) : 0
+  const max = nonEmpty.length > 0 ? Math.max(...nonEmpty.map(s => s.latencyMax)) : 0
+
+  const preStatusCodes: Record<string, number> = {}
+  for (const s of preBlock) {
+    for (const [code, count] of Object.entries(s.statusCodes)) {
+      preStatusCodes[code] = (preStatusCodes[code] || 0) + count
+    }
+  }
+
+  const synthetic: TestResult = {
+    ...result,
+    errorRate,
+    totalBytes,
+    totalRequests: totalReqs,
+    totalErrors: totalErrs,
+    statusCodes: preStatusCodes,
+    latency: { avg, min, p50, p90, p95, p99, max },
+  }
+
+  return { score: getHealthInfo(synthetic), blockSecond }
+}
+
 export function TestResults() {
   const currentResult = useTestStore((s) => s.currentResult)
   const timeline = useTestStore((s) => s.timeline)
@@ -96,6 +197,7 @@ export function TestResults() {
   const clearProgress = useTestStore((s) => s.clearProgress)
   const setCurrentResult = useTestStore((s) => s.setCurrentResult)
   const setView = useTestStore((s) => s.setView)
+  const setError = useTestStore((s) => s.setError)
 
   const [exporting, setExporting] = useState(false)
 
@@ -105,6 +207,7 @@ export function TestResults() {
   const displayTimeline =
     result.timeline.length > 0 ? result.timeline : timeline
   const health = getHealthInfo(result)
+  const preBlockHealth = getPreBlockingHealth(result)
 
   const handleExportPDF = async () => {
     setExporting(true)
@@ -151,8 +254,10 @@ export function TestResults() {
       const filename = `stressflow-report-${format(new Date(result.startTime), 'yyyy-MM-dd-HHmmss')}.pdf`
       const filePath = await window.stressflow.pdf.save(base64, filename)
       await window.stressflow.pdf.open(filePath)
-    } catch {
-      /* PDF generation failed silently */
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Falha ao gerar PDF'
+      )
     } finally {
       setExporting(false)
     }
@@ -229,12 +334,27 @@ export function TestResults() {
             <div className={`text-3xl font-bold ${health.color} mt-1`}>
               {health.score}/100 — {health.label}
             </div>
+            {preBlockHealth && (
+              <div className="mt-2 flex items-center gap-2">
+                <div className={`text-sm font-semibold ${preBlockHealth.score.color}`}>
+                  Pré-bloqueio (até segundo {preBlockHealth.blockSecond - 1}): {preBlockHealth.score.score}/100 — {preBlockHealth.score.label}
+                </div>
+                <span className="text-xs text-sf-textMuted">
+                  Score desconsiderando dados após proteção bloquear
+                </span>
+              </div>
+            )}
           </div>
           <div className={`text-6xl font-bold ${health.color} opacity-20`}>
             {health.score >= 80 ? '✓' : health.score >= 40 ? '!' : '✗'}
           </div>
         </div>
       </div>
+
+      {/* Protection Detection Report */}
+      {result.protectionReport && (
+        <ProtectionReportSection report={result.protectionReport} />
+      )}
 
       {/* Key Metrics */}
       <div className="grid grid-cols-3 gap-3">
@@ -311,10 +431,12 @@ export function TestResults() {
                     <span className="font-mono font-medium">{code}</span>
                     <span className="ml-2 text-sm opacity-80">
                       {(count as number).toLocaleString('pt-BR')} (
-                      {(
-                        ((count as number) / result.totalRequests) *
-                        100
-                      ).toFixed(1)}
+                      {result.totalRequests > 0
+                        ? (
+                            ((count as number) / result.totalRequests) *
+                            100
+                          ).toFixed(1)
+                        : '0'}
                       %)
                     </span>
                   </div>

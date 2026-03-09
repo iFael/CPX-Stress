@@ -155,11 +155,14 @@ export function TestConfig() {
           <input
             type="number"
             value={config.virtualUsers}
-            onChange={(e) =>
-              updateConfig({
-                virtualUsers: Math.max(1, Math.min(10000, Number(e.target.value))),
-              })
-            }
+            onChange={(e) => {
+              const n = Number(e.target.value)
+              if (!Number.isNaN(n)) {
+                updateConfig({
+                  virtualUsers: Math.max(1, Math.min(10000, n)),
+                })
+              }
+            }}
             min={1}
             max={10000}
             className="w-full px-4 py-3 bg-sf-surface border border-sf-border rounded-xl text-sf-text focus:outline-none focus:ring-2 focus:ring-sf-primary/30 focus:border-sf-primary transition-all"
@@ -174,11 +177,14 @@ export function TestConfig() {
           <input
             type="number"
             value={config.duration}
-            onChange={(e) =>
-              updateConfig({
-                duration: Math.max(5, Math.min(600, Number(e.target.value))),
-              })
-            }
+            onChange={(e) => {
+              const n = Number(e.target.value)
+              if (!Number.isNaN(n)) {
+                updateConfig({
+                  duration: Math.max(5, Math.min(600, n)),
+                })
+              }
+            }}
             min={5}
             max={600}
             className="w-full px-4 py-3 bg-sf-surface border border-sf-border rounded-xl text-sf-text focus:outline-none focus:ring-2 focus:ring-sf-primary/30 focus:border-sf-primary transition-all"

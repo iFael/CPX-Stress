@@ -62,6 +62,77 @@ export interface TestResult {
   timeline: SecondMetrics[]
   status: 'completed' | 'cancelled' | 'error'
   errorMessage?: string
+  protectionReport?: ProtectionReport
+}
+
+// === Protection Detection Engine Types ===
+
+export type ProtectionType =
+  | 'waf'
+  | 'cdn'
+  | 'rate-limiter'
+  | 'anti-bot'
+  | 'ddos-protection'
+  | 'captcha'
+  | 'unknown'
+
+export type ProtectionProvider =
+  | 'cloudflare'
+  | 'akamai'
+  | 'fastly'
+  | 'imperva'
+  | 'sucuri'
+  | 'aws-waf'
+  | 'aws-cloudfront'
+  | 'azure-frontdoor'
+  | 'google-cloud-armor'
+  | 'ddos-guard'
+  | 'stackpath'
+  | 'varnish'
+  | 'nginx'
+  | 'custom'
+  | 'unknown'
+
+export type ConfidenceLevel = 'high' | 'medium' | 'low'
+
+export interface ProtectionIndicator {
+  source: 'header' | 'cookie' | 'status-code' | 'body' | 'behavior' | 'timing'
+  name: string
+  value: string
+  detail: string
+}
+
+export interface ProtectionDetection {
+  type: ProtectionType
+  provider: ProtectionProvider
+  confidence: number
+  confidenceLevel: ConfidenceLevel
+  indicators: ProtectionIndicator[]
+  description: string
+}
+
+export interface RateLimitInfo {
+  detected: boolean
+  triggerPoint?: number
+  limitPerWindow?: string
+  windowSeconds?: number
+  recoveryPattern?: string
+}
+
+export interface BehavioralPattern {
+  type: 'throttling' | 'blocking' | 'challenge' | 'degradation' | 'normal'
+  description: string
+  startSecond?: number
+  evidence: string
+}
+
+export interface ProtectionReport {
+  detections: ProtectionDetection[]
+  rateLimitInfo: RateLimitInfo
+  behavioralPatterns: BehavioralPattern[]
+  overallRisk: 'none' | 'low' | 'medium' | 'high' | 'critical'
+  summary: string
+  analysisTimestamp: string
 }
 
 export type AppView = 'test' | 'history' | 'results'

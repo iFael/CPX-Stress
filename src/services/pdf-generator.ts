@@ -2,7 +2,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import type { TestResult } from '@/types'
+import type { TestResult, ProtectionReport } from '@/types'
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B'
@@ -24,12 +24,55 @@ function getHealthScore(result: TestResult): {
   color: [number, number, number]
   recommendation: string
 } {
+  // Taxa de erro HTTP (403/429/5xx) — proteção bloqueando requests
+  const httpErrorCount = Object.entries(result.statusCodes || {})
+    .filter(([code]) => code === '403' || code === '429' || Number(code) >= 500)
+    .reduce((sum, [, count]) => sum + count, 0)
+  const httpErrorRate = result.totalRequests > 0
+    ? (httpErrorCount / result.totalRequests) * 100
+    : 0
+
+  // Falha total de conexão: todos os requests falharam sem resposta
+  if (
+    result.errorRate >= 95 ||
+    (result.totalRequests === result.totalErrors && result.latency.avg === 0)
+  ) {
+    return {
+      score: 0,
+      label: 'Crítico',
+      color: [239, 68, 68],
+      recommendation:
+        'Não foi possível conectar ao servidor. Verifique se a URL está correta e o servidor está acessível.',
+    }
+  }
+
+  // Bloqueio quase total via HTTP (WAF/rate-limiter rejeitando quase tudo)
+  if (httpErrorRate >= 90) {
+    return {
+      score: 5,
+      label: 'Crítico',
+      color: [239, 68, 68],
+      recommendation:
+        'O servidor está bloqueando quase todas as requests via HTTP 403/429/5xx. Proteção ativa detectada.',
+    }
+  }
+
   let score = 100
 
-  if (result.errorRate > 50) score -= 40
-  else if (result.errorRate > 20) score -= 30
-  else if (result.errorRate > 5) score -= 20
-  else if (result.errorRate > 1) score -= 10
+  // Penalidades por taxa de erro de conexão
+  if (result.errorRate > 50) score -= 60
+  else if (result.errorRate > 20) score -= 40
+  else if (result.errorRate > 5) score -= 25
+  else if (result.errorRate > 1) score -= 15
+  else if (result.errorRate > 0.5) score -= 5
+
+  // Penalidades por respostas HTTP de erro (WAF/rate-limit)
+  if (httpErrorRate > 50) score -= 40
+  else if (httpErrorRate > 20) score -= 25
+  else if (httpErrorRate > 5) score -= 10
+
+  // Penalidade por zero throughput
+  if (result.totalBytes === 0 && result.totalRequests > 0) score -= 30
 
   if (result.latency.p95 > 10000) score -= 30
   else if (result.latency.p95 > 5000) score -= 20
@@ -99,6 +142,222 @@ function sectionTitle(doc: jsPDF, title: string, yPos: number, margin: number): 
   doc.setLineWidth(0.8)
   doc.line(margin, yPos + 2, margin + doc.getTextWidth(title), yPos + 2)
   return yPos + 12
+}
+
+const RISK_LABELS: Record<string, string> = {
+  none: 'Nenhum',
+  low: 'Baixo',
+  medium: 'Médio',
+  high: 'Alto',
+  critical: 'Crítico',
+}
+
+const RISK_COLORS: Record<string, [number, number, number]> = {
+  none: [34, 197, 94],
+  low: [59, 130, 246],
+  medium: [245, 158, 11],
+  high: [249, 115, 22],
+  critical: [239, 68, 68],
+}
+
+const TYPE_LABELS_PDF: Record<string, string> = {
+  'waf': 'WAF',
+  'cdn': 'CDN',
+  'rate-limiter': 'Rate Limiting',
+  'anti-bot': 'Anti-Bot',
+  'ddos-protection': 'DDoS Protection',
+  'captcha': 'CAPTCHA/Challenge',
+  'unknown': 'Desconhecido',
+}
+
+function addProtectionSection(
+  doc: jsPDF,
+  report: ProtectionReport,
+  margin: number,
+  contentWidth: number,
+  pageHeight: number
+): void {
+  doc.addPage()
+  drawPageBg(doc)
+  let y = 20
+
+  y = sectionTitle(doc, 'Análise de Proteção', y, margin)
+
+  // Risk badge
+  const riskColor = RISK_COLORS[report.overallRisk] || RISK_COLORS.none
+  const riskLabel = RISK_LABELS[report.overallRisk] || 'Desconhecido'
+
+  doc.setFillColor(26, 29, 39)
+  doc.roundedRect(margin, y, contentWidth, 24, 2, 2, 'F')
+
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(148, 163, 184)
+  doc.text('Nível de Risco:', margin + 4, y + 10)
+
+  doc.setFillColor(riskColor[0], riskColor[1], riskColor[2])
+  doc.roundedRect(margin + 42, y + 3, 30, 11, 2, 2, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(9)
+  doc.text(riskLabel, margin + 57, y + 10, { align: 'center' })
+
+  // Summary
+  doc.setFontSize(8)
+  doc.setTextColor(148, 163, 184)
+  doc.setFont('helvetica', 'normal')
+  const summaryLines = doc.splitTextToSize(report.summary, contentWidth - 8) as string[]
+  doc.text(summaryLines, margin + 4, y + 20)
+  y += 24 + summaryLines.length * 3 + 4
+
+  // Detections table
+  if (report.detections.length > 0) {
+    if (y + 40 > pageHeight) {
+      doc.addPage()
+      drawPageBg(doc)
+      y = 20
+    }
+
+    y = sectionTitle(doc, 'Proteções Detectadas', y, margin)
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Provedor', 'Tipo', 'Confiança', 'Indicadores']],
+      body: report.detections.map(d => [
+        d.provider !== 'unknown' ? d.provider.charAt(0).toUpperCase() + d.provider.slice(1) : '—',
+        TYPE_LABELS_PDF[d.type] || d.type,
+        `${d.confidence}% (${d.confidenceLevel === 'high' ? 'Alta' : d.confidenceLevel === 'medium' ? 'Média' : 'Baixa'})`,
+        d.indicators.map(i => `${i.source}: ${i.name}`).join(', '),
+      ]),
+      theme: 'plain',
+      styles: {
+        fillColor: [26, 29, 39],
+        textColor: [226, 232, 240],
+        fontSize: 8,
+        cellPadding: 3,
+        lineColor: [42, 45, 58],
+        lineWidth: 0.3,
+      },
+      headStyles: {
+        fillColor: [99, 102, 241],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 9,
+      },
+      alternateRowStyles: {
+        fillColor: [20, 23, 32],
+      },
+      columnStyles: {
+        0: { cellWidth: 30 },
+        1: { cellWidth: 28 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: contentWidth - 88 },
+      },
+      margin: { left: margin, right: margin },
+    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    y = ((doc as any).lastAutoTable?.finalY as number) || y + 40
+    y += 8
+  }
+
+  // Rate Limiting
+  if (report.rateLimitInfo.detected) {
+    if (y + 30 > pageHeight) {
+      doc.addPage()
+      drawPageBg(doc)
+      y = 20
+    }
+
+    y = sectionTitle(doc, 'Rate Limiting', y, margin)
+
+    const rlData: [string, string][] = [['Status', 'Detectado']]
+    if (report.rateLimitInfo.limitPerWindow) {
+      rlData.push(['Limite por Janela', report.rateLimitInfo.limitPerWindow])
+    }
+    if (report.rateLimitInfo.windowSeconds !== undefined) {
+      rlData.push(['Janela (segundos)', String(report.rateLimitInfo.windowSeconds)])
+    }
+    if (report.rateLimitInfo.triggerPoint !== undefined) {
+      rlData.push(['Ativado no Segundo', String(report.rateLimitInfo.triggerPoint)])
+    }
+    if (report.rateLimitInfo.recoveryPattern) {
+      rlData.push(['Padrão de Recuperação', report.rateLimitInfo.recoveryPattern])
+    }
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Parâmetro', 'Valor']],
+      body: rlData,
+      theme: 'plain',
+      styles: {
+        fillColor: [26, 29, 39],
+        textColor: [226, 232, 240],
+        fontSize: 8,
+        cellPadding: 3,
+        lineColor: [42, 45, 58],
+        lineWidth: 0.3,
+      },
+      headStyles: {
+        fillColor: [245, 158, 11],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+      },
+      margin: { left: margin, right: margin },
+    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    y = ((doc as any).lastAutoTable?.finalY as number) || y + 30
+    y += 8
+  }
+
+  // Behavioral Patterns
+  const anomalies = report.behavioralPatterns.filter(b => b.type !== 'normal')
+  if (anomalies.length > 0) {
+    if (y + 30 > pageHeight) {
+      doc.addPage()
+      drawPageBg(doc)
+      y = 20
+    }
+
+    y = sectionTitle(doc, 'Padrões Comportamentais', y, margin)
+
+    const typeLabels: Record<string, string> = {
+      throttling: 'Throttling',
+      blocking: 'Bloqueio',
+      challenge: 'Challenge',
+      degradation: 'Degradação',
+    }
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Tipo', 'Descrição', 'Evidência']],
+      body: anomalies.map(p => [
+        typeLabels[p.type] || p.type,
+        p.description,
+        p.evidence,
+      ]),
+      theme: 'plain',
+      styles: {
+        fillColor: [26, 29, 39],
+        textColor: [226, 232, 240],
+        fontSize: 8,
+        cellPadding: 3,
+        lineColor: [42, 45, 58],
+        lineWidth: 0.3,
+      },
+      headStyles: {
+        fillColor: [249, 115, 22],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+      },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: contentWidth - 65 },
+        2: { cellWidth: 40 },
+      },
+      margin: { left: margin, right: margin },
+    })
+  }
 }
 
 export async function generatePDF(
@@ -261,6 +520,78 @@ export async function generatePDF(
 
   y += 40
 
+  // Score pré-bloqueio: se proteção bloqueou, mostra score dos dados antes do bloqueio
+  if (result.protectionReport) {
+    const blockingPattern = result.protectionReport.behavioralPatterns.find(
+      (p) => p.type === 'blocking' && p.startSecond !== undefined
+    )
+    if (blockingPattern && blockingPattern.startSecond !== undefined) {
+      const blockSecond = blockingPattern.startSecond
+      const preBlock = result.timeline.filter((s) => s.second < blockSecond)
+
+      if (preBlock.length >= 2) {
+        const totalReqs = preBlock.reduce((sum, s) => sum + s.requests, 0)
+        const totalErrs = preBlock.reduce((sum, s) => sum + s.errors, 0)
+        const preErrorRate = totalReqs > 0 ? Math.round((totalErrs / totalReqs) * 10000) / 100 : 0
+        const preTotalBytes = preBlock.reduce((sum, s) => sum + s.bytesReceived, 0)
+        const safeTotalReqs = Math.max(totalReqs, 1)
+        const preP50 = preBlock.reduce((sum, s) => sum + s.latencyP50 * s.requests, 0) / safeTotalReqs
+        const preP90 = preBlock.reduce((sum, s) => sum + s.latencyP90 * s.requests, 0) / safeTotalReqs
+        const preP95 = preBlock.reduce((sum, s) => sum + s.latencyP95 * s.requests, 0) / safeTotalReqs
+        const preP99 = preBlock.reduce((sum, s) => sum + s.latencyP99 * s.requests, 0) / safeTotalReqs
+        const preAvg = preBlock.reduce((sum, s) => sum + s.latencyAvg * s.requests, 0) / safeTotalReqs
+        const preNonEmpty = preBlock.filter(s => s.requests > 0)
+        const preMin = preNonEmpty.length > 0 ? Math.min(...preNonEmpty.map(s => s.latencyMin)) : 0
+        const preMax = preNonEmpty.length > 0 ? Math.max(...preNonEmpty.map(s => s.latencyMax)) : 0
+
+        const preStatusCodes: Record<string, number> = {}
+        for (const s of preBlock) {
+          for (const [code, count] of Object.entries(s.statusCodes)) {
+            preStatusCodes[code] = (preStatusCodes[code] || 0) + count
+          }
+        }
+
+        const syntheticResult: TestResult = {
+          ...result,
+          errorRate: preErrorRate,
+          totalBytes: preTotalBytes,
+          totalRequests: totalReqs,
+          totalErrors: totalErrs,
+          statusCodes: preStatusCodes,
+          latency: { avg: preAvg, min: preMin, p50: preP50, p90: preP90, p95: preP95, p99: preP99, max: preMax },
+        }
+        const preHealth = getHealthScore(syntheticResult)
+
+        doc.setFillColor(26, 29, 39)
+        doc.roundedRect(margin, y, contentWidth, 24, 2, 2, 'F')
+
+        doc.setFontSize(8)
+        doc.setTextColor(148, 163, 184)
+        doc.setFont('helvetica', 'normal')
+        doc.text(`Score pre-bloqueio (ate segundo ${blockSecond - 1}):`, margin + 4, y + 8)
+
+        const preBarWidth = contentWidth - 80
+        const preBarX = margin + 70
+        doc.setFillColor(42, 45, 58)
+        doc.roundedRect(preBarX, y + 4, preBarWidth, 6, 2, 2, 'F')
+        doc.setFillColor(preHealth.color[0], preHealth.color[1], preHealth.color[2])
+        doc.roundedRect(preBarX, y + 4, preBarWidth * (preHealth.score / 100), 6, 2, 2, 'F')
+
+        doc.setFontSize(14)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(preHealth.color[0], preHealth.color[1], preHealth.color[2])
+        doc.text(`${preHealth.score}/100 - ${preHealth.label}`, margin + 4, y + 20)
+
+        doc.setFontSize(7)
+        doc.setTextColor(148, 163, 184)
+        doc.setFont('helvetica', 'normal')
+        doc.text('Desconsidera dados apos protecao bloquear o trafego', margin + 60, y + 20)
+
+        y += 30
+      }
+    }
+  }
+
   // ===== CHARTS =====
   if (chartImages.rps || chartImages.latency || chartImages.errors) {
     y = sectionTitle(doc, 'Evolução do Teste', y, margin)
@@ -403,7 +734,9 @@ export async function generatePDF(
       body: statusCodesEntries.map(([code, count]) => [
         code,
         (count as number).toLocaleString('pt-BR'),
-        `${(((count as number) / result.totalRequests) * 100).toFixed(2)}%`,
+        result.totalRequests > 0
+          ? `${(((count as number) / result.totalRequests) * 100).toFixed(2)}%`
+          : '0%',
       ]),
       theme: 'plain',
       styles: {
@@ -421,6 +754,11 @@ export async function generatePDF(
       },
       margin: { left: margin, right: margin },
     })
+  }
+
+  // ===== PROTECTION ANALYSIS =====
+  if (result.protectionReport) {
+    addProtectionSection(doc, result.protectionReport, margin, contentWidth, pageHeight)
   }
 
   // ===== RECOMMENDATIONS PAGE =====
@@ -469,6 +807,27 @@ export async function generatePDF(
     recommendations.push(
       '• Respostas 429 (Rate Limited) detectadas. O servidor está limitando as requisições. Ajuste o rate limiter ou a capacidade.'
     )
+  }
+
+  // Recomendações de proteção baseadas no relatório de detecção
+  if (result.protectionReport) {
+    const pr = result.protectionReport
+    if (pr.overallRisk === 'high' || pr.overallRisk === 'critical') {
+      recommendations.push(
+        '• [ALERTA] Protecoes ativas detectadas com alto impacto no teste. Os resultados podem nao refletir a performance real do servidor, pois camadas de protecao (WAF/Anti-Bot) estao interferindo.'
+      )
+    }
+    const providers = [...new Set(pr.detections.filter(d => d.provider !== 'unknown').map(d => d.provider))]
+    if (providers.length > 0) {
+      recommendations.push(
+        `• Provedores de proteção detectados: ${providers.join(', ')}. Considere whitelist do IP de teste para resultados mais precisos.`
+      )
+    }
+    if (pr.rateLimitInfo.detected) {
+      recommendations.push(
+        '• Rate limiting ativo — reduza o número de usuários virtuais ou solicite aumento temporal do limite para testes de carga válidos.'
+      )
+    }
   }
 
   if (recommendations.length === 0) {

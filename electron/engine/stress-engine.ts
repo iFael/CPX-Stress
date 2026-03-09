@@ -2,6 +2,8 @@ import http from 'node:http'
 import https from 'node:https'
 import { URL } from 'node:url'
 import { v4 as uuidv4 } from 'uuid'
+import { ProtectionDetector } from './protection-detector'
+import type { ResponseSample } from './protection-detector'
 
 export interface TestConfig {
   url: string
@@ -67,6 +69,37 @@ export interface TestResult {
   timeline: SecondMetrics[]
   status: 'completed' | 'cancelled' | 'error'
   errorMessage?: string
+  protectionReport?: {
+    detections: Array<{
+      type: string
+      provider: string
+      confidence: number
+      confidenceLevel: string
+      indicators: Array<{
+        source: string
+        name: string
+        value: string
+        detail: string
+      }>
+      description: string
+    }>
+    rateLimitInfo: {
+      detected: boolean
+      triggerPoint?: number
+      limitPerWindow?: string
+      windowSeconds?: number
+      recoveryPattern?: string
+    }
+    behavioralPatterns: Array<{
+      type: string
+      description: string
+      startSecond?: number
+      evidence: string
+    }>
+    overallRisk: string
+    summary: string
+    analysisTimestamp: string
+  }
 }
 
 function percentile(sorted: number[], p: number): number {
@@ -81,30 +114,97 @@ function round2(n: number): number {
 
 export class StressEngine {
   private cancelled = false
+  private durationExpired = false
   private abortController: AbortController | null = null
+  private activeInterval: ReturnType<typeof setInterval> | null = null
+  private activeAgent: http.Agent | https.Agent | null = null
+  private activeDurationTimer: ReturnType<typeof setTimeout> | null = null
+  private vuRequestCount = 0
+
+  private preflight(url: URL, isHttps: boolean, signal: AbortSignal): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (signal.aborted) {
+        reject(new Error('Cancelado'))
+        return
+      }
+
+      const mod = isHttps ? https : http
+      const req = mod.request(
+        {
+          hostname: url.hostname,
+          port: url.port || (isHttps ? 443 : 80),
+          path: url.pathname + url.search,
+          method: 'HEAD',
+          timeout: 10000,
+        },
+        (res) => {
+          res.resume()
+          resolve()
+        }
+      )
+      req.on('error', (err: Error) =>
+        reject(
+          new Error(
+            `Não foi possível conectar ao servidor "${url.hostname}": ${err.message}`
+          )
+        )
+      )
+      req.on('timeout', () => {
+        req.destroy()
+        reject(
+          new Error(
+            `O servidor "${url.hostname}" não respondeu dentro de 10 segundos`
+          )
+        )
+      })
+
+      const abortHandler = () => {
+        req.destroy()
+        reject(new Error('Cancelado'))
+      }
+      signal.addEventListener('abort', abortHandler, { once: true })
+
+      req.end()
+    })
+  }
 
   async run(
     config: TestConfig,
     onProgress: (data: ProgressData) => void
   ): Promise<TestResult> {
     this.cancelled = false
+    this.durationExpired = false
     this.abortController = new AbortController()
+    this.vuRequestCount = 0
 
     const url = new URL(config.url)
     const isHttps = url.protocol === 'https:'
+
+    const signal = this.abortController.signal
+
+    // Verificação de conectividade antes de iniciar o teste
+    await this.preflight(url, isHttps, signal)
+
     const agent = new (isHttps ? https : http).Agent({
       keepAlive: true,
       maxSockets: Math.min(config.virtualUsers * 2, 10000),
       timeout: 30000,
     })
+    this.activeAgent = agent
 
     const testId = uuidv4()
     const startTime = new Date()
-    const allLatencies: number[] = []
+    // Reservoir sampling para limitar uso de memória em testes longos
+    const latencyReservoir: number[] = []
+    const RESERVOIR_MAX = 100_000
+    let latencySampleCount = 0
     const globalStatusCodes: Record<string, number> = {}
     let totalErrors = 0
     let totalBytes = 0
     let totalRequests = 0
+
+    // Protection Detection Engine — análise incremental com amostragem
+    const protectionDetector = new ProtectionDetector()
 
     let secLatencies: number[] = []
     let secErrors = 0
@@ -117,6 +217,7 @@ export class StressEngine {
     const rampUp = config.rampUp || 0
 
     const interval = setInterval(() => {
+      if (this.cancelled) return
       currentSecond++
       const activeUsers =
         rampUp > 0
@@ -162,9 +263,16 @@ export class StressEngine {
       secBytes = 0
       secStatusCodes = {}
     }, 1000)
+    this.activeInterval = interval
 
     const endTime = Date.now() + config.duration * 1000
-    const signal = this.abortController.signal
+
+    // Timer de segurança: abortar requests in-flight quando a duração expirar
+    // Sem isso, VUs com requests lentos (ex: latência >30s) ficam presos além da duração
+    this.activeDurationTimer = setTimeout(() => {
+      this.durationExpired = true
+      this.abortController?.abort()
+    }, config.duration * 1000 + 2000) // +2s de margem para finalização natural
 
     const vuPromises: Promise<void>[] = []
     for (let i = 0; i < config.virtualUsers; i++) {
@@ -181,8 +289,17 @@ export class StressEngine {
           config,
           endTime,
           signal,
-          onResponse: (latency: number, statusCode: number, bytes: number) => {
-            allLatencies.push(latency)
+          onResponse: (latency: number, statusCode: number, bytes: number, sample?: ResponseSample) => {
+            // Reservoir sampling: manter no máximo RESERVOIR_MAX amostras
+            latencySampleCount++
+            if (latencyReservoir.length < RESERVOIR_MAX) {
+              latencyReservoir.push(latency)
+            } else {
+              const j = Math.floor(Math.random() * latencySampleCount)
+              if (j < RESERVOIR_MAX) {
+                latencyReservoir[j] = latency
+              }
+            }
             secLatencies.push(latency)
             secRequests++
             totalRequests++
@@ -191,6 +308,11 @@ export class StressEngine {
             const code = String(statusCode)
             globalStatusCodes[code] = (globalStatusCodes[code] || 0) + 1
             secStatusCodes[code] = (secStatusCodes[code] || 0) + 1
+
+            // Alimentar Protection Detector com amostras
+            if (sample) {
+              protectionDetector.collectSample(sample)
+            }
           },
           onError: () => {
             totalErrors++
@@ -208,12 +330,18 @@ export class StressEngine {
       // Cancelled or error — handled below
     }
 
+    if (this.activeDurationTimer) {
+      clearTimeout(this.activeDurationTimer)
+      this.activeDurationTimer = null
+    }
     clearInterval(interval)
+    this.activeInterval = null
     agent.destroy()
+    this.activeAgent = null
 
     const actualEnd = new Date()
     const actualDuration = (actualEnd.getTime() - startTime.getTime()) / 1000
-    const sortedAll = allLatencies.sort((a, b) => a - b)
+    const sortedAll = latencyReservoir.sort((a, b) => a - b)
 
     const result: TestResult = {
       id: testId,
@@ -248,8 +376,12 @@ export class StressEngine {
       totalBytes,
       statusCodes: globalStatusCodes,
       timeline,
-      status: this.cancelled ? 'cancelled' : 'completed',
+      status: this.cancelled && !this.durationExpired ? 'cancelled' : 'completed',
     }
+
+    // Gerar relatório de detecção de proteção
+    protectionDetector.setTimeline(timeline)
+    result.protectionReport = protectionDetector.analyze()
 
     return result
   }
@@ -263,7 +395,7 @@ export class StressEngine {
       config: TestConfig
       endTime: number
       signal: AbortSignal
-      onResponse: (latency: number, statusCode: number, bytes: number) => void
+      onResponse: (latency: number, statusCode: number, bytes: number, sample?: ResponseSample) => void
       onError: () => void
     }
   ): Promise<void> {
@@ -283,10 +415,13 @@ export class StressEngine {
 
     while (Date.now() < opts.endTime && !opts.signal.aborted) {
       const start = performance.now()
+      // Capturar amostra a cada ~50 requests para detecção de proteção (baixo overhead)
+      this.vuRequestCount++
+      const captureSample = this.vuRequestCount % 50 === 1
       try {
-        const { statusCode, bytes } = await this.makeRequest(opts)
+        const result = await this.makeRequest(opts, captureSample)
         const latency = performance.now() - start
-        opts.onResponse(latency, statusCode, bytes)
+        opts.onResponse(latency, result.statusCode, result.bytes, result.sample)
       } catch {
         opts.onError()
       }
@@ -299,7 +434,7 @@ export class StressEngine {
     agent: http.Agent | https.Agent
     config: TestConfig
     signal: AbortSignal
-  }): Promise<{ statusCode: number; bytes: number }> {
+  }, captureSample: boolean = false): Promise<{ statusCode: number; bytes: number; sample?: ResponseSample }> {
     return new Promise((resolve, reject) => {
       if (opts.signal.aborted) {
         reject(new Error('Cancelled'))
@@ -321,28 +456,93 @@ export class StressEngine {
         timeout: 30000,
       }
 
+      if (opts.config.body && opts.config.method !== 'GET') {
+        reqOptions.headers = {
+          ...reqOptions.headers,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(opts.config.body).toString(),
+        }
+      }
+
+      let settled = false
+      const cleanup = () => {
+        settled = true
+        opts.signal.removeEventListener('abort', abortHandler)
+      }
+
+      const abortHandler = () => {
+        if (!settled) {
+          cleanup()
+          req.destroy()
+          reject(new Error('Cancelled'))
+        }
+      }
+      opts.signal.addEventListener('abort', abortHandler)
+
       const req = mod.request(reqOptions, (res) => {
         let bytes = 0
+        const bodyChunks: Buffer[] = captureSample ? [] : []
+        let bodyCollected = 0
+        const BODY_LIMIT = 2048
+
         res.on('data', (chunk: Buffer) => {
           bytes += chunk.length
+          // Capturar primeiros 2KB do body apenas para amostras de proteção
+          if (captureSample && bodyCollected < BODY_LIMIT) {
+            const remaining = BODY_LIMIT - bodyCollected
+            bodyChunks.push(chunk.subarray(0, remaining))
+            bodyCollected += Math.min(chunk.length, remaining)
+          }
         })
         res.on('end', () => {
-          resolve({ statusCode: res.statusCode ?? 0, bytes })
+          cleanup()
+
+          let sample: ResponseSample | undefined
+          if (captureSample) {
+            // Extrair headers relevantes (lowercased)
+            const headers: Record<string, string> = {}
+            const rawHeaders = res.headers
+            for (const [key, val] of Object.entries(rawHeaders)) {
+              if (val) {
+                headers[key.toLowerCase()] = Array.isArray(val) ? val.join(', ') : val
+              }
+            }
+
+            // Extrair cookies de Set-Cookie
+            const setCookieRaw = res.headers['set-cookie']
+            const cookies = setCookieRaw ? setCookieRaw.map(c => c.split(';')[0]) : []
+
+            // Body snippet
+            const bodySnippet = bodyChunks.length > 0
+              ? Buffer.concat(bodyChunks).toString('utf-8').substring(0, BODY_LIMIT)
+              : ''
+
+            sample = {
+              statusCode: res.statusCode ?? 0,
+              headers,
+              cookies,
+              bodySnippet,
+              timestamp: Date.now(),
+            }
+          }
+
+          resolve({ statusCode: res.statusCode ?? 0, bytes, sample })
         })
-        res.on('error', reject)
+        res.on('error', (err) => {
+          cleanup()
+          reject(err)
+        })
       })
 
-      req.on('error', reject)
+      req.on('error', (err) => {
+        cleanup()
+        reject(err)
+      })
       req.on('timeout', () => {
+        cleanup()
         req.destroy()
         reject(new Error('Request timeout'))
       })
-
-      const abortHandler = () => {
-        req.destroy()
-        reject(new Error('Cancelled'))
-      }
-      opts.signal.addEventListener('abort', abortHandler, { once: true })
 
       if (opts.config.body && opts.config.method !== 'GET') {
         req.write(opts.config.body)
@@ -354,5 +554,17 @@ export class StressEngine {
   cancel(): void {
     this.cancelled = true
     this.abortController?.abort()
+    if (this.activeDurationTimer) {
+      clearTimeout(this.activeDurationTimer)
+      this.activeDurationTimer = null
+    }
+    if (this.activeInterval) {
+      clearInterval(this.activeInterval)
+      this.activeInterval = null
+    }
+    if (this.activeAgent) {
+      this.activeAgent.destroy()
+      this.activeAgent = null
+    }
   }
 }

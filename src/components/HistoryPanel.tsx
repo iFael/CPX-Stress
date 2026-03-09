@@ -191,10 +191,17 @@ export function HistoryPanel() {
 }
 
 function getQuickScore(result: TestResult): number {
+  if (
+    result.errorRate >= 95 ||
+    (result.totalRequests === result.totalErrors && result.latency.avg === 0)
+  ) {
+    return 0
+  }
   let score = 100
-  if (result.errorRate > 50) score -= 40
-  else if (result.errorRate > 5) score -= 20
+  if (result.errorRate > 50) score -= 60
+  else if (result.errorRate > 5) score -= 25
   if (result.latency.p95 > 5000) score -= 20
   else if (result.latency.p95 > 2000) score -= 10
+  if (result.totalBytes === 0 && result.totalRequests > 0) score -= 30
   return Math.max(0, score)
 }
