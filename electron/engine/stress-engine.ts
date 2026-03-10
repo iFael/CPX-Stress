@@ -1,6 +1,8 @@
 import http from 'node:http'
 import https from 'node:https'
+import dns from 'node:dns'
 import { URL } from 'node:url'
+import net from 'node:net'
 import { v4 as uuidv4 } from 'uuid'
 import { ProtectionDetector } from './protection-detector'
 import type { ResponseSample } from './protection-detector'
@@ -112,6 +114,174 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100
 }
 
+// Correção de segurança: lista de ranges de IP privados/reservados para prevenir SSRF.
+// Bloqueia requisições a endereços internos da rede, loopback e metadados de cloud providers.
+const BLOCKED_IP_RANGES = [
+  // Loopback IPv4 e IPv6
+  { prefix: '127.', type: 'loopback' },
+  { prefix: '::1', type: 'loopback' },
+  { prefix: '0.0.0.0', type: 'unspecified' },
+  // Redes privadas (RFC 1918)
+  { prefix: '10.', type: 'private' },
+  { prefix: '192.168.', type: 'private' },
+  // Link-local
+  { prefix: '169.254.', type: 'link-local' },
+  { prefix: 'fe80:', type: 'link-local' },
+]
+
+// Correção de segurança: verifica se um IP pertence à faixa 172.16.0.0 - 172.31.255.255
+function isPrivate172(ip: string): boolean {
+  const match = ip.match(/^172\.(\d+)\./)
+  if (!match) return false
+  const second = parseInt(match[1], 10)
+  return second >= 16 && second <= 31
+}
+
+// Correção de segurança: valida se o IP resolvido não é interno/privado (proteção contra SSRF)
+function isBlockedIP(ip: string): boolean {
+  for (const range of BLOCKED_IP_RANGES) {
+    if (ip.startsWith(range.prefix)) return true
+  }
+  if (isPrivate172(ip)) return true
+  return false
+}
+
+// Correção de segurança: resolve o hostname e verifica se aponta para endereço privado/interno
+async function validateTargetHost(hostname: string): Promise<void> {
+  // Se for um IP literal, verificar diretamente
+  if (net.isIP(hostname)) {
+    if (isBlockedIP(hostname)) {
+      throw new Error(
+        `Endereço bloqueado: "${hostname}" aponta para uma rede interna ou reservada. ` +
+        'Testes de estresse só são permitidos contra servidores externos.'
+      )
+    }
+    return
+  }
+
+  // Resolver DNS e verificar os IPs resultantes
+  return new Promise((resolve, reject) => {
+    dns.resolve4(hostname, (err, addresses) => {
+      if (err) {
+        // Tentar IPv6 como fallback
+        dns.resolve6(hostname, (err6, addresses6) => {
+          if (err6) {
+            reject(new Error(`Não foi possível resolver o hostname "${hostname}": ${err.message}`))
+            return
+          }
+          for (const addr of addresses6) {
+            if (isBlockedIP(addr)) {
+              reject(new Error(
+                `Endereço bloqueado: "${hostname}" resolve para ${addr} (rede interna/reservada). ` +
+                'Testes de estresse só são permitidos contra servidores externos.'
+              ))
+              return
+            }
+          }
+          resolve()
+        })
+        return
+      }
+      for (const addr of addresses) {
+        if (isBlockedIP(addr)) {
+          reject(new Error(
+            `Endereço bloqueado: "${hostname}" resolve para ${addr} (rede interna/reservada). ` +
+            'Testes de estresse só são permitidos contra servidores externos.'
+          ))
+          return
+        }
+      }
+      resolve()
+    })
+  })
+}
+
+// Correção de segurança: limites máximos para prevenir abuso de recursos
+const MAX_VIRTUAL_USERS = 10_000
+const MAX_DURATION_SECONDS = 600
+const MAX_BODY_SIZE = 1_048_576 // 1 MB
+const MAX_HEADER_COUNT = 50
+
+// Correção de segurança: valida campos do TestConfig recebido via IPC
+export function validateTestConfig(config: TestConfig): void {
+  if (!config || typeof config !== 'object') {
+    throw new Error('Configuração de teste inválida')
+  }
+
+  // Validar URL
+  if (typeof config.url !== 'string' || config.url.trim() === '') {
+    throw new Error('URL é obrigatória')
+  }
+  try {
+    const parsed = new URL(config.url)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error('Apenas protocolos HTTP e HTTPS são permitidos')
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('protocolo')) throw e
+    throw new Error('URL inválida: formato não reconhecido')
+  }
+
+  // Validar virtualUsers
+  if (typeof config.virtualUsers !== 'number' || !Number.isFinite(config.virtualUsers) ||
+      config.virtualUsers < 1 || config.virtualUsers > MAX_VIRTUAL_USERS) {
+    throw new Error(`Número de usuários virtuais deve ser entre 1 e ${MAX_VIRTUAL_USERS}`)
+  }
+
+  // Validar duration
+  if (typeof config.duration !== 'number' || !Number.isFinite(config.duration) ||
+      config.duration < 1 || config.duration > MAX_DURATION_SECONDS) {
+    throw new Error(`Duração deve ser entre 1 e ${MAX_DURATION_SECONDS} segundos`)
+  }
+
+  // Validar method
+  const ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'DELETE']
+  if (!ALLOWED_METHODS.includes(config.method)) {
+    throw new Error(`Método HTTP inválido: ${config.method}`)
+  }
+
+  // Validar body (tamanho máximo)
+  if (config.body !== undefined && config.body !== null) {
+    if (typeof config.body !== 'string') {
+      throw new Error('Corpo da requisição deve ser uma string')
+    }
+    if (config.body.length > MAX_BODY_SIZE) {
+      throw new Error(`Corpo da requisição excede o limite de ${MAX_BODY_SIZE} bytes`)
+    }
+  }
+
+  // Validar headers (quantidade e tipos)
+  if (config.headers !== undefined && config.headers !== null) {
+    if (typeof config.headers !== 'object') {
+      throw new Error('Headers devem ser um objeto')
+    }
+    const headerEntries = Object.entries(config.headers)
+    if (headerEntries.length > MAX_HEADER_COUNT) {
+      throw new Error(`Número de headers excede o limite de ${MAX_HEADER_COUNT}`)
+    }
+    // Correção de segurança: bloquear headers perigosos que podem ser usados para ataques
+    const BLOCKED_HEADERS = ['host', 'transfer-encoding', 'connection', 'upgrade']
+    for (const [key, value] of headerEntries) {
+      if (typeof key !== 'string' || typeof value !== 'string') {
+        throw new Error('Header keys e values devem ser strings')
+      }
+      if (BLOCKED_HEADERS.includes(key.toLowerCase())) {
+        throw new Error(`Header bloqueado por segurança: ${key}`)
+      }
+    }
+  }
+
+  // Validar rampUp
+  if (config.rampUp !== undefined && config.rampUp !== null) {
+    if (typeof config.rampUp !== 'number' || !Number.isFinite(config.rampUp) || config.rampUp < 0) {
+      throw new Error('Ramp-up deve ser um número positivo')
+    }
+    if (config.rampUp > config.duration) {
+      throw new Error('Ramp-up não pode ser maior que a duração do teste')
+    }
+  }
+}
+
 export class StressEngine {
   private cancelled = false
   private durationExpired = false
@@ -177,8 +347,36 @@ export class StressEngine {
     this.abortController = new AbortController()
     this.vuRequestCount = 0
 
-    const url = new URL(config.url)
+    // Validação de configuração (defensiva — pode já ter sido validada pelo main process)
+    if (!config || typeof config !== 'object') {
+      throw new Error('Configuração de teste inválida ou ausente.')
+    }
+    if (!config.url || typeof config.url !== 'string' || config.url.trim() === '') {
+      throw new Error('URL inválida. Informe o endereço do site que deseja testar.')
+    }
+    if (!config.virtualUsers || config.virtualUsers < 1) {
+      throw new Error('O número de visitantes simultâneos deve ser pelo menos 1.')
+    }
+    if (!config.duration || config.duration < 1) {
+      throw new Error('A duração do teste deve ser pelo menos 1 segundo.')
+    }
+
+    let url: URL
+    try {
+      url = new URL(config.url)
+    } catch {
+      throw new Error(
+        'O endereço informado não é válido. Verifique se começa com http:// ou https:// — exemplo: https://www.meusite.com.br'
+      )
+    }
+
     const isHttps = url.protocol === 'https:'
+
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      throw new Error(
+        'Somente endereços http:// e https:// são aceitos. Verifique a URL informada.'
+      )
+    }
 
     const signal = this.abortController.signal
 
@@ -423,7 +621,9 @@ export class StressEngine {
         const latency = performance.now() - start
         opts.onResponse(latency, result.statusCode, result.bytes, result.sample)
       } catch {
-        opts.onError()
+        if (!opts.signal.aborted) {
+          opts.onError()
+        }
       }
     }
   }

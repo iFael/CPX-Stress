@@ -1,0 +1,17 @@
+{
+  "connector": {
+    "name": "local"
+  },
+  "hints": {
+    "axe/aria": "off",
+    "axe/parsing": "off",
+    "button-type": "off",
+    "compat-api/css": "off",
+    "compat-api/html": "off",
+    "detect-css-reflows/composite": "off",
+    "detect-css-reflows/paint": "off",
+    "highest-available-document-mode": "off",
+    "meta-charset-utf-8": "off",
+    "no-inline-styles": "off"
+  }
+}

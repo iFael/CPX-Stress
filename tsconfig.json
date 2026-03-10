@@ -1,25 +1,134 @@
 {
+  /**
+   * tsconfig.json - Configuração principal do TypeScript para o código-fonte (renderer).
+   *
+   * Este arquivo configura o compilador TypeScript para o código React
+   * que roda no processo renderer do Electron (a interface do usuário).
+   * É referenciado pelo Vite durante o build e pela IDE para verificação de tipos.
+   */
   "compilerOptions": {
+    /**
+     * Define a versão do JavaScript de saída.
+     * ES2020 oferece suporte a optional chaining (?.), nullish coalescing (??),
+     * BigInt, Promise.allSettled e import() dinâmico.
+     */
     "target": "ES2020",
+
+    /**
+     * Usa a semântica moderna de definição de campos de classe (padrão ECMAScript).
+     * Importante para compatibilidade com frameworks que dependem de decorators ou
+     * inicializadores de propriedades de classe.
+     */
     "useDefineForClassFields": true,
+
+    /**
+     * Bibliotecas de tipos disponíveis.
+     * - ES2020: tipos para funcionalidades JavaScript modernas
+     * - DOM: tipos para APIs do navegador (document, window, etc.)
+     * - DOM.Iterable: tipos para iteração sobre coleções DOM (NodeList, etc.)
+     */
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
+
+    /**
+     * Sistema de módulos utilizado.
+     * ESNext permite o uso de import/export estáticos e dinâmicos,
+     * além de top-level await.
+     */
     "module": "ESNext",
+
+    /**
+     * Pula a verificação de tipos em arquivos .d.ts de bibliotecas externas.
+     * Melhora significativamente a velocidade de compilação sem impactar
+     * a segurança de tipos do código do projeto.
+     */
     "skipLibCheck": true,
+
+    /* ====== Resolução de Módulos ====== */
+
+    /**
+     * Estratégia de resolução de módulos otimizada para bundlers (Vite/Webpack).
+     * Permite que o bundler resolva os módulos, oferecendo melhor compatibilidade
+     * com o ecossistema de ferramentas modernas.
+     */
     "moduleResolution": "bundler",
+
+    /**
+     * Permite importar arquivos TypeScript com extensão explícita (.ts, .tsx).
+     * Necessário quando moduleResolution é "bundler" e noEmit está ativado.
+     */
     "allowImportingTsExtensions": true,
+
+    /** Permite importar arquivos .json diretamente como módulos tipados */
     "resolveJsonModule": true,
+
+    /**
+     * Garante que cada arquivo seja tratado como um módulo independente.
+     * Essencial para compatibilidade com ferramentas que fazem transpilação
+     * arquivo por arquivo (como o Vite/esbuild).
+     */
     "isolatedModules": true,
+
+    /**
+     * Não gera arquivos de saída (.js).
+     * O Vite/esbuild cuida da transpilação; o TypeScript é usado
+     * apenas para verificação de tipos.
+     */
     "noEmit": true,
+
+    /** Usa a transformação automática de JSX do React 17+ (sem necessidade de importar React) */
     "jsx": "react-jsx",
+
+    /* ====== Verificação de Tipos (Type Checking) ====== */
+
+    /**
+     * Habilita todas as verificações estritas do TypeScript.
+     * Inclui: strictNullChecks, strictFunctionTypes, strictBindCallApply,
+     * noImplicitAny, noImplicitThis, alwaysStrict, entre outros.
+     */
     "strict": true,
+
+    /**
+     * Permite variáveis locais não utilizadas (útil durante desenvolvimento).
+     * Considere ativar (true) para builds de produção mais limpos.
+     */
     "noUnusedLocals": false,
+
+    /**
+     * Permite parâmetros de função não utilizados (útil durante desenvolvimento).
+     * Considere ativar (true) para builds de produção mais limpos.
+     */
     "noUnusedParameters": false,
+
+    /** Exige break ou return explícito em cada case de um switch (previne bugs comuns) */
     "noFallthroughCasesInSwitch": true,
+
+    /**
+     * Garante que todas as condições em switch e if sejam realmente verificadas.
+     * Ajuda a detectar caminhos de código que podem ter sido esquecidos.
+     */
+    "forceConsistentCasingInFileNames": true,
+
+    /* ====== Aliases de Importação ====== */
+
+    /** Diretório base para resolução de paths relativos */
     "baseUrl": ".",
+
+    /**
+     * Mapeia o alias '@' para a pasta 'src'.
+     * Deve corresponder ao alias configurado no vite.config.ts.
+     * Exemplo: import { algo } from '@/utils/algo'
+     */
     "paths": {
       "@/*": ["src/*"]
     }
   },
+
+  /** Inclui apenas os arquivos dentro da pasta 'src' para compilação */
   "include": ["src"],
+
+  /**
+   * Referência ao tsconfig.node.json, que configura o TypeScript
+   * para os arquivos de configuração (vite.config.ts) e código Electron.
+   */
   "references": [{ "path": "./tsconfig.node.json" }]
 }

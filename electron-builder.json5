@@ -1,19 +1,194 @@
+/**
+ * Electron Builder Configuration for StressFlow
+ *
+ * StressFlow - Professional Stress Testing Tool
+ * This file configures how the application is packaged and distributed.
+ *
+ * JSON5 Reference: https://json5.org/
+ * Electron Builder Docs: https://www.electron.build/configuration
+ */
 {
+  // Schema for IDE autocompletion and validation
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+
+  // ---------------------------------------------------------------------------
+  // Application Identity
+  // ---------------------------------------------------------------------------
+
+  // Unique application identifier (reverse domain notation)
+  // Used by the OS to distinguish this app from others
   "appId": "com.stressflow.app",
+
+  // Human-readable product name shown in installers and OS menus
   "productName": "StressFlow",
+
+  // Short copyright notice embedded in the executable metadata
+  "copyright": "Copyright (c) 2025 StressFlow",
+
+  // ---------------------------------------------------------------------------
+  // Build Directories
+  // ---------------------------------------------------------------------------
+
   "directories": {
-    "output": "release"
+    // Folder where installer artifacts are written after running `electron-builder`
+    "output": "release",
+
+    // Folder that electron-builder treats as the app root when packaging
+    // Defaults to "." (the project root), which is correct for this project
+    "app": "."
   },
+
+  // ---------------------------------------------------------------------------
+  // Files & Resources
+  // ---------------------------------------------------------------------------
+
+  // Glob patterns for files to include in the packaged application.
+  // Only the compiled output is needed; source files are excluded by default.
   "files": [
-    "dist",
-    "dist-electron"
+    "dist",           // Vite frontend build output (HTML, CSS, JS)
+    "dist-electron"   // Compiled Electron main/preload scripts
   ],
+
+  // Extra resources copied into the app's `resources/` directory.
+  // Useful for assets that must remain outside the ASAR archive
+  // (e.g., native binaries, data files the app reads at runtime).
+  // Uncomment and add paths as needed:
+  // "extraResources": [
+  //   {
+  //     "from": "resources/",
+  //     "to": "resources/",
+  //     "filter": ["**/*"]
+  //   }
+  // ],
+
+  // Whether to package the app into an ASAR archive for faster file reads.
+  // Enabled by default; set to false only if you have native modules that
+  // must remain unpacked.
+  "asar": true,
+
+  // ---------------------------------------------------------------------------
+  // Icons
+  // ---------------------------------------------------------------------------
+  // Place icon files in a `build/` folder at the project root:
+  //   build/icon.ico   - Windows (256x256 minimum, ideally multi-size ICO)
+  //   build/icon.icns  - macOS   (512x512@2x)
+  //   build/icon.png   - Linux   (512x512)
+  //
+  // electron-builder looks in `build/` by default. If your icons live
+  // elsewhere, uncomment and adjust the paths below:
+  // "icon": "build/icon",
+
+  // ---------------------------------------------------------------------------
+  // Windows Configuration
+  // ---------------------------------------------------------------------------
+
   "win": {
-    "target": ["nsis"]
+    // Build an NSIS installer for Windows
+    "target": [
+      {
+        "target": "nsis",
+        // Build for 64-bit; most modern Windows systems are x64
+        "arch": ["x64"]
+      }
+    ],
+
+    // Path to the Windows icon (ICO format, 256x256 minimum)
+    // Defaults to build/icon.ico if the file exists
+    // "icon": "build/icon.ico",
+
+    // Requested execution level: "asInvoker" avoids unnecessary UAC prompts
+    "requestedExecutionLevel": "asInvoker",
+
+    // Embed version info into the EXE for display in Windows Explorer properties
+    "legalTrademarks": "StressFlow"
   },
+
+  // ---------------------------------------------------------------------------
+  // NSIS Installer Options (Windows)
+  // ---------------------------------------------------------------------------
+
   "nsis": {
+    // false = show a full install wizard with options (recommended for professional tools)
+    // true  = silent one-click install straight to AppData
     "oneClick": false,
-    "allowToChangeInstallationDirectory": true
+
+    // Let the user choose where to install the application
+    "allowToChangeInstallationDirectory": true,
+
+    // Install for all users (per-machine) by default.
+    // The user can still switch to per-user during the wizard.
+    "perMachine": true,
+
+    // Create a desktop shortcut during installation
+    "createDesktopShortcut": true,
+
+    // Create a Start Menu shortcut
+    "createStartMenuShortcut": true,
+
+    // Name shown in the Start Menu folder
+    "shortcutName": "StressFlow",
+
+    // Allow the user to select which components to install
+    // (useful if you later add optional plugins or documentation)
+    "allowElevation": true,
+
+    // Display a license agreement during installation.
+    // Create a LICENSE.txt or EULA.txt and reference it here:
+    // "license": "LICENSE.txt",
+
+    // Use "boring" (classic) NSIS installer UI that supports all options,
+    // as opposed to the modern "assisted" UI which is more limited.
+    // "installerHeaderIcon": "build/icon.ico",
+
+    // Delete app data on uninstall. false preserves user settings.
+    "deleteAppDataOnUninstall": false,
+
+    // The uninstaller display name shown in Windows "Add/Remove Programs"
+    "uninstallDisplayName": "StressFlow"
+  },
+
+  // ---------------------------------------------------------------------------
+  // macOS Configuration (for future cross-platform support)
+  // ---------------------------------------------------------------------------
+
+  "mac": {
+    // Target formats: dmg for distribution, zip for auto-update
+    "target": ["dmg", "zip"],
+
+    // Application category for the macOS App Store and Finder
+    "category": "public.app-category.developer-tools",
+
+    // Path to the macOS icon (ICNS format)
+    // Defaults to build/icon.icns if the file exists
+    // "icon": "build/icon.icns",
+
+    // macOS Dark Mode support
+    "darkModeSupport": true
+  },
+
+  // ---------------------------------------------------------------------------
+  // Linux Configuration (for future cross-platform support)
+  // ---------------------------------------------------------------------------
+
+  "linux": {
+    // AppImage is the most portable format; deb/rpm for package managers
+    "target": ["AppImage", "deb"],
+
+    // FreeDesktop category for application launchers
+    "category": "Development",
+
+    // Brief description for package metadata
+    "synopsis": "Professional Stress Testing Tool",
+
+    // Path to the Linux icon (PNG, 512x512 recommended)
+    // Defaults to build/icon.png if the file exists
+    // "icon": "build/icon.png"
+
+    // Desktop file name used in launchers
+    "desktop": {
+      "Name": "StressFlow",
+      "Comment": "Professional Stress Testing Tool",
+      "Terminal": "false"
+    }
   }
 }

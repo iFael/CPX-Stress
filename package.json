@@ -1,41 +1,79 @@
 {
   "name": "stressflow",
   "version": "1.0.0",
-  "description": "StressFlow - Ferramenta Profissional de Teste de Estresse",
+  "description": "StressFlow - Ferramenta profissional de teste de estresse para APIs e servidores web. / Professional stress testing tool for APIs and web servers.",
   "main": "dist-electron/main.js",
+  "private": true,
+  "author": {
+    "name": "Rafael Damasio"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rafael-damasio/StressFlow.git"
+  },
+  "homepage": "https://github.com/rafael-damasio/StressFlow#readme",
+  "bugs": {
+    "url": "https://github.com/rafael-damasio/StressFlow/issues"
+  },
+  "keywords": [
+    "stress-test",
+    "load-test",
+    "performance",
+    "api-testing",
+    "http",
+    "benchmark",
+    "electron",
+    "react",
+    "typescript",
+    "teste-de-estresse",
+    "teste-de-carga"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext .ts,.tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\"",
+    "clean": "rimraf dist dist-electron",
+    "rebuild": "npm run clean && npm run build",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux"
   },
-  "author": "StressFlow",
-  "license": "MIT",
   "dependencies": {
+    "date-fns": "^3.6.0",
+    "html-to-image": "^1.11.11",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
+    "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.15.3",
-    "zustand": "^4.5.5",
-    "jspdf": "^2.5.2",
-    "jspdf-autotable": "^3.8.4",
-    "html-to-image": "^1.11.11",
-    "date-fns": "^3.6.0",
     "uuid": "^9.0.1",
-    "lucide-react": "^0.468.0"
+    "zustand": "^4.5.5"
   },
   "devDependencies": {
-    "electron": "^28.3.3",
-    "electron-builder": "^24.13.3",
-    "vite": "^5.4.14",
-    "vite-plugin-electron": "^0.28.8",
-    "vite-plugin-electron-renderer": "^0.14.6",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@types/uuid": "^9.0.8",
     "@vitejs/plugin-react": "^4.3.4",
-    "typescript": "^5.7.3",
-    "tailwindcss": "^3.4.17",
+    "autoprefixer": "^10.4.20",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
     "postcss": "^8.4.49",
-    "autoprefixer": "^10.4.20"
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vite": "^5.4.14",
+    "vite-plugin-electron": "^0.28.8",
+    "vite-plugin-electron-renderer": "^0.14.6"
   }
 }

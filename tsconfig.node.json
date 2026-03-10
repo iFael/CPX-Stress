@@ -1,11 +1,85 @@
 {
+  /**
+   * tsconfig.node.json - Configuração do TypeScript para o ambiente Node.js.
+   *
+   * Este arquivo configura o TypeScript para arquivos que rodam no contexto Node.js:
+   * - vite.config.ts (configuração do bundler)
+   * - electron/ (processo principal e preload do Electron)
+   *
+   * Esses arquivos NÃO rodam no navegador, então precisam de configurações
+   * diferentes do tsconfig.json principal (que é para o código React/renderer).
+   */
   "compilerOptions": {
+    /**
+     * Habilita o modo de projeto composto (composite project).
+     * Necessário para funcionar como referência no tsconfig.json principal,
+     * permitindo builds incrementais e verificação de tipos separada.
+     */
     "composite": true,
+
+    /**
+     * Pula a verificação de tipos em arquivos .d.ts de bibliotecas externas.
+     * Acelera a compilação sem comprometer a segurança de tipos do projeto.
+     */
     "skipLibCheck": true,
+
+    /**
+     * Sistema de módulos ESNext.
+     * Permite usar import/export modernos nos arquivos de configuração
+     * e no código Electron.
+     */
     "module": "ESNext",
+
+    /**
+     * Estratégia de resolução de módulos para bundlers.
+     * Compatível com a forma como o Vite resolve dependências.
+     */
     "moduleResolution": "bundler",
+
+    /**
+     * Permite usar import padrão para módulos que usam module.exports.
+     * Exemplo: import path from 'path' (em vez de import * as path from 'path')
+     */
     "allowSyntheticDefaultImports": true,
-    "strict": true
+
+    /**
+     * Habilita todas as verificações estritas do TypeScript.
+     * Garante a mesma rigidez de tipos tanto no código Node.js
+     * quanto no código do renderer.
+     */
+    "strict": true,
+
+    /**
+     * Alvo de compilação ES2022.
+     * O código Electron roda no Node.js embutido (V8 moderno),
+     * suportando nativamente iteração de Set/Map, top-level await, etc.
+     */
+    "target": "ES2022",
+
+    /**
+     * Permite importar arquivos .json como módulos tipados.
+     * Útil para ler package.json ou arquivos de configuração no Electron.
+     */
+    "resolveJsonModule": true,
+
+    /**
+     * Garante que cada arquivo seja tratado como módulo independente.
+     * Necessário para compatibilidade com o esbuild usado pelo Vite.
+     */
+    "isolatedModules": true,
+
+    /**
+     * Garante consistência no uso de maiúsculas/minúsculas em nomes de arquivos.
+     * Previne bugs difíceis de encontrar entre sistemas case-sensitive (Linux)
+     * e case-insensitive (Windows/macOS).
+     */
+    "forceConsistentCasingInFileNames": true
   },
+
+  /**
+   * Arquivos incluídos nesta configuração:
+   * - vite.config.ts: configuração do bundler Vite
+   * - electron/: código do processo principal e preload do Electron
+   */
   "include": ["vite.config.ts", "electron"]
 }

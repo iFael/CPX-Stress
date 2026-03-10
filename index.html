@@ -1,15 +1,54 @@
 <!DOCTYPE html>
 <html lang="pt-BR" class="dark">
   <head>
+    <!-- Character encoding & viewport -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>StressFlow - Teste de Estresse</title>
+
+    <!-- Primary meta tags -->
+    <title>StressFlow — Teste de Estresse Profissional</title>
+    <meta name="description" content="StressFlow: ferramenta profissional de teste de estresse e performance para aplicacoes web. Simule usuarios simultaneos e analise a capacidade do seu servidor." />
+    <meta name="application-name" content="StressFlow" />
+    <meta name="author" content="StressFlow" />
+
+    <!-- Theme & appearance -->
+    <meta name="theme-color" content="#0f1117" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="msapplication-TileColor" content="#0f1117" />
+    <meta name="msapplication-navbutton-color" content="#6366f1" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="StressFlow" />
+
+    <!-- Security -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+    <!-- Preconnect to Google Fonts for faster loading -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+    <!-- Fonts: Inter (UI) + JetBrains Mono (code/data) -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Prevent flash of unstyled content -->
+    <style>
+      html { background-color: #0f1117; }
+      body { opacity: 0; transition: opacity 0.15s ease; }
+      body.ready { opacity: 1; }
+    </style>
   </head>
   <body class="bg-sf-bg text-sf-text antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Show body as soon as DOM + styles are ready (prevents FOUC)
+      document.addEventListener('DOMContentLoaded', function () {
+        document.body.classList.add('ready');
+      });
+    </script>
   </body>
 </html>
