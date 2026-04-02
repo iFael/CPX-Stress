@@ -46,7 +46,19 @@
   // Only the compiled output is needed; source files are excluded by default.
   "files": [
     "dist",           // Vite frontend build output (HTML, CSS, JS)
-    "dist-electron"   // Compiled Electron main/preload scripts
+    "dist-electron",  // Compiled Electron main/preload scripts
+    "resources",      // App resources (icons, etc.)
+    "node_modules/better-sqlite3/**/*",  // Native addon — must be present at runtime
+    "node_modules/bindings/**/*",        // Helper used by better-sqlite3 to locate .node binary
+    "node_modules/file-uri-to-path/**/*" // Dependency of bindings
+  ],
+
+  // Módulos com binários nativos (*.node) não podem ser lidos de dentro do ASAR.
+  // asarUnpack copia esses caminhos para fora do arquivo e ajusta os require() automaticamente.
+  "asarUnpack": [
+    "node_modules/better-sqlite3/**/*",
+    "node_modules/bindings/**/*",
+    "node_modules/file-uri-to-path/**/*"
   ],
 
   // Extra resources copied into the app's `resources/` directory.

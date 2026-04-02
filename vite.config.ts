@@ -24,6 +24,18 @@ export default defineConfig({
       main: {
         /** Ponto de entrada do processo principal do Electron */
         entry: 'electron/main.ts',
+        /**
+         * Módulos nativos (*.node) não podem ser empacotados pelo Rollup.
+         * better-sqlite3 usa bindings dinâmicos para carregar o binário nativo,
+         * por isso deve ser marcado como externo e resolvido pelo Node.js em runtime.
+         */
+        vite: {
+          build: {
+            rollupOptions: {
+              external: ['better-sqlite3'],
+            },
+          },
+        },
       },
       preload: {
         /** Script de preload que roda antes do renderer, com acesso ao Node.js */

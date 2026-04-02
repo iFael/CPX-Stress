@@ -1,0 +1,6 @@
+dist
+dist-electron
+node_modules
+package-lock.json
+*.tsbuildinfo
+audit/results
