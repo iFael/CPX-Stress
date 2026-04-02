@@ -1,17 +1,17 @@
 /**
- * Store principal da aplicacao (Zustand).
+ * Store principal da aplicação (Zustand).
  * ========================================
  *
  * O QUE E ESTE ARQUIVO?
  * ---------------------
- * Este arquivo e o "cerebro" da aplicacao StressFlow. Ele guarda todos os
- * dados importantes que a interface precisa exibir ao usuario, como:
- *   - Qual tela esta sendo exibida (navegacao)
- *   - A configuracao do teste de estresse (parametros)
- *   - Se o teste esta rodando ou parado (execucao)
- *   - O progresso do teste em tempo real (metricas ao vivo)
- *   - Os resultados dos testes ja realizados (historico)
- *   - Mensagens de erro (comunicacao de problemas)
+ * Este arquivo e o "cerebro" da aplicação StressFlow. Ele guarda todos os
+ * dados importantes que a interface precisa exibir ao usuário, como:
+ *   - Qual tela esta sendo exibida (navegação)
+ *   - A configuração do teste de estresse (parâmetros)
+ *   - Se o teste esta rodando ou parado (execução)
+ *   - O progresso do teste em tempo real (métricas ao vivo)
+ *   - Os resultados dos testes ja realizados (histórico)
+ *   - Mensagens de erro (comunicação de problemas)
  *
  * COMO FUNCIONA?
  * --------------
@@ -37,11 +37,11 @@
  *
  * ORGANIZACAO DESTE ARQUIVO:
  *   1. Tipos internos   - formato dos dados e acoes disponiveis
- *   2. Valores iniciais - estado padrao ao abrir a aplicacao
+ *   2. Valores iniciais - estado padrão ao abrir a aplicação
  *   3. Criacao do store - implementacao das acoes
  */
 
-import { create } from 'zustand'
+import { create } from "zustand";
 import type {
   TestConfig,
   TestResult,
@@ -49,180 +49,182 @@ import type {
   AppView,
   TestStatus,
   SecondMetrics,
-} from '@/types'
+} from "@/types";
+import {
+  buildMistertOperations,
+  MISTERT_DEFAULT_BASE_URL,
+} from "@/constants/test-presets";
 
 // ---------------------------------------------------------------------------
 // 1. Tipos internos do store
 // ---------------------------------------------------------------------------
 
 /**
- * Dados armazenados no store (a "memoria" da aplicacao).
+ * Dados armazenados no store (a "memória" da aplicação).
  *
- * Estes sao os campos que guardam informacoes. Pense neles como as
+ * Estes são os campos que guardam informações. Pense neles como as
  * "colunas" de uma planilha que a interface consulta para saber o
  * que exibir na tela.
  */
 interface TestState {
-  // -- Navegacao: controla qual tela o usuario esta vendo ------------------
+  // -- Navegação: controla qual tela o usuário esta vendo ------------------
 
-  /** Tela ativa: 'test' (formulario), 'history' (historico) ou 'results'. */
-  view: AppView
+  /** Tela ativa: 'test' (formulario), 'history' (histórico) ou 'results'. */
+  view: AppView;
 
-  // -- Configuracao: parametros definidos pelo usuario antes do teste ------
+  // -- Configuração: parâmetros definidos pelo usuário antes do teste ------
 
-  /** Parametros do teste (URL, usuarios virtuais, duracao, metodo HTTP). */
-  config: TestConfig
+  /** Parâmetros do teste (URL, usuários virtuais, duração, método HTTP). */
+  config: TestConfig;
 
-  // -- Execucao: indica o que esta acontecendo agora ----------------------
+  // -- Execução: indica o que esta acontecendo agora ----------------------
 
   /**
    * Status atual do teste:
-   *   - 'idle': parado, aguardando o usuario iniciar
+   *   - 'idle': parado, aguardando o usuário iniciar
    *   - 'running': teste em andamento
    *   - 'completed': teste finalizado com sucesso
-   *   - 'cancelled': teste cancelado pelo usuario
+   *   - 'cancelled': teste cancelado pelo usuário
    *   - 'error': teste encerrado por falha
    */
-  status: TestStatus
+  status: TestStatus;
 
   // -- Progresso: dados em tempo real durante o teste ---------------------
 
-  /** Metricas do segundo atual (null quando nao ha teste em andamento). */
-  progress: ProgressData | null
+  /** Métricas do segundo atual (null quando não ha teste em andamento). */
+  progress: ProgressData | null;
 
   /**
-   * Historico segundo-a-segundo acumulado durante a execucao.
-   * Cada entrada contem as metricas de um segundo especifico do teste.
-   * Usado para gerar graficos de evolucao em tempo real.
+   * Histórico segundo-a-segundo acumulado durante a execução.
+   * Cada entrada contém as métricas de um segundo específico do teste.
+   * Usado para gerar gráficos de evolucao em tempo real.
    */
-  timeline: SecondMetrics[]
+  timeline: SecondMetrics[];
 
-  // -- Resultado: dados do ultimo teste executado -------------------------
+  // -- Resultado: dados do último teste executado -------------------------
 
-  /** Resultado completo do ultimo teste (null se nenhum teste foi feito). */
-  currentResult: TestResult | null
+  /** Resultado completo do último teste (null se nenhum teste foi feito). */
+  currentResult: TestResult | null;
 
-  // -- Historico: todos os testes ja realizados ----------------------------
+  // -- Histórico: todos os testes ja realizados ----------------------------
 
   /** Lista de resultados salvos, ordenados do mais recente ao mais antigo. */
-  history: TestResult[]
+  history: TestResult[];
 
-  // -- Erros: comunicacao de problemas ao usuario -------------------------
+  // -- Erros: comunicação de problemas ao usuário -------------------------
 
-  /** Mensagem de erro exibida ao usuario (null = nenhum erro ativo). */
-  error: string | null
+  /** Mensagem de erro exibida ao usuário (null = nenhum erro ativo). */
+  error: string | null;
 }
 
 /**
  * Acoes disponiveis para alterar o estado.
  *
- * Estas sao as "operacoes" que os componentes podem executar para
+ * Estas são as "operações" que os componentes podem executar para
  * modificar os dados do store. Nenhum componente altera os dados
  * diretamente; ele sempre chama uma destas acoes.
  */
 interface TestActions {
-  // -- Navegacao -----------------------------------------------------------
+  // -- Navegação -----------------------------------------------------------
 
   /** Troca a tela exibida na interface. */
-  setView: (view: AppView) => void
+  setView: (view: AppView) => void;
 
-  // -- Configuracao --------------------------------------------------------
+  // -- Configuração --------------------------------------------------------
 
   /**
-   * Atualiza a configuracao do teste.
-   * Recebe apenas os campos que devem mudar; os demais sao mantidos.
+   * Atualiza a configuração do teste.
+   * Recebe apenas os campos que devem mudar; os demais são mantidos.
    * Exemplo: updateConfig({ url: 'https://meusite.com' })
    */
-  updateConfig: (partial: Partial<TestConfig>) => void
+  updateConfig: (partial: Partial<TestConfig>) => void;
 
-  // -- Execucao ------------------------------------------------------------
+  // -- Execução ------------------------------------------------------------
 
-  /** Define o novo status da execucao do teste. */
-  setStatus: (status: TestStatus) => void
+  /** Define o novo status da execução do teste. */
+  setStatus: (status: TestStatus) => void;
 
   // -- Progresso -----------------------------------------------------------
 
   /**
    * Registra os dados de um novo segundo do teste.
-   * Atualiza o progresso atual e adiciona as metricas ao timeline.
+   * Atualiza o progresso atual e adiciona as métricas ao timeline.
    */
-  setProgress: (data: ProgressData) => void
+  setProgress: (data: ProgressData) => void;
 
   /** Limpa progresso e timeline (usado ao iniciar ou encerrar um teste). */
-  clearProgress: () => void
+  clearProgress: () => void;
 
   // -- Resultado -----------------------------------------------------------
 
   /** Define ou limpa o resultado atual. Passe null para limpar. */
-  setCurrentResult: (result: TestResult | null) => void
+  setCurrentResult: (result: TestResult | null) => void;
 
-  // -- Historico -----------------------------------------------------------
+  // -- Histórico -----------------------------------------------------------
 
-  /** Substitui o historico inteiro (usado ao carregar dados salvos do disco). */
-  setHistory: (history: TestResult[]) => void
+  /** Substitui o histórico inteiro (usado ao carregar dados salvos do disco). */
+  setHistory: (history: TestResult[]) => void;
 
-  /** Adiciona um resultado ao inicio do historico (posicao mais recente). */
-  addToHistory: (result: TestResult) => void
-
-  /** Remove um resultado do historico pelo seu identificador unico (UUID). */
-  removeFromHistory: (id: string) => void
+  /** Adiciona um resultado ao início do histórico (posição mais recente). */
+  addToHistory: (result: TestResult) => void;
 
   // -- Erros ---------------------------------------------------------------
 
   /** Define ou limpa a mensagem de erro. Passe null para limpar o erro. */
-  setError: (error: string | null) => void
+  setError: (error: string | null) => void;
 }
 
 /**
  * Contrato completo do store: dados + acoes.
  *
  * Esta interface combina os dados (TestState) com as acoes (TestActions),
- * formando o formato completo do estado global da aplicacao.
+ * formando o formato completo do estado global da aplicação.
  */
-type TestStore = TestState & TestActions
+type TestStore = TestState & TestActions;
 
 // ---------------------------------------------------------------------------
 // 2. Valores iniciais
 // ---------------------------------------------------------------------------
 
 /**
- * Configuracao padrao usada quando o usuario ainda nao alterou nada.
+ * Configuração padrão usada quando o usuário ainda não alterou nada.
  *
- * - URL vazia: obriga o usuario a preencher antes de iniciar
- * - 100 usuarios virtuais: quantidade segura para um primeiro teste
- * - 30 segundos: duracao curta para ser rapida, mas longa o suficiente
+ * - URL vazia: obriga o usuário a preencher antes de iniciar
+ * - 100 usuários virtuais: quantidade segura para um primeiro teste
+ * - 30 segundos: duração curta para ser rapida, mas longa o suficiente
  *   para gerar dados significativos
- * - Metodo GET: o mais comum e seguro para testes de carga iniciais
+ * - Método GET: o mais comum e seguro para testes de carga iniciais
  *
  * NOTA: Este objeto e congelado (Object.freeze) para evitar que qualquer
- * parte do codigo o altere acidentalmente. Para mudar a configuracao
+ * parte do código o altere acidentalmente. Para mudar a configuração
  * durante o uso, utilize a acao `updateConfig` do store.
  */
 const CONFIG_PADRAO: Readonly<TestConfig> = Object.freeze({
-  url: '',
-  virtualUsers: 100,
-  duration: 30,
-  method: 'GET',
-})
+  url: MISTERT_DEFAULT_BASE_URL + "/MisterT.asp?MF=Y",
+  virtualUsers: 150,
+  duration: 60,
+  method: "GET",
+  operations: buildMistertOperations(),
+});
 
 /**
  * Estado inicial completo do store.
  *
- * Representa a aplicacao no momento em que o usuario acabou de abri-la:
- * nenhum teste rodando, nenhum resultado, nenhuma configuracao personalizada.
+ * Representa a aplicação no momento em que o usuário acabou de abri-la:
+ * nenhum teste rodando, nenhum resultado, nenhuma configuração personalizada.
  * Centralizar estes valores aqui facilita futuras funcionalidades como
  * "resetar tudo para o estado original".
  */
 const ESTADO_INICIAL: TestState = {
-  view: 'test',
+  view: "test",
   config: { ...CONFIG_PADRAO },
-  status: 'idle',
+  status: "idle",
   progress: null,
   timeline: [],
   currentResult: null,
   history: [],
   error: null,
-}
+};
 
 // ---------------------------------------------------------------------------
 // 3. Criacao do store
@@ -231,11 +233,11 @@ const ESTADO_INICIAL: TestState = {
 /**
  * Hook principal do estado global do StressFlow.
  *
- * Este e o ponto de acesso unico para todo o estado da aplicacao.
+ * Este e o ponto de acesso único para todo o estado da aplicação.
  * Use-o nos componentes React para ler dados e executar acoes.
  *
  * @example
- * // Lendo a configuracao atual:
+ * // Lendo a configuração atual:
  * const config = useTestStore((s) => s.config)
  *
  * @example
@@ -250,19 +252,19 @@ const ESTADO_INICIAL: TestState = {
  */
 export const useTestStore = create<TestStore>((set) => ({
   // =========================================================================
-  // Dados iniciais (estado "zerado" da aplicacao)
+  // Dados iniciais (estado "zerado" da aplicação)
   // =========================================================================
 
   ...ESTADO_INICIAL,
 
   // =========================================================================
-  // Acoes de navegacao
+  // Acoes de navegação
   // =========================================================================
 
   setView: (view) => set({ view }),
 
   // =========================================================================
-  // Acoes de configuracao do teste
+  // Acoes de configuração do teste
   // =========================================================================
 
   updateConfig: (partial) =>
@@ -271,7 +273,7 @@ export const useTestStore = create<TestStore>((set) => ({
     })),
 
   // =========================================================================
-  // Acoes de status de execucao
+  // Acoes de status de execução
   // =========================================================================
 
   setStatus: (status) => set({ status }),
@@ -281,7 +283,7 @@ export const useTestStore = create<TestStore>((set) => ({
   // =========================================================================
 
   // Otimizacao: usar concat ao inves de spread para append em arrays grandes.
-  // O spread [...arr, item] cria uma copia intermediaria para cada atualizacao,
+  // O spread [...arr, item] cria uma copia intermediaria para cada atualização,
   // enquanto concat e otimizado internamente pelo motor JS para append simples.
   // Em testes longos (ex: 300s), isso evita copiar centenas de objetos a cada segundo.
   setProgress: (data) =>
@@ -303,7 +305,7 @@ export const useTestStore = create<TestStore>((set) => ({
   setCurrentResult: (result) => set({ currentResult: result }),
 
   // =========================================================================
-  // Acoes de historico de testes
+  // Acoes de histórico de testes
   // =========================================================================
 
   setHistory: (history) => set({ history }),
@@ -313,14 +315,9 @@ export const useTestStore = create<TestStore>((set) => ({
       history: [result, ...state.history],
     })),
 
-  removeFromHistory: (id) =>
-    set((state) => ({
-      history: state.history.filter((entry) => entry.id !== id),
-    })),
-
   // =========================================================================
   // Acoes de tratamento de erros
   // =========================================================================
 
   setError: (error) => set({ error }),
-}))
+}));
