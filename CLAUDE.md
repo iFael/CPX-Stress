@@ -8,18 +8,18 @@ All user-facing text in the application is written in **Brazilian Portuguese (pt
 
 ## Tech Stack
 
-| Technology       | Version | Purpose                                  |
-|------------------|---------|------------------------------------------|
-| Electron         | 28      | Desktop shell (main process)             |
-| React            | 18      | UI framework (renderer process)          |
-| TypeScript       | 5.7     | Type-safe language                       |
-| Vite             | 5       | Build tool and dev server                |
-| Zustand          | 4.5     | Lightweight state management             |
-| Tailwind CSS     | 3.4     | Utility-first styling                    |
-| Recharts         | 2.15    | Chart library for metrics visualization  |
-| jsPDF            | 2.5     | PDF report generation                    |
-| lucide-react     | 0.468   | Icon library                             |
-| date-fns         | 3.6     | Date formatting utilities                |
+| Technology   | Version | Purpose                                 |
+| ------------ | ------- | --------------------------------------- |
+| Electron     | 28      | Desktop shell (main process)            |
+| React        | 18      | UI framework (renderer process)         |
+| TypeScript   | 5.7     | Type-safe language                      |
+| Vite         | 5       | Build tool and dev server               |
+| Zustand      | 4.5     | Lightweight state management            |
+| Tailwind CSS | 3.4     | Utility-first styling                   |
+| Recharts     | 2.15    | Chart library for metrics visualization |
+| jsPDF        | 2.5     | PDF report generation                   |
+| lucide-react | 0.468   | Icon library                            |
+| date-fns     | 3.6     | Date formatting utilities               |
 
 ## Key Commands
 
@@ -75,8 +75,8 @@ StressFlow/
 The project uses `@/*` as a path alias for `src/*`, configured in both `tsconfig.json` and `vite.config.ts`. Use it in imports:
 
 ```typescript
-import type { TestConfig } from '@/types'
-import { useTestStore } from '@/stores/test-store'
+import type { TestConfig } from "@/types";
+import { useTestStore } from "@/stores/test-store";
 ```
 
 ## Key Patterns
@@ -93,10 +93,12 @@ const unsub = window.stressflow.test.onProgress((data) => { ... })
 ```
 
 IPC channels are whitelisted in `electron/preload.ts`. The allowed channels are:
+
 - **Invoke (request/response):** `test:start`, `test:cancel`, `history:list`, `history:get`, `history:delete`, `history:clear`, `pdf:save`, `pdf:open`, `json:export`, `app:getPath`
 - **Receive (real-time events):** `test:progress`
 
 To add a new IPC channel, you must update:
+
 1. The `ALLOWED_INVOKE_CHANNELS` or `ALLOWED_RECEIVE_CHANNELS` arrays in `electron/preload.ts`
 2. The `api` object in the same file to expose the new function
 3. The `Window.stressflow` type declaration in `src/types/index.ts`
@@ -107,7 +109,7 @@ To add a new IPC channel, you must update:
 All global state lives in a single Zustand store at `src/stores/test-store.ts`. Access it with the `useTestStore` hook:
 
 ```typescript
-const { config, updateConfig, status, setView } = useTestStore()
+const { config, updateConfig, status, setView } = useTestStore();
 ```
 
 The store manages: navigation (current view), test configuration, execution status, real-time progress data, test results, history, and error messages.
@@ -116,20 +118,21 @@ The store manages: navigation (current view), test configuration, execution stat
 
 The app uses a dark-only theme. All custom colors use the `sf-*` namespace defined in `tailwind.config.mjs`:
 
-| Token            | Hex       | Usage                          |
-|------------------|-----------|--------------------------------|
-| `sf-bg`          | `#0f1117` | Page background                |
-| `sf-surface`     | `#1a1d27` | Card/panel backgrounds         |
-| `sf-border`      | `#2a2d3a` | Borders                        |
-| `sf-primary`     | `#6366f1` | Primary actions (indigo)       |
-| `sf-accent`      | `#22d3ee` | Accent highlights (cyan)       |
-| `sf-success`     | `#22c55e` | Success states                 |
-| `sf-warning`     | `#f59e0b` | Warning states                 |
-| `sf-danger`      | `#ef4444` | Error/danger states            |
-| `sf-text`        | `#e2e8f0` | Primary text                   |
-| `sf-textSecondary` | `#94a3b8` | Secondary text               |
+| Token              | Hex       | Usage                    |
+| ------------------ | --------- | ------------------------ |
+| `sf-bg`            | `#0f1117` | Page background          |
+| `sf-surface`       | `#1a1d27` | Card/panel backgrounds   |
+| `sf-border`        | `#2a2d3a` | Borders                  |
+| `sf-primary`       | `#6366f1` | Primary actions (indigo) |
+| `sf-accent`        | `#22d3ee` | Accent highlights (cyan) |
+| `sf-success`       | `#22c55e` | Success states           |
+| `sf-warning`       | `#f59e0b` | Warning states           |
+| `sf-danger`        | `#ef4444` | Error/danger states      |
+| `sf-text`          | `#e2e8f0` | Primary text             |
+| `sf-textSecondary` | `#94a3b8` | Secondary text           |
 
 Use these instead of raw Tailwind colors:
+
 ```tsx
 <div className="bg-sf-surface border border-sf-border text-sf-text">
   <button className="bg-sf-primary hover:bg-sf-primaryHover">...</button>

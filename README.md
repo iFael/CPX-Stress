@@ -19,12 +19,12 @@
   <br />
   <br />
 
-  ![Electron](https://img.shields.io/badge/Electron-28-47848F?style=for-the-badge&logo=electron&logoColor=white)
-  ![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)
-  ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-  ![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=for-the-badge&logo=vite&logoColor=white)
-  ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
-  ![License](https://img.shields.io/badge/Licen%C3%A7a-MIT-green?style=for-the-badge)
+![Electron](https://img.shields.io/badge/Electron-28-47848F?style=for-the-badge&logo=electron&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=for-the-badge&logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
+![License](https://img.shields.io/badge/Licen%C3%A7a-MIT-green?style=for-the-badge)
 
 </p>
 
@@ -64,12 +64,12 @@ Em termos simples: imagine que voce tem uma loja virtual e quer saber se ela vai
 
 > As imagens abaixo ilustram as principais telas do aplicativo.
 
-| Tela | Descricao |
-|------|-----------|
-| ![Configuracao do Teste](docs/screenshots/test-config.png) | **Configuracao do Teste** -- Escolha a URL, a intensidade e inicie o teste com um clique. |
+| Tela                                                           | Descricao                                                                                           |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| ![Configuracao do Teste](docs/screenshots/test-config.png)     | **Configuracao do Teste** -- Escolha a URL, a intensidade e inicie o teste com um clique.           |
 | ![Progresso em Tempo Real](docs/screenshots/test-progress.png) | **Progresso em Tempo Real** -- Acompanhe metricas como RPS, latencia e erros enquanto o teste roda. |
-| ![Resultados](docs/screenshots/test-results.png) | **Resultados Detalhados** -- Graficos, score de saude, distribuicao de latencia e recomendacoes. |
-| ![Historico](docs/screenshots/history-panel.png) | **Historico de Testes** -- Busque, filtre e revisit resultados anteriores. |
+| ![Resultados](docs/screenshots/test-results.png)               | **Resultados Detalhados** -- Graficos, score de saude, distribuicao de latencia e recomendacoes.    |
+| ![Historico](docs/screenshots/history-panel.png)               | **Historico de Testes** -- Busque, filtre e revisit resultados anteriores.                          |
 
 > **Nota:** Se as imagens nao estiverem disponiveis, execute o aplicativo para visualizar as telas.
 
@@ -81,20 +81,34 @@ Em termos simples: imagine que voce tem uma loja virtual e quer saber se ela vai
 
 Basta colar a URL do site, escolher a intensidade e clicar em "Iniciar Teste". O StressFlow cuida de todo o resto. Perfis pre-configurados facilitam a escolha:
 
-| Perfil | Usuarios Simultaneos | Duracao | Ideal para |
-|--------|---------------------|---------|------------|
-| Leve | 10 | 15s | Blogs e sites pessoais |
-| Moderado | 100 | 30s | E-commerces e portais |
-| Pesado | 500 | 60s | Aplicacoes com alto trafego |
-| Extremo | 2.000 | 120s | Descobrir o limite maximo do servidor |
+| Perfil   | Usuarios Simultaneos | Duracao | Ideal para                            |
+| -------- | -------------------- | ------- | ------------------------------------- |
+| Leve     | 10                   | 15s     | Blogs e sites pessoais                |
+| Moderado | 100                  | 30s     | E-commerces e portais                 |
+| Pesado   | 500                  | 60s     | Aplicacoes com alto trafego           |
+| Extremo  | 2.000                | 120s    | Descobrir o limite maximo do servidor |
 
 ### Monitoramento em Tempo Real
 
 Enquanto o teste roda, voce acompanha segundo a segundo:
+
 - **Requests por segundo (RPS)** -- quantas requisicoes o servidor esta processando
 - **Latencia** -- quanto tempo o servidor demora para responder
 - **Taxa de erros** -- quantas requisicoes estao falhando
 - **Usuarios ativos** -- quantos visitantes virtuais estao conectados
+
+### Confiabilidade da Medicao
+
+O StressFlow agora separa duas leituras diferentes:
+
+- **Saude do alvo** -- como o servidor reagiu a carga aplicada
+- **Confiabilidade da medicao** -- se o proprio StressFlow permaneceu estavel durante o teste
+
+Isso e importante porque, em cargas extremas, o gerador de carga tambem pode saturar. Quando isso acontece, a interface mostra avisos como:
+
+- **Percentis globais aproximados** -- quando o teste usa reservoir sampling
+- **Medicao degradada** -- quando o gerador continua util, mas ja com sinais de oscilacao
+- **Gerador saturado** -- quando a carga extrema pode estar contaminando fortemente o resultado
 
 ### Score de Saude do Site
 
@@ -121,6 +135,7 @@ Cada protecao detectada vem com uma explicacao simples do que ela faz e como afe
 ### Historico Completo
 
 Todos os testes sao salvos automaticamente. Voce pode:
+
 - Buscar por URL ou metodo HTTP
 - Filtrar por status (concluido, cancelado, com erro)
 - Ordenar por data, RPS, taxa de erros ou nota de saude
@@ -129,11 +144,14 @@ Todos os testes sao salvos automaticamente. Voce pode:
 ### Configuracoes Avancadas
 
 Para usuarios mais tecnicos, o StressFlow oferece:
+
 - Selecao de metodo HTTP (GET, POST, PUT, DELETE)
 - Corpo da requisicao customizado (JSON)
 - Tempo de ramp-up (adicionar usuarios gradualmente)
 - Ate 10.000 usuarios virtuais simultaneos
 - Testes de ate 10 minutos de duracao
+
+> **Importante:** o limite aceito pelo aplicativo nao significa que a medicao tera a mesma confiabilidade em toda a faixa. Em maquina unica, a leitura tende a ser mais confiavel em testes controlados e cargas moderadas do que em cenarios extremos.
 
 ---
 
@@ -241,30 +259,46 @@ Este comando executa o build e em seguida usa o [electron-builder](https://www.e
 
 ### Outros comandos uteis
 
-| Comando | Descricao |
-|---------|-----------|
-| `npm run dev` | Inicia o aplicativo em modo de desenvolvimento com hot-reload |
-| `npm run build` | Compila TypeScript e gera o bundle de producao |
-| `npm run preview` | Visualiza o build de producao no navegador (sem Electron) |
-| `npm run dist` | Gera o instalador do aplicativo desktop |
+| Comando                 | Descricao                                                                   |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `npm run dev`           | Inicia o aplicativo em modo de desenvolvimento com hot-reload               |
+| `npm run build`         | Compila TypeScript e gera o bundle de producao                              |
+| `npm run preview`       | Visualiza o build de producao no navegador (sem Electron)                   |
+| `npm run dist`          | Gera o instalador do aplicativo desktop                                     |
+| `npm run audit:ssrf`    | Valida bloqueio de localhost, IPs privados, link-local e metadata endpoints |
+| `npm run audit:engine`  | Sobe o mock server e executa a auditoria funcional completa do engine       |
+| `npm run audit:extreme` | Sobe o mock server e executa auditoria de carga extrema do gerador          |
+| `npm run verify`        | Executa lint, format check, typecheck, build e auditorias principais        |
+
+### Capacidade do alvo x capacidade do StressFlow
+
+Ao interpretar um teste, diferencie:
+
+- **Capacidade do alvo** -- o quanto o site/API suportou
+- **Capacidade do StressFlow** -- o quanto a maquina local conseguiu gerar carga sem distorcer a medicao
+
+Em especial:
+
+- Testes contra `localhost` e ambientes single-node sao otimos para desenvolvimento e auditoria do engine, mas nao representam internet real.
+- Testes de carga muito alta em uma unica maquina podem refletir limites do Node.js, do event loop e do sistema operacional local, nao apenas do servidor avaliado.
 
 ---
 
 ## Stack Tecnologica
 
-| Tecnologia | Versao | Funcao |
-|------------|--------|--------|
-| [Electron](https://www.electronjs.org/) | 28 | Framework para aplicativos desktop multiplataforma |
-| [React](https://react.dev/) | 18 | Biblioteca para construcao da interface do usuario |
-| [TypeScript](https://www.typescriptlang.org/) | 5.7 | Tipagem estatica para JavaScript, reduzindo bugs |
-| [Vite](https://vitejs.dev/) | 5 | Bundler ultrarapido com hot-reload instantaneo |
-| [Zustand](https://zustand-demo.pmnd.rs/) | 4.5 | Gerenciamento de estado global leve e simples |
-| [Tailwind CSS](https://tailwindcss.com/) | 3.4 | Framework CSS utilitario para estilizacao rapida |
-| [Recharts](https://recharts.org/) | 2 | Biblioteca de graficos responsivos baseada em React |
-| [jsPDF](https://github.com/parallax/jsPDF) | 2.5 | Geracao de relatorios em PDF no lado do cliente |
-| [date-fns](https://date-fns.org/) | 3 | Manipulacao e formatacao de datas |
-| [Lucide React](https://lucide.dev/) | -- | Biblioteca de icones consistentes e acessiveis |
-| [html-to-image](https://github.com/bubkoo/html-to-image) | 1.11 | Captura de graficos para inclusao nos relatorios PDF |
+| Tecnologia                                               | Versao | Funcao                                               |
+| -------------------------------------------------------- | ------ | ---------------------------------------------------- |
+| [Electron](https://www.electronjs.org/)                  | 28     | Framework para aplicativos desktop multiplataforma   |
+| [React](https://react.dev/)                              | 18     | Biblioteca para construcao da interface do usuario   |
+| [TypeScript](https://www.typescriptlang.org/)            | 5.7    | Tipagem estatica para JavaScript, reduzindo bugs     |
+| [Vite](https://vitejs.dev/)                              | 5      | Bundler ultrarapido com hot-reload instantaneo       |
+| [Zustand](https://zustand-demo.pmnd.rs/)                 | 4.5    | Gerenciamento de estado global leve e simples        |
+| [Tailwind CSS](https://tailwindcss.com/)                 | 3.4    | Framework CSS utilitario para estilizacao rapida     |
+| [Recharts](https://recharts.org/)                        | 2      | Biblioteca de graficos responsivos baseada em React  |
+| [jsPDF](https://github.com/parallax/jsPDF)               | 2.5    | Geracao de relatorios em PDF no lado do cliente      |
+| [date-fns](https://date-fns.org/)                        | 3      | Manipulacao e formatacao de datas                    |
+| [Lucide React](https://lucide.dev/)                      | --     | Biblioteca de icones consistentes e acessiveis       |
+| [html-to-image](https://github.com/bubkoo/html-to-image) | 1.11   | Captura de graficos para inclusao nos relatorios PDF |
 
 ---
 
@@ -360,15 +394,15 @@ git push origin minha-feature
 
 Este projeto segue o [Conventional Commits](https://www.conventionalcommits.org/):
 
-| Prefixo | Uso |
-|---------|-----|
-| `feat:` | Nova funcionalidade |
-| `fix:` | Correcao de bug |
-| `docs:` | Alteracao em documentacao |
-| `style:` | Formatacao (sem mudanca de logica) |
-| `refactor:` | Refatoracao de codigo |
-| `test:` | Adicao ou correcao de testes |
-| `chore:` | Tarefas de manutencao |
+| Prefixo     | Uso                                |
+| ----------- | ---------------------------------- |
+| `feat:`     | Nova funcionalidade                |
+| `fix:`      | Correcao de bug                    |
+| `docs:`     | Alteracao em documentacao          |
+| `style:`    | Formatacao (sem mudanca de logica) |
+| `refactor:` | Refatoracao de codigo              |
+| `test:`     | Adicao ou correcao de testes       |
+| `chore:`    | Tarefas de manutencao              |
 
 ### Diretrizes
 
