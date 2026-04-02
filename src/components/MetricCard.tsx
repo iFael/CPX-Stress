@@ -1,12 +1,12 @@
 /**
  * MetricCard.tsx
  *
- * Componente reutilizavel para exibir uma unica metrica com valor,
- * rotulo, icone, tendencia e area opcional de mini-grafico (sparkline).
+ * Componente reutilizavel para exibir uma unica métrica com valor,
+ * rótulo, icone, tendencia e area opcional de mini-gráfico (sparkline).
  *
  * Projetado para o tema escuro do StressFlow, utilizando a paleta sf-*.
- * As descricoes e rotulos estao em portugues para manter consistencia
- * com o restante da aplicacao.
+ * As descrições e rótulos estao em português para manter consistencia
+ * com o restante da aplicação.
  *
  * -- Exemplos de uso --
  *
@@ -17,7 +17,7 @@
  *     icon={<Gauge className="w-4 h-4" />}
  *     status="success"
  *     trend="up"
- *     description="Quantidade de requisicoes atendidas por segundo."
+ *     description="Quantidade de requisições atendidas por segundo."
  *   />
  *
  *   <MetricCard
@@ -27,85 +27,85 @@
  *     icon={<AlertTriangle className="w-4 h-4" />}
  *     status="danger"
  *     trend="up"
- *     description="Porcentagem de requisicoes que falharam."
+ *     description="Porcentagem de requisições que falharam."
  *     sparklineData={[0, 1, 2, 4, 8, 12]}
  *   />
  */
 
-import { useState, useRef, useEffect, useCallback, useId } from 'react'
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useState, useRef, useEffect, useCallback, useId } from "react";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import type { ReactNode } from "react";
 
 // ---------------------------------------------------------------------------
-// Tipos publicos
+// Tipos públicos
 // ---------------------------------------------------------------------------
 
 /**
  * Define a severidade/cor do cartao.
  *
  * - success  = verde  — valor dentro do esperado (bom)
- * - warning  = amarelo — merece atencao (alerta)
+ * - warning  = amarelo — merece atenção (alerta)
  * - danger   = vermelho — valor critico (ruim)
- * - neutral  = cor padrao do tema (sem classificacao)
- * - primary  = roxo primario da marca
+ * - neutral  = cor padrão do tema (sem classificação)
+ * - primary  = roxo primário da marca
  * - accent   = ciano de destaque
  */
 export type MetricCardStatus =
-  | 'success'
-  | 'warning'
-  | 'danger'
-  | 'neutral'
-  | 'primary'
-  | 'accent'
+  | "success"
+  | "warning"
+  | "danger"
+  | "neutral"
+  | "primary"
+  | "accent";
 
 /**
  * Direcao da tendencia do valor.
  *
  * - up      = valor esta subindo
  * - down    = valor esta descendo
- * - neutral = valor estavel
+ * - neutral = valor estável
  */
-export type MetricCardTrend = 'up' | 'down' | 'neutral'
+export type MetricCardTrend = "up" | "down" | "neutral";
 
 /**
  * Propriedades aceitas pelo componente MetricCard.
  */
 export interface MetricCardProps {
-  /** Rotulo descritivo da metrica (ex: "Capacidade", "Latencia") */
-  label: string
+  /** Rótulo descritivo da métrica (ex: "Capacidade", "Latência") */
+  label: string;
 
   /** Valor principal exibido em destaque (ex: "1.250", "42.5") */
-  value: string | number
+  value: string | number;
 
   /** Unidade de medida exibida ao lado do valor (ex: "ms", "req/s", "%") */
-  unit?: string
+  unit?: string;
 
-  /** Icone Lucide exibido ao lado do rotulo */
-  icon?: ReactNode
+  /** Icone Lucide exibido ao lado do rótulo */
+  icon?: ReactNode;
 
-  /** Classificacao visual de severidade/cor */
-  status?: MetricCardStatus
+  /** Classificação visual de severidade/cor */
+  status?: MetricCardStatus;
 
-  /** Direcao da tendencia (seta para cima, para baixo ou estavel) */
-  trend?: MetricCardTrend
+  /** Direcao da tendencia (seta para cima, para baixo ou estável) */
+  trend?: MetricCardTrend;
 
   /** Texto descritivo exibido no tooltip ao passar o mouse ou focar */
-  description?: string
+  description?: string;
 
-  /** Sub-rotulo exibido abaixo do rotulo principal (ex: "Latencia P95") */
-  subLabel?: string
+  /** Sub-rótulo exibido abaixo do rótulo principal (ex: "Latência P95") */
+  subLabel?: string;
 
-  /** Informacao secundaria abaixo do valor (ex: "1.500 total") */
-  subValue?: string
+  /** Informação secundaria abaixo do valor (ex: "1.500 total") */
+  subValue?: string;
 
-  /** Dados numericos para o mini-grafico sparkline */
-  sparklineData?: number[]
+  /** Dados numericos para o mini-gráfico sparkline */
+  sparklineData?: number[];
 
   /** Cor do traço da sparkline — usa a cor do status se omitido */
-  sparklineColor?: string
+  sparklineColor?: string;
 
   /** Classes CSS extras para o container raiz */
-  className?: string
+  className?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,73 +114,73 @@ export interface MetricCardProps {
 
 /** Cores do texto por status */
 const STATUS_TEXT: Record<MetricCardStatus, string> = {
-  success: 'text-sf-success',
-  warning: 'text-sf-warning',
-  danger: 'text-sf-danger',
-  neutral: 'text-sf-textSecondary',
-  primary: 'text-sf-primary',
-  accent: 'text-sf-accent',
-}
+  success: "text-sf-success",
+  warning: "text-sf-warning",
+  danger: "text-sf-danger",
+  neutral: "text-sf-textSecondary",
+  primary: "text-sf-primary",
+  accent: "text-sf-accent",
+};
 
 /** Fundo sutil por status (usado no hover) */
 const STATUS_BG_HOVER: Record<MetricCardStatus, string> = {
-  success: 'group-hover:border-sf-success/25',
-  warning: 'group-hover:border-sf-warning/25',
-  danger: 'group-hover:border-sf-danger/25',
-  neutral: 'group-hover:border-sf-border',
-  primary: 'group-hover:border-sf-primary/25',
-  accent: 'group-hover:border-sf-accent/25',
-}
+  success: "group-hover:border-sf-success/25",
+  warning: "group-hover:border-sf-warning/25",
+  danger: "group-hover:border-sf-danger/25",
+  neutral: "group-hover:border-sf-border",
+  primary: "group-hover:border-sf-primary/25",
+  accent: "group-hover:border-sf-accent/25",
+};
 
 /** Sombra de brilho por status (hover) */
 const STATUS_GLOW: Record<MetricCardStatus, string> = {
-  success: 'group-hover:shadow-glow-success',
-  warning: 'group-hover:shadow-glow-warning',
-  danger: 'group-hover:shadow-glow-danger',
-  neutral: 'group-hover:shadow-card-hover',
-  primary: 'group-hover:shadow-glow',
-  accent: 'group-hover:shadow-glow-accent',
-}
+  success: "group-hover:shadow-glow-success",
+  warning: "group-hover:shadow-glow-warning",
+  danger: "group-hover:shadow-glow-danger",
+  neutral: "group-hover:shadow-card-hover",
+  primary: "group-hover:shadow-glow",
+  accent: "group-hover:shadow-glow-accent",
+};
 
 /** Cor hexadecimal do traco do sparkline por status */
 const STATUS_SPARKLINE_COLOR: Record<MetricCardStatus, string> = {
-  success: '#22c55e',
-  warning: '#f59e0b',
-  danger: '#ef4444',
-  neutral: '#64748b',
-  primary: '#6366f1',
-  accent: '#22d3ee',
-}
+  success: "#22c55e",
+  warning: "#f59e0b",
+  danger: "#ef4444",
+  neutral: "#64748b",
+  primary: "#6366f1",
+  accent: "#22d3ee",
+};
 
 /** Icone de tendencia por direcao */
 const TREND_ICON: Record<MetricCardTrend, ReactNode> = {
   up: <TrendingUp className="w-3.5 h-3.5" />,
   down: <TrendingDown className="w-3.5 h-3.5" />,
   neutral: <Minus className="w-3.5 h-3.5" />,
-}
+};
 
-/** Rotulo em portugues por direcao de tendencia */
+/** Rótulo em português por direcao de tendencia */
 const TREND_LABEL: Record<MetricCardTrend, string> = {
-  up: 'Subindo',
-  down: 'Descendo',
-  neutral: 'Estavel',
-}
+  up: "Subindo",
+  down: "Descendo",
+  neutral: "Estável",
+};
 
-/** Cor da tendencia (o significado depende do contexto, mas as cores sao fixas) */
+/** Cor da tendencia (o significado depende do contexto, mas as cores são fixas) */
 const TREND_COLOR: Record<MetricCardTrend, string> = {
-  up: 'text-sf-success',
-  down: 'text-sf-danger',
-  neutral: 'text-sf-textMuted',
-}
+  up: "text-sf-success",
+  down: "text-sf-danger",
+  neutral: "text-sf-textMuted",
+};
 
 // ---------------------------------------------------------------------------
-// Componente Sparkline — mini-grafico SVG embutido
+// Componente Sparkline — mini-gráfico SVG embutido
 // ---------------------------------------------------------------------------
 
 /**
- * Renderiza um pequeno grafico de linha (sparkline) a partir de um
- * array de valores numericos. O grafico se ajusta automaticamente
- * ao intervalo dos dados e preenche toda a largura disponivel.
+ * Renderiza um pequeno gráfico de linha (sparkline) a partir de um
+ * array de valores numericos. O gráfico se ajusta automaticamente
+ * ao intervalo dos dados e preenche toda a largura disponível.
  */
 function Sparkline({
   data,
@@ -188,29 +188,29 @@ function Sparkline({
   width = 100,
   height = 32,
 }: {
-  data: number[]
-  color: string
-  width?: number
-  height?: number
+  data: number[];
+  color: string;
+  width?: number;
+  height?: number;
 }) {
-  if (data.length < 2) return null
+  if (data.length < 2) return null;
 
-  const min = Math.min(...data)
-  const max = Math.max(...data)
-  const range = max - min || 1 // evita divisao por zero
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1; // evita divisao por zero
 
-  // Padding vertical para o traço nao encostar nas bordas
-  const paddingY = 3
+  // Padding vertical para o traço não encostar nas bordas
+  const paddingY = 3;
 
   // Gera pontos SVG normalizados entre 0 e a area util
   const points = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * width
-    const y = paddingY + (1 - (v - min) / range) * (height - paddingY * 2)
-    return `${x},${y}`
-  })
+    const x = (i / (data.length - 1)) * width;
+    const y = paddingY + (1 - (v - min) / range) * (height - paddingY * 2);
+    return `${x},${y}`;
+  });
 
-  // ID unico para o gradiente — evita conflitos quando ha multiplos sparklines
-  const gradientId = `spark-grad-${color.replace('#', '')}-${data.length}`
+  // ID único para o gradiente — evita conflitos quando ha multiplos sparklines
+  const gradientId = `spark-grad-${color.replace("#", "")}-${data.length}`;
 
   return (
     <svg
@@ -230,13 +230,13 @@ function Sparkline({
 
       {/* Area preenchida abaixo da linha */}
       <polygon
-        points={`0,${height} ${points.join(' ')} ${width},${height}`}
+        points={`0,${height} ${points.join(" ")} ${width},${height}`}
         fill={`url(#${gradientId})`}
       />
 
-      {/* Linha do grafico */}
+      {/* Linha do gráfico */}
       <polyline
-        points={points.join(' ')}
+        points={points.join(" ")}
         fill="none"
         stroke={color}
         strokeWidth={1.5}
@@ -244,20 +244,15 @@ function Sparkline({
         strokeLinejoin="round"
       />
 
-      {/* Ponto no ultimo valor (destaque) */}
+      {/* Ponto no último valor (destaque) */}
       {(() => {
-        const lastPoint = points[points.length - 1].split(',')
+        const lastPoint = points[points.length - 1].split(",");
         return (
-          <circle
-            cx={lastPoint[0]}
-            cy={lastPoint[1]}
-            r={2}
-            fill={color}
-          />
-        )
+          <circle cx={lastPoint[0]} cy={lastPoint[1]} r={2} fill={color} />
+        );
       })()}
     </svg>
-  )
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -267,7 +262,7 @@ function Sparkline({
 /**
  * Tooltip simples que aparece ao passar o mouse sobre o cartao.
  * Diferente do InfoTooltip global, este e posicionado em relacao
- * ao cartao inteiro e exibe a descricao da metrica.
+ * ao cartao inteiro e exibe a descrição da métrica.
  */
 function CardTooltip({
   text,
@@ -275,40 +270,40 @@ function CardTooltip({
   parentRef,
   tooltipId,
 }: {
-  text: string
-  visible: boolean
-  parentRef: React.RefObject<HTMLDivElement | null>
-  tooltipId: string
+  text: string;
+  visible: boolean;
+  parentRef: React.RefObject<HTMLDivElement | null>;
+  tooltipId: string;
 }) {
-  const tooltipRef = useRef<HTMLDivElement>(null)
-  const [offset, setOffset] = useState(0)
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [offset, setOffset] = useState(0);
 
-  // Ajusta a posicao horizontal para nao vazar da janela
+  // Ajusta a posição horizontal para não vazar da janela
   useEffect(() => {
-    if (!visible) return
+    if (!visible) return;
     requestAnimationFrame(() => {
-      const parent = parentRef.current
-      const tooltip = tooltipRef.current
-      if (!parent || !tooltip) return
+      const parent = parentRef.current;
+      const tooltip = tooltipRef.current;
+      if (!parent || !tooltip) return;
 
-      const parentRect = parent.getBoundingClientRect()
-      const tooltipRect = tooltip.getBoundingClientRect()
-      const padding = 12
+      const parentRect = parent.getBoundingClientRect();
+      const tooltipRect = tooltip.getBoundingClientRect();
+      const padding = 12;
 
-      const parentCenter = parentRect.left + parentRect.width / 2
-      const halfTooltip = tooltipRect.width / 2
+      const parentCenter = parentRect.left + parentRect.width / 2;
+      const halfTooltip = tooltipRect.width / 2;
 
-      let newOffset = 0
+      let newOffset = 0;
       if (parentCenter - halfTooltip < padding) {
-        newOffset = padding - (parentCenter - halfTooltip)
+        newOffset = padding - (parentCenter - halfTooltip);
       } else if (parentCenter + halfTooltip > window.innerWidth - padding) {
-        newOffset = window.innerWidth - padding - (parentCenter + halfTooltip)
+        newOffset = window.innerWidth - padding - (parentCenter + halfTooltip);
       }
-      setOffset(newOffset)
-    })
-  }, [visible, parentRef])
+      setOffset(newOffset);
+    });
+  }, [visible, parentRef]);
 
-  if (!visible) return null
+  if (!visible) return null;
 
   return (
     <div
@@ -317,17 +312,19 @@ function CardTooltip({
       role="tooltip"
       style={
         offset !== 0
-          ? ({ '--tw-translate-x': `calc(-50% + ${offset}px)` } as React.CSSProperties)
+          ? ({
+              "--tw-translate-x": `calc(-50% + ${offset}px)`,
+            } as React.CSSProperties)
           : undefined
       }
       className={[
-        'absolute left-1/2 -translate-x-1/2 bottom-full mb-2.5 z-50',
-        'w-64 max-w-[calc(100vw-24px)] px-3.5 py-2.5',
-        'bg-sf-surface border border-sf-border rounded-xl',
-        'shadow-xl shadow-black/30',
-        'text-xs leading-relaxed text-sf-text',
-        'animate-fade-in pointer-events-none',
-      ].join(' ')}
+        "absolute left-1/2 -translate-x-1/2 bottom-full mb-2.5 z-50",
+        "w-64 max-w-[calc(100vw-24px)] px-3.5 py-2.5",
+        "bg-sf-surface border border-sf-border rounded-xl",
+        "shadow-xl shadow-black/30",
+        "text-xs leading-relaxed text-sf-text",
+        "animate-fade-in pointer-events-none",
+      ].join(" ")}
     >
       {text}
       {/* Seta apontando para baixo */}
@@ -335,7 +332,7 @@ function CardTooltip({
         <div className="w-2 h-2 bg-sf-surface border-sf-border rotate-45 -translate-y-1 border-r border-b" />
       </div>
     </div>
-  )
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -347,53 +344,53 @@ export function MetricCard({
   value,
   unit,
   icon,
-  status = 'neutral',
+  status = "neutral",
   trend,
   description,
   subLabel,
   subValue,
   sparklineData,
   sparklineColor,
-  className = '',
+  className = "",
 }: MetricCardProps) {
-  const [hovered, setHovered] = useState(false)
-  const [focused, setFocused] = useState(false)
-  const cardRef = useRef<HTMLDivElement>(null)
-  const tooltipId = useId()
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const tooltipId = useId();
 
-  const showTooltip = (hovered || focused) && !!description
+  const showTooltip = (hovered || focused) && !!description;
 
-  // Cor do sparkline: usa a cor customizada, a cor do status, ou cinza padrao
+  // Cor do sparkline: usa a cor customizada, a cor do status, ou cinza padrão
   const resolvedSparklineColor =
-    sparklineColor ?? STATUS_SPARKLINE_COLOR[status]
+    sparklineColor ?? STATUS_SPARKLINE_COLOR[status];
 
-  // Handlers de interacao
-  const handleMouseEnter = useCallback(() => setHovered(true), [])
-  const handleMouseLeave = useCallback(() => setHovered(false), [])
-  const handleFocus = useCallback(() => setFocused(true), [])
-  const handleBlur = useCallback(() => setFocused(false), [])
+  // Handlers de interação
+  const handleMouseEnter = useCallback(() => setHovered(true), []);
+  const handleMouseLeave = useCallback(() => setHovered(false), []);
+  const handleFocus = useCallback(() => setFocused(true), []);
+  const handleBlur = useCallback(() => setFocused(false), []);
 
   return (
     <div
       ref={cardRef}
       className={[
         // -- Container base --
-        'group relative',
-        'bg-sf-surface border border-sf-border rounded-xl',
-        'p-4',
+        "group relative",
+        "bg-sf-surface border border-sf-border rounded-xl",
+        "p-4",
         // -- Transicoes suaves --
-        'transition-all duration-250 ease-out',
+        "transition-all duration-250 ease-out",
         // -- Efeito de hover: borda colorida + sombra de brilho --
         STATUS_BG_HOVER[status],
         STATUS_GLOW[status],
-        'group-hover:bg-sf-surfaceHover',
-        // -- Foco acessivel --
-        'focus-within:outline-none focus-within:ring-2',
-        'focus-within:ring-sf-primary/50 focus-within:ring-offset-1',
-        'focus-within:ring-offset-sf-bg',
+        "group-hover:bg-sf-surfaceHover",
+        // -- Foco acessível --
+        "focus-within:outline-none focus-within:ring-2",
+        "focus-within:ring-sf-primary/50 focus-within:ring-offset-1",
+        "focus-within:ring-offset-sf-bg",
         // -- Classes extras --
         className,
-      ].join(' ')}
+      ].join(" ")}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onFocus={handleFocus}
@@ -402,11 +399,11 @@ export function MetricCard({
       aria-describedby={description ? tooltipId : undefined}
       aria-label={
         description
-          ? `${label}: ${value}${unit ? ' ' + unit : ''}. ${description}`
+          ? `${label}: ${value}${unit ? " " + unit : ""}. ${description}`
           : undefined
       }
     >
-      {/* Tooltip com descricao detalhada */}
+      {/* Tooltip com descrição detalhada */}
       {description && (
         <CardTooltip
           text={description}
@@ -416,7 +413,7 @@ export function MetricCard({
         />
       )}
 
-      {/* ===== Linha superior: icone + rotulo + tendencia ===== */}
+      {/* ===== Linha superior: icone + rótulo + tendencia ===== */}
       <div className="flex items-center justify-between mb-0.5">
         <div
           className={`flex items-center gap-1.5 text-xs font-medium ${STATUS_TEXT[status]}`}
@@ -437,7 +434,7 @@ export function MetricCard({
         )}
       </div>
 
-      {/* Sub-rotulo tecnico (opcional) */}
+      {/* Sub-rótulo técnico (opcional) */}
       {subLabel && (
         <div className="text-[10px] text-sf-textMuted mb-1 truncate">
           {subLabel}
@@ -456,7 +453,7 @@ export function MetricCard({
         )}
       </div>
 
-      {/* Informacao secundaria (opcional) */}
+      {/* Informação secundaria (opcional) */}
       {subValue && (
         <div className="text-xs text-sf-textMuted mt-1 truncate">
           {subValue}
@@ -476,18 +473,18 @@ export function MetricCard({
       )}
 
       {/* Indicador visual de tendencia — barra fina na borda inferior */}
-      {trend && trend !== 'neutral' && (
+      {trend && trend !== "neutral" && (
         <div
           className={[
-            'absolute bottom-0 left-3 right-3 h-0.5 rounded-full',
-            'opacity-0 group-hover:opacity-100',
-            'transition-opacity duration-200',
-            trend === 'up' ? 'bg-sf-success/50' : 'bg-sf-danger/50',
-          ].join(' ')}
+            "absolute bottom-0 left-3 right-3 h-0.5 rounded-full",
+            "opacity-0 group-hover:opacity-100",
+            "transition-opacity duration-200",
+            trend === "up" ? "bg-sf-success/50" : "bg-sf-danger/50",
+          ].join(" ")}
         />
       )}
     </div>
-  )
+  );
 }
 
-export default MetricCard
+export default MetricCard;

@@ -12,20 +12,26 @@
   box-sizing: border-box;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   width: 100%;
   overflow: hidden;
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
   background-color: #0f1117;
   color: #e2e8f0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
 /* ======================================================================== */
@@ -47,8 +53,8 @@ body {
 /* ======================================================================== */
 
 ::-webkit-scrollbar {
-  width: 0px;
-  height: 0px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -56,7 +62,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: transparent;
+  background: rgba(42, 45, 58, 0.6);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(42, 45, 58, 0.9);
 }
 
 ::-webkit-scrollbar-corner {
@@ -68,8 +79,8 @@ body {
    by the Chromium engine bundled with Electron 28+. Browser compatibility warnings
    for older Chrome (<121), Safari, or Samsung Internet do not apply here. */
 * {
-  scrollbar-width: none;
-  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(42, 45, 58, 0.6) transparent;
 }
 
 /* ======================================================================== */
@@ -123,7 +134,8 @@ input[type="number"] {
 /* ======================================================================== */
 
 @keyframes pulse-glow {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     filter: brightness(1);
   }
@@ -135,6 +147,20 @@ input[type="number"] {
 
 .animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Efeito de glow pulsante sutil para a logo Compex ao hover */
+@keyframes logo-glow-pulse {
+  0%, 100% {
+    filter: brightness(0) invert(1) drop-shadow(0 0 2px rgba(99, 102, 241, 0.2));
+  }
+  50% {
+    filter: brightness(0) invert(1) drop-shadow(0 0 10px rgba(99, 102, 241, 0.6));
+  }
+}
+
+.compex-logo-glow:hover {
+  animation: logo-glow-pulse 1.8s ease-in-out infinite;
 }
 
 @keyframes slide-up {
@@ -168,8 +194,12 @@ input[type="number"] {
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .animate-fade-in {
@@ -223,14 +253,30 @@ input[type="number"] {
   animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
-.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
-.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
-.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
-.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
-.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
-.stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+.stagger-children > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger-children > *:nth-child(2) {
+  animation-delay: 50ms;
+}
+.stagger-children > *:nth-child(3) {
+  animation-delay: 100ms;
+}
+.stagger-children > *:nth-child(4) {
+  animation-delay: 150ms;
+}
+.stagger-children > *:nth-child(5) {
+  animation-delay: 200ms;
+}
+.stagger-children > *:nth-child(6) {
+  animation-delay: 250ms;
+}
+.stagger-children > *:nth-child(7) {
+  animation-delay: 300ms;
+}
+.stagger-children > *:nth-child(8) {
+  animation-delay: 350ms;
+}
 
 /* ======================================================================== */
 /*  Recharts overrides — match dark theme                                   */
@@ -245,7 +291,7 @@ input[type="number"] {
 .recharts-text {
   fill: #94a3b8;
   font-size: 11px;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: "Inter", system-ui, sans-serif;
 }
 
 .recharts-tooltip-wrapper {
@@ -314,14 +360,23 @@ input[type="number"] {
 }
 
 .gradient-border::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: -1px;
   border-radius: inherit;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(34, 211, 238, 0.15), rgba(99, 102, 241, 0.1));
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.3),
+    rgba(34, 211, 238, 0.15),
+    rgba(99, 102, 241, 0.1)
+  );
   z-index: -1;
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: xor;
   padding: 1px;
@@ -343,8 +398,12 @@ input[type="number"] {
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 /* ======================================================================== */
@@ -370,7 +429,9 @@ input[type="number"] {
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
   box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.4);
   z-index: 50;
 }

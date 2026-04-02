@@ -1,135 +1,135 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from "react";
 import {
-  Zap,
   Globe,
-  SlidersHorizontal,
+  Users,
   Activity,
   FileDown,
   X,
   Sparkles,
   ArrowRight,
-} from 'lucide-react'
+} from "lucide-react";
+import compexLogo from "@/assets/compex-logo.gif";
 
 /* ==========================================================================
-   WelcomeOverlay — Tela de boas-vindas para novos usuarios
+   WelcomeOverlay — Tela de boas-vindas para novos usuários
 
-   Exibe um overlay/modal elegante na primeira vez que o usuario abre o
-   StressFlow. Apresenta o proposito da ferramenta e dicas rapidas de uso.
+   Exibe um overlay/modal elegante na primeira vez que o usuário abre o
+   CPX — MisterT Stress. Apresenta o proposito da ferramenta e dicas rapidas de uso.
 
    Comportamento:
    - Verifica a flag "hasSeenWelcome" no localStorage.
-   - Se a flag NAO existir, exibe o overlay com animacao de entrada.
-   - O usuario pode fechar clicando em "Comecar" ou no botao X.
-   - Se marcar "Nao mostrar novamente", a flag e salva no localStorage
-     e o overlay nao aparecera nas proximas sessoes.
-   - Se NAO marcar, o overlay aparecera novamente na proxima abertura.
+   - Se a flag NÃO existir, exibe o overlay com animação de entrada.
+   - O usuário pode fechar clicando em "Comecar" ou no botão X.
+   - Se marcar "Não mostrar novamente", a flag e salva no localStorage
+     e o overlay não aparecera nas proximas sessões.
+   - Se NÃO marcar, o overlay aparecera novamente na proxima abertura.
 
    Este componente e 100% autonomo — basta importa-lo e renderiza-lo.
-   Nenhuma alteracao e necessaria em App.tsx ou em qualquer outro arquivo.
+   Nenhuma alteração e necessaria em App.tsx ou em qualquer outro arquivo.
    ========================================================================== */
 
-/** Chave usada no localStorage para persistir a escolha do usuario */
-const STORAGE_KEY = 'hasSeenWelcome'
+/** Chave usada no localStorage para persistir a escolha do usuário */
+const STORAGE_KEY = "hasSeenWelcome";
 
 /** Dicas de uso exibidas no overlay */
 const TIPS = [
   {
     icon: Globe,
-    text: 'Configure a URL que deseja testar',
-    color: 'text-sf-primary',
-    bgColor: 'bg-sf-primary/10',
-    borderColor: 'border-sf-primary/20',
+    text: "Selecione o ambiente MisterT (Produção, Homologação, etc.)",
+    color: "text-sf-primary",
+    bgColor: "bg-sf-primary/10",
+    borderColor: "border-sf-primary/20",
   },
   {
-    icon: SlidersHorizontal,
-    text: 'Escolha um perfil de carga (Leve, Moderado, etc.)',
-    color: 'text-sf-accent',
-    bgColor: 'bg-sf-accent/10',
-    borderColor: 'border-sf-accent/20',
+    icon: Users,
+    text: "Defina a quantidade de usuários virtuais simultâneos",
+    color: "text-sf-accent",
+    bgColor: "bg-sf-accent/10",
+    borderColor: "border-sf-accent/20",
   },
   {
     icon: Activity,
-    text: 'Acompanhe as metricas em tempo real',
-    color: 'text-sf-success',
-    bgColor: 'bg-sf-success/10',
-    borderColor: 'border-sf-success/20',
+    text: "Acompanhe latência, throughput e erros em tempo real",
+    color: "text-sf-success",
+    bgColor: "bg-sf-success/10",
+    borderColor: "border-sf-success/20",
   },
   {
     icon: FileDown,
-    text: 'Exporte os resultados em PDF ou JSON',
-    color: 'text-sf-warning',
-    bgColor: 'bg-sf-warning/10',
-    borderColor: 'border-sf-warning/20',
+    text: "Exporte o laudo completo em PDF ou JSON",
+    color: "text-sf-warning",
+    bgColor: "bg-sf-warning/10",
+    borderColor: "border-sf-warning/20",
   },
-] as const
+] as const;
 
 /* -------------------------------------------------------------------------- */
 /*  Componente principal                                                       */
 /* -------------------------------------------------------------------------- */
 
 export function WelcomeOverlay() {
-  /** Controla se o overlay esta visivel */
-  const [isVisible, setIsVisible] = useState(false)
+  /** Controla se o overlay esta visível */
+  const [isVisible, setIsVisible] = useState(false);
 
-  /** Controla a animacao de saida antes de desmontar */
-  const [isClosing, setIsClosing] = useState(false)
+  /** Controla a animação de saída antes de desmontar */
+  const [isClosing, setIsClosing] = useState(false);
 
-  /** Estado do checkbox "Nao mostrar novamente" */
-  const [dontShowAgain, setDontShowAgain] = useState(true)
+  /** Estado do checkbox "Não mostrar novamente" */
+  const [dontShowAgain, setDontShowAgain] = useState(true);
 
-  /* ── Verificacao inicial ────────────────────────────────────────────────── */
+  /* ── Verificação inicial ────────────────────────────────────────────────── */
   useEffect(() => {
     try {
-      const alreadySeen = localStorage.getItem(STORAGE_KEY)
-      if (alreadySeen !== 'true') {
-        setIsVisible(true)
+      const alreadySeen = localStorage.getItem(STORAGE_KEY);
+      if (alreadySeen !== "true") {
+        setIsVisible(true);
       }
     } catch {
-      // Se o localStorage nao estiver disponivel, nao exibe o overlay.
-      // Isso pode acontecer em modos de navegacao privada restritos.
+      // Se o localStorage não estiver disponível, não exibe o overlay.
+      // Isso pode acontecer em modos de navegação privada restritos.
     }
-  }, [])
+  }, []);
 
   /* ── Fechar overlay ─────────────────────────────────────────────────────── */
   const handleClose = useCallback(() => {
-    // Inicia animacao de saida
-    setIsClosing(true)
+    // Inicia animação de saída
+    setIsClosing(true);
 
     // Salva preferencia se o checkbox estiver marcado
     if (dontShowAgain) {
       try {
-        localStorage.setItem(STORAGE_KEY, 'true')
+        localStorage.setItem(STORAGE_KEY, "true");
       } catch {
         // Falha silenciosa — o overlay simplesmente aparecera de novo
       }
     }
 
-    // Aguarda a animacao de saida terminar antes de desmontar
+    // Aguarda a animação de saída terminar antes de desmontar
     setTimeout(() => {
-      setIsVisible(false)
-    }, 300)
-  }, [dontShowAgain])
+      setIsVisible(false);
+    }, 300);
+  }, [dontShowAgain]);
 
   /* ── Fechar com tecla Escape ────────────────────────────────────────────── */
   useEffect(() => {
-    if (!isVisible || isClosing) return
+    if (!isVisible || isClosing) return;
 
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose()
-    }
+      if (e.key === "Escape") handleClose();
+    };
 
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [isVisible, isClosing, handleClose])
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [isVisible, isClosing, handleClose]);
 
-  /* ── Nao renderiza nada se nao for necessario ───────────────────────────── */
-  if (!isVisible) return null
+  /* ── Não renderiza nada se não for necessário ───────────────────────────── */
+  if (!isVisible) return null;
 
-  /* ── Renderizacao ───────────────────────────────────────────────────────── */
+  /* ── Renderização ───────────────────────────────────────────────────────── */
   return (
     <div
       className={`fixed inset-0 z-[9999] flex items-center justify-center p-4 ${
-        isClosing ? 'animate-overlay-fade-out' : 'animate-overlay-fade-in'
+        isClosing ? "animate-overlay-fade-out" : "animate-overlay-fade-in"
       }`}
       role="dialog"
       aria-modal="true"
@@ -146,7 +146,7 @@ export function WelcomeOverlay() {
       {/* ---- Modal ---- */}
       <div
         className={`relative w-full max-w-lg rounded-2xl border border-sf-border bg-sf-bg shadow-elevated overflow-hidden ${
-          isClosing ? 'animate-modal-scale-out' : 'animate-modal-scale-in'
+          isClosing ? "animate-modal-scale-out" : "animate-modal-scale-in"
         }`}
       >
         {/* Detalhe decorativo — gradiente sutil no topo */}
@@ -155,7 +155,7 @@ export function WelcomeOverlay() {
           aria-hidden="true"
         />
 
-        {/* Botao de fechar (X) no canto superior direito */}
+        {/* Botão de fechar (X) no canto superior direito */}
         <button
           type="button"
           onClick={handleClose}
@@ -165,22 +165,28 @@ export function WelcomeOverlay() {
           <X className="w-5 h-5" />
         </button>
 
-        {/* Conteudo interno com padding */}
+        {/* Conteúdo interno com padding */}
         <div className="px-8 pt-10 pb-8">
-          {/* ---- Cabecalho com icone e titulo ---- */}
+          {/* ---- Cabeçalho com icone e título ---- */}
           <div className="text-center mb-8">
-            {/* Icone principal com glow */}
+            {/* Logo Compex com glow */}
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-sf-primary/20 to-sf-accent/10 border border-sf-primary/20 mb-5 shadow-glow">
-              <Zap className="w-10 h-10 text-sf-primary" aria-hidden="true" />
+              <img
+                src={compexLogo}
+                alt="Compex"
+                className="w-12 h-auto"
+                style={{ filter: "brightness(0) invert(1)" }}
+                draggable={false}
+              />
             </div>
 
             <h2
               id="welcome-title"
               className="text-2xl font-bold text-sf-text mb-3"
             >
-              Bem-vindo ao{' '}
+              Bem-vindo ao{" "}
               <span className="bg-gradient-to-r from-sf-primary to-sf-accent bg-clip-text text-transparent">
-                StressFlow
+                CPX — MisterT Stress
               </span>
             </h2>
 
@@ -188,39 +194,36 @@ export function WelcomeOverlay() {
               id="welcome-description"
               className="text-sf-textSecondary leading-relaxed max-w-sm mx-auto"
             >
-              Teste a capacidade do seu servidor ou API sob carga.
-              Simule conexoes simultaneas e analise metricas de
-              latencia, throughput e taxa de erros em tempo real.
+              Teste de estresse para o MisterT ERP. Simule usuários
+              simultâneos executando o fluxo real de operações e análise
+              latência, throughput e taxa de erros em tempo real.
             </p>
           </div>
 
           {/* ---- Dicas de uso ---- */}
           <div className="space-y-3 mb-8">
             <div className="flex items-center gap-2 mb-4">
-              <Sparkles
-                className="w-4 h-4 text-sf-accent"
-                aria-hidden="true"
-              />
+              <Sparkles className="w-4 h-4 text-sf-accent" aria-hidden="true" />
               <span className="text-sm font-medium text-sf-textSecondary">
                 Como funciona
               </span>
             </div>
 
             {TIPS.map((tip, index) => {
-              const Icon = tip.icon
+              const Icon = tip.icon;
               return (
                 <div
                   key={index}
                   className={`flex items-center gap-4 p-3.5 rounded-xl border ${tip.borderColor} ${tip.bgColor}/50 transition-all duration-200 hover:scale-[1.01]`}
-                  /* Estilo inline necessario: animationDelay e calculado
-                     dinamicamente com base no indice do item para criar
+                  /* Estilo inline necessário: animationDelay e calculado
+                     dinamicamente com base no índice do item para criar
                      efeito de entrada escalonada (stagger). */
                   style={{
                     animationDelay: `${150 + index * 100}ms`,
-                    animationFillMode: 'both',
+                    animationFillMode: "both",
                   }}
                 >
-                  {/* Numero da etapa + icone */}
+                  {/* Número da etapa + icone */}
                   <div
                     className={`flex items-center justify-center w-10 h-10 rounded-xl ${tip.bgColor} shrink-0`}
                   >
@@ -240,11 +243,11 @@ export function WelcomeOverlay() {
                     <p className="text-sm text-sf-text mt-0.5">{tip.text}</p>
                   </div>
                 </div>
-              )
+              );
             })}
           </div>
 
-          {/* ---- Checkbox "Nao mostrar novamente" ---- */}
+          {/* ---- Checkbox "Não mostrar novamente" ---- */}
           <label className="flex items-center gap-2.5 mb-5 cursor-pointer group select-none">
             <div className="relative flex items-center justify-center">
               <input
@@ -275,11 +278,11 @@ export function WelcomeOverlay() {
               </div>
             </div>
             <span className="text-sm text-sf-textMuted group-hover:text-sf-textSecondary transition-colors">
-              Nao mostrar novamente
+              Não mostrar novamente
             </span>
           </label>
 
-          {/* ---- Botao "Comecar" ---- */}
+          {/* ---- Botão "Comecar" ---- */}
           <button
             type="button"
             onClick={handleClose}
@@ -291,9 +294,9 @@ export function WelcomeOverlay() {
         </div>
       </div>
 
-      {/* ---- Estilos de animacao embutidos ----
-           Usamos <style> inline porque as animacoes de entrada/saida do
-           overlay nao estao definidas no tailwind.config.mjs e queremos
+      {/* ---- Estilos de animação embutidos ----
+           Usamos <style> inline porque as animações de entrada/saída do
+           overlay não estao definidas no tailwind.config.mjs e queremos
            manter o componente 100% autonomo (sem alterar outros arquivos). */}
       <style>{`
         @keyframes overlay-fade-in {
@@ -339,5 +342,5 @@ export function WelcomeOverlay() {
         }
       `}</style>
     </div>
-  )
+  );
 }
