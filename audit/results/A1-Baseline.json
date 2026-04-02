@@ -1,0 +1,339 @@
+{
+  "id": "60b48cc1-b602-4b0d-a2d7-fe74ab40a210",
+  "url": "http://localhost:8787/ok",
+  "config": {
+    "url": "http://localhost:8787/ok",
+    "virtualUsers": 10,
+    "duration": 15,
+    "method": "GET"
+  },
+  "startTime": "2026-03-24T12:58:51.077Z",
+  "endTime": "2026-03-24T12:59:06.080Z",
+  "durationSeconds": 15,
+  "totalRequests": 136119,
+  "totalErrors": 0,
+  "rps": 9072.79,
+  "latency": {
+    "avg": 1.1,
+    "min": 0.11,
+    "p50": 0.8,
+    "p90": 1.87,
+    "p95": 2.47,
+    "p99": 4.76,
+    "max": 26.09
+  },
+  "errorRate": 0,
+  "throughputBytesPerSec": 9081858.23,
+  "totalBytes": 136255119,
+  "statusCodes": {
+    "200": 136119
+  },
+  "timeline": [
+    {
+      "timestamp": 1774357132079,
+      "second": 1,
+      "requests": 7276,
+      "errors": 0,
+      "latencyAvg": 1.36,
+      "latencyP50": 0.97,
+      "latencyP90": 2.89,
+      "latencyP95": 4.03,
+      "latencyP99": 5.43,
+      "latencyMax": 11.89,
+      "latencyMin": 0.21,
+      "statusCodes": {
+        "200": 7276
+      },
+      "bytesReceived": 7283276,
+      "activeUsers": 10
+    },
+    {
+      "timestamp": 1774357133079,
+      "second": 2,
+      "requests": 8970,
+      "errors": 0,
+      "latencyAvg": 1.11,
+      "latencyP50": 0.78,
+      "latencyP90": 2.09,
+      "latencyP95": 2.77,
+      "latencyP99": 4.76,
+      "latencyMax": 13.52,
+      "latencyMin": 0.12,
+      "statusCodes": {
+        "200": 8970
+      },
+      "bytesReceived": 8978970,
+      "activeUsers": 10
+    },
+    {
+      "timestamp": 1774357134080,
+      "second": 3,
+      "requests": 7227,
+      "errors": 0,
+      "latencyAvg": 1.38,
+      "latencyP50": 1.04,
+      "latencyP90": 2.39,
+      "latencyP95": 3.06,
+      "latencyP99": 6.62,
+      "latencyMax": 24.16,
+      "latencyMin": 0.2,
+      "statusCodes": {
+        "200": 7227
+      },
+      "bytesReceived": 7234227,
+      "activeUsers": 10
+    },
+    {
+      "timestamp": 1774357135080,
+      "second": 4,
+      "requests": 10275,
+      "errors": 0,
+      "latencyAvg": 0.97,
+      "latencyP50": 0.69,
+      "latencyP90": 1.73,
+      "latencyP95": 2.26,
+      "latencyP99": 4.84,
+      "latencyMax": 14.09,
+      "latencyMin": 0.17,
+      "statusCodes": {
+        "200": 10275
+      },
+      "bytesReceived": 10285275,
+      "activeUsers": 10
+    },
+    {
+      "timestamp": 1774357136086,
+      "second": 5,
+      "requests": 10059,
+      "errors": 0,
+      "latencyAvg": 0.98,
+      "latencyP50": 0.78,
+      "latencyP90": 1.52,
+      "latencyP95": 1.82,
+      "latencyP99": 3,
+      "latencyMax": 24.14,
+      "latencyMin": 0.17,
+      "statusCodes": {
+        "200": 10059
+      },
+      "bytesReceived": 10069059,
+      "activeUsers": 10
+    },
+    {
+      "timestamp": 1774357137085,
+      "second": 6,
+      "requests": 9296,
+      "errors": 0,
+      "latencyAvg": 1.09,
+      "latencyP50": 0.73,
+      "latencyP90": 1.83,
+      "latencyP95": 2.4,
+      "latencyP99": 4.59,
+      "latencyMax": 22.32,
+      "latencyMin": 0.15,
+      "statusCodes": {
+        "200": 9296
+      },
+      "bytesReceived": 9305296,
+      "activeUsers": 10
+    },
+    {
+      "timestamp": 1774357138098,
+      "second": 7,
+      "requests": 8510,
+      "errors": 0,
+      "latencyAvg": 1.17,
+      "latencyP50": 0.83,
+      "latencyP90": 1.79,
+      "latencyP95": 2.78,
+      "latencyP99": 6.91,
+      "latencyMax": 18.98,
+      "latencyMin": 0.23,
+      "statusCodes": {
+        "200": 8510
+      },
+      "bytesReceived": 8518510,
+      "activeUsers": 10
+    },
+    {
+      "timestamp": 1774357139088,
+      "second": 8,
+      "requests": 9247,
+      "errors": 0,
+      "latencyAvg": 1.08,
+      "latencyP50": 0.82,
+      "latencyP90": 1.66,
+      "latencyP95": 2.16,
+      "latencyP99": 4.03,
+      "latencyMax": 26.09,
+      "latencyMin": 0.22,
+      "statusCodes": {
+        "200": 9247
+      },
+      "bytesReceived": 9256247,
+      "activeUsers": 10
+    },
+    {
+      "timestamp": 1774357140092,
+      "second": 9,
+      "requests": 9984,
+      "errors": 0,
+      "latencyAvg": 1,
+      "latencyP50": 0.79,
+      "latencyP90": 1.59,
+      "latencyP95": 1.99,
+      "latencyP99": 3.32,
+      "latencyMax": 15.19,
+      "latencyMin": 0.21,
+      "statusCodes": {
+        "200": 9984
+      },
+      "bytesReceived": 9993984,
+      "activeUsers": 10
+    },
+    {
+      "timestamp": 1774357141088,
+      "second": 10,
+      "requests": 8119,
+      "errors": 0,
+      "latencyAvg": 1.23,
+      "latencyP50": 0.82,
+      "latencyP90": 2.15,
+      "latencyP95": 2.92,
+      "latencyP99": 6.33,
+      "latencyMax": 20.49,
+      "latencyMin": 0.24,
+      "statusCodes": {
+        "200": 8119
+      },
+      "bytesReceived": 8127119,
+      "activeUsers": 10
+    },
+    {
+      "timestamp": 1774357142092,
+      "second": 11,
+      "requests": 10687,
+      "errors": 0,
+      "latencyAvg": 0.93,
+      "latencyP50": 0.69,
+      "latencyP90": 1.62,
+      "latencyP95": 1.96,
+      "latencyP99": 2.7,
+      "latencyMax": 16.66,
+      "latencyMin": 0.14,
+      "statusCodes": {
+        "200": 10687
+      },
+      "bytesReceived": 10697687,
+      "activeUsers": 10
+    },
+    {
+      "timestamp": 1774357143090,
+      "second": 12,
+      "requests": 8277,
+      "errors": 0,
+      "latencyAvg": 1.2,
+      "latencyP50": 0.95,
+      "latencyP90": 2.2,
+      "latencyP95": 2.58,
+      "latencyP99": 3.6,
+      "latencyMax": 23.1,
+      "latencyMin": 0.26,
+      "statusCodes": {
+        "200": 8277
+      },
+      "bytesReceived": 8285277,
+      "activeUsers": 10
+    },
+    {
+      "timestamp": 1774357144090,
+      "second": 13,
+      "requests": 10465,
+      "errors": 0,
+      "latencyAvg": 0.95,
+      "latencyP50": 0.68,
+      "latencyP90": 1.53,
+      "latencyP95": 2.05,
+      "latencyP99": 3.71,
+      "latencyMax": 17.49,
+      "latencyMin": 0.2,
+      "statusCodes": {
+        "200": 10465
+      },
+      "bytesReceived": 10475465,
+      "activeUsers": 10
+    },
+    {
+      "timestamp": 1774357145090,
+      "second": 14,
+      "requests": 7321,
+      "errors": 0,
+      "latencyAvg": 1.36,
+      "latencyP50": 1.14,
+      "latencyP90": 2.31,
+      "latencyP95": 2.72,
+      "latencyP99": 4.84,
+      "latencyMax": 23.91,
+      "latencyMin": 0.22,
+      "statusCodes": {
+        "200": 7321
+      },
+      "bytesReceived": 7328321,
+      "activeUsers": 10
+    },
+    {
+      "timestamp": 1774357146079,
+      "second": 15,
+      "requests": 10406,
+      "errors": 0,
+      "latencyAvg": 0.95,
+      "latencyP50": 0.7,
+      "latencyP90": 1.45,
+      "latencyP95": 1.88,
+      "latencyP99": 3.39,
+      "latencyMax": 19.85,
+      "latencyMin": 0.11,
+      "statusCodes": {
+        "200": 10406
+      },
+      "bytesReceived": 10416406,
+      "activeUsers": 10
+    }
+  ],
+  "status": "completed",
+  "measurementReliability": {
+    "level": "degraded",
+    "summary": "A medição permaneceu utilizável, mas o gerador mostrou sinais de degradação.",
+    "warnings": [
+      "Percentis globais aproximados porque o teste usou reservoir sampling."
+    ],
+    "signals": {
+      "steadyStateCv": 9.36,
+      "latencyGrowthFactor": 0.93,
+      "throughputDropPercent": 0,
+      "timeoutErrors": 0,
+      "connectionErrors": 0,
+      "durationOverrunSeconds": 0,
+      "usedReservoirSampling": true
+    }
+  },
+  "operationalWarnings": [
+    "Percentis globais aproximados porque o teste usou reservoir sampling."
+  ],
+  "protectionReport": {
+    "detections": [],
+    "rateLimitInfo": {
+      "detected": false
+    },
+    "behavioralPatterns": [
+      {
+        "type": "normal",
+        "description": "Nenhum padrao comportamental anomalo detectado",
+        "evidence": "Latencia e throughput estaveis"
+      }
+    ],
+    "overallRisk": "none",
+    "summary": "Nenhuma protecao de seguranca visivel detectada. O alvo nao apresentou sinais de WAF, CDN ou rate limiting nas amostras analisadas.",
+    "analysisTimestamp": "2026-03-24T12:59:06.118Z"
+  }
+}

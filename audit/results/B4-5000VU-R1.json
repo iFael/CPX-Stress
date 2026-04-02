@@ -1,0 +1,540 @@
+{
+  "id": "c7554337-0b78-46f6-b958-46218af57cfa",
+  "url": "http://localhost:8787/ok",
+  "config": {
+    "url": "http://localhost:8787/ok",
+    "virtualUsers": 5000,
+    "duration": 30,
+    "method": "GET",
+    "rampUp": 15
+  },
+  "startTime": "2026-03-24T12:17:24.605Z",
+  "endTime": "2026-03-24T12:17:55.334Z",
+  "durationSeconds": 30.73,
+  "totalRequests": 41655,
+  "totalErrors": 3342,
+  "rps": 1355.56,
+  "latency": {
+    "avg": 2588.27,
+    "min": 2.16,
+    "p50": 1599.76,
+    "p90": 8499.75,
+    "p95": 10040.82,
+    "p99": 12763.34,
+    "max": 13414.6
+  },
+  "errorRate": 8.02,
+  "throughputBytesPerSec": 1248049.5,
+  "totalBytes": 38351313,
+  "statusCodes": {
+    "200": 38313
+  },
+  "timeline": [
+    {
+      "timestamp": 1774354645636,
+      "second": 1,
+      "requests": 2303,
+      "errors": 0,
+      "latencyAvg": 61.51,
+      "latencyP50": 53.83,
+      "latencyP90": 97.25,
+      "latencyP95": 152.89,
+      "latencyP99": 233.67,
+      "latencyMax": 256.69,
+      "latencyMin": 3.58,
+      "statusCodes": {
+        "200": 2303
+      },
+      "bytesReceived": 2305303,
+      "activeUsers": 334
+    },
+    {
+      "timestamp": 1774354646661,
+      "second": 2,
+      "requests": 2992,
+      "errors": 0,
+      "latencyAvg": 151.29,
+      "latencyP50": 129.7,
+      "latencyP90": 183.07,
+      "latencyP95": 367.65,
+      "latencyP99": 539.81,
+      "latencyMax": 602.19,
+      "latencyMin": 2.75,
+      "statusCodes": {
+        "200": 2992
+      },
+      "bytesReceived": 2994992,
+      "activeUsers": 667
+    },
+    {
+      "timestamp": 1774354647701,
+      "second": 3,
+      "requests": 2434,
+      "errors": 0,
+      "latencyAvg": 292.26,
+      "latencyP50": 259.23,
+      "latencyP90": 295.03,
+      "latencyP95": 726.88,
+      "latencyP99": 924.53,
+      "latencyMax": 957.1,
+      "latencyMin": 8.78,
+      "statusCodes": {
+        "200": 2434
+      },
+      "bytesReceived": 2436434,
+      "activeUsers": 1000
+    },
+    {
+      "timestamp": 1774354648753,
+      "second": 4,
+      "requests": 2162,
+      "errors": 0,
+      "latencyAvg": 434.39,
+      "latencyP50": 373.56,
+      "latencyP90": 454.65,
+      "latencyP95": 1037.46,
+      "latencyP99": 1214.98,
+      "latencyMax": 1255.18,
+      "latencyMin": 13.59,
+      "statusCodes": {
+        "200": 2162
+      },
+      "bytesReceived": 2164162,
+      "activeUsers": 1334
+    },
+    {
+      "timestamp": 1774354649781,
+      "second": 5,
+      "requests": 1591,
+      "errors": 0,
+      "latencyAvg": 739.51,
+      "latencyP50": 715.93,
+      "latencyP90": 1372.17,
+      "latencyP95": 1618.8,
+      "latencyP99": 1754.09,
+      "latencyMax": 1756.52,
+      "latencyMin": 13.06,
+      "statusCodes": {
+        "200": 1591
+      },
+      "bytesReceived": 1592591,
+      "activeUsers": 1667
+    },
+    {
+      "timestamp": 1774354650890,
+      "second": 6,
+      "requests": 1904,
+      "errors": 0,
+      "latencyAvg": 907.72,
+      "latencyP50": 692.96,
+      "latencyP90": 1939.3,
+      "latencyP95": 2052.72,
+      "latencyP99": 2162.28,
+      "latencyMax": 2196.2,
+      "latencyMin": 7.8,
+      "statusCodes": {
+        "200": 1904
+      },
+      "bytesReceived": 1905904,
+      "activeUsers": 2000
+    },
+    {
+      "timestamp": 1774354652012,
+      "second": 7,
+      "requests": 1327,
+      "errors": 0,
+      "latencyAvg": 941.23,
+      "latencyP50": 886.61,
+      "latencyP90": 1087.91,
+      "latencyP95": 1089.87,
+      "latencyP99": 3038.08,
+      "latencyMax": 3043.78,
+      "latencyMin": 12.43,
+      "statusCodes": {
+        "200": 1327
+      },
+      "bytesReceived": 1328327,
+      "activeUsers": 2334
+    },
+    {
+      "timestamp": 1774354653179,
+      "second": 8,
+      "requests": 1449,
+      "errors": 0,
+      "latencyAvg": 1675,
+      "latencyP50": 1466.47,
+      "latencyP90": 2832.96,
+      "latencyP95": 2990.32,
+      "latencyP99": 3147.06,
+      "latencyMax": 3195.24,
+      "latencyMin": 4.97,
+      "statusCodes": {
+        "200": 1449
+      },
+      "bytesReceived": 1450449,
+      "activeUsers": 2667
+    },
+    {
+      "timestamp": 1774354654229,
+      "second": 9,
+      "requests": 727,
+      "errors": 0,
+      "latencyAvg": 2592.93,
+      "latencyP50": 2042.52,
+      "latencyP90": 4123.64,
+      "latencyP95": 4169.06,
+      "latencyP99": 4186.21,
+      "latencyMax": 4188.62,
+      "latencyMin": 12.83,
+      "statusCodes": {
+        "200": 727
+      },
+      "bytesReceived": 727727,
+      "activeUsers": 3000
+    },
+    {
+      "timestamp": 1774354655759,
+      "second": 10,
+      "requests": 1405,
+      "errors": 0,
+      "latencyAvg": 2087.26,
+      "latencyP50": 1875.34,
+      "latencyP90": 2001.95,
+      "latencyP95": 4488.6,
+      "latencyP99": 4538.43,
+      "latencyMax": 4586.67,
+      "latencyMin": 4.98,
+      "statusCodes": {
+        "200": 1405
+      },
+      "bytesReceived": 1406405,
+      "activeUsers": 3334
+    },
+    {
+      "timestamp": 1774354656833,
+      "second": 11,
+      "requests": 1414,
+      "errors": 0,
+      "latencyAvg": 2566.56,
+      "latencyP50": 2291.63,
+      "latencyP90": 4757.81,
+      "latencyP95": 4945.59,
+      "latencyP99": 4994.63,
+      "latencyMax": 5025.06,
+      "latencyMin": 9.08,
+      "statusCodes": {
+        "200": 1414
+      },
+      "bytesReceived": 1415414,
+      "activeUsers": 3667
+    },
+    {
+      "timestamp": 1774354658611,
+      "second": 12,
+      "requests": 832,
+      "errors": 0,
+      "latencyAvg": 2777.93,
+      "latencyP50": 2490.87,
+      "latencyP90": 2614,
+      "latencyP95": 6349.96,
+      "latencyP99": 6357.01,
+      "latencyMax": 6358.04,
+      "latencyMin": 25.01,
+      "statusCodes": {
+        "200": 832
+      },
+      "bytesReceived": 832832,
+      "activeUsers": 4000
+    },
+    {
+      "timestamp": 1774354659633,
+      "second": 13,
+      "requests": 1124,
+      "errors": 0,
+      "latencyAvg": 4656.61,
+      "latencyP50": 3437.8,
+      "latencyP90": 6923.09,
+      "latencyP95": 6942.91,
+      "latencyP99": 7001.77,
+      "latencyMax": 7003.46,
+      "latencyMin": 2.16,
+      "statusCodes": {
+        "200": 1124
+      },
+      "bytesReceived": 1125124,
+      "activeUsers": 4334
+    },
+    {
+      "timestamp": 1774354660670,
+      "second": 14,
+      "requests": 1293,
+      "errors": 0,
+      "latencyAvg": 3410.2,
+      "latencyP50": 3437.94,
+      "latencyP90": 3501.66,
+      "latencyP95": 3524.38,
+      "latencyP99": 3531.09,
+      "latencyMax": 3536.13,
+      "latencyMin": 3.56,
+      "statusCodes": {
+        "200": 1293
+      },
+      "bytesReceived": 1294293,
+      "activeUsers": 4667
+    },
+    {
+      "timestamp": 1774354662908,
+      "second": 15,
+      "requests": 303,
+      "errors": 0,
+      "latencyAvg": 3399.95,
+      "latencyP50": 3480.04,
+      "latencyP90": 3508.23,
+      "latencyP95": 3509.51,
+      "latencyP99": 3512.06,
+      "latencyMax": 3512.3,
+      "latencyMin": 88.35,
+      "statusCodes": {
+        "200": 303
+      },
+      "bytesReceived": 303303,
+      "activeUsers": 5000
+    },
+    {
+      "timestamp": 1774354663933,
+      "second": 16,
+      "requests": 1595,
+      "errors": 1433,
+      "latencyAvg": 10047.41,
+      "latencyP50": 10046,
+      "latencyP90": 10646.04,
+      "latencyP95": 10653.72,
+      "latencyP99": 10655.23,
+      "latencyMax": 10655.24,
+      "latencyMin": 3.66,
+      "statusCodes": {
+        "200": 162
+      },
+      "bytesReceived": 162162,
+      "activeUsers": 5000
+    },
+    {
+      "timestamp": 1774354665198,
+      "second": 17,
+      "requests": 1779,
+      "errors": 1314,
+      "latencyAvg": 9903.86,
+      "latencyP50": 9990.45,
+      "latencyP90": 10111.81,
+      "latencyP95": 10117.68,
+      "latencyP99": 10128.74,
+      "latencyMax": 10129.86,
+      "latencyMin": 29.21,
+      "statusCodes": {
+        "200": 465
+      },
+      "bytesReceived": 465465,
+      "activeUsers": 5000
+    },
+    {
+      "timestamp": 1774354668550,
+      "second": 18,
+      "requests": 240,
+      "errors": 1,
+      "latencyAvg": 8959.36,
+      "latencyP50": 10683.14,
+      "latencyP90": 11044.92,
+      "latencyP95": 11065.27,
+      "latencyP99": 11065.99,
+      "latencyMax": 11066.51,
+      "latencyMin": 2.64,
+      "statusCodes": {
+        "200": 239
+      },
+      "bytesReceived": 239239,
+      "activeUsers": 5000
+    },
+    {
+      "timestamp": 1774354669582,
+      "second": 19,
+      "requests": 1223,
+      "errors": 546,
+      "latencyAvg": 12472.01,
+      "latencyP50": 12764.87,
+      "latencyP90": 13396.56,
+      "latencyP95": 13410.66,
+      "latencyP99": 13414.28,
+      "latencyMax": 13414.6,
+      "latencyMin": 11.58,
+      "statusCodes": {
+        "200": 677
+      },
+      "bytesReceived": 677677,
+      "activeUsers": 5000
+    },
+    {
+      "timestamp": 1774354670599,
+      "second": 20,
+      "requests": 1349,
+      "errors": 48,
+      "latencyAvg": 7619.12,
+      "latencyP50": 10621.54,
+      "latencyP90": 11072.87,
+      "latencyP95": 11931.97,
+      "latencyP99": 11943.67,
+      "latencyMax": 11946.15,
+      "latencyMin": 6.88,
+      "statusCodes": {
+        "200": 1301
+      },
+      "bytesReceived": 1302301,
+      "activeUsers": 5000
+    },
+    {
+      "timestamp": 1774354671683,
+      "second": 21,
+      "requests": 1154,
+      "errors": 0,
+      "latencyAvg": 1569.03,
+      "latencyP50": 1589.7,
+      "latencyP90": 1674.64,
+      "latencyP95": 1701.43,
+      "latencyP99": 1707.82,
+      "latencyMax": 1708.67,
+      "latencyMin": 41.99,
+      "statusCodes": {
+        "200": 1154
+      },
+      "bytesReceived": 1155154,
+      "activeUsers": 5000
+    },
+    {
+      "timestamp": 1774354672723,
+      "second": 22,
+      "requests": 2057,
+      "errors": 0,
+      "latencyAvg": 8034.62,
+      "latencyP50": 8763.55,
+      "latencyP90": 8893.81,
+      "latencyP95": 8925.78,
+      "latencyP99": 8971.36,
+      "latencyMax": 8975.17,
+      "latencyMin": 6.64,
+      "statusCodes": {
+        "200": 2057
+      },
+      "bytesReceived": 2059057,
+      "activeUsers": 5000
+    },
+    {
+      "timestamp": 1774354673752,
+      "second": 23,
+      "requests": 2281,
+      "errors": 0,
+      "latencyAvg": 4655.81,
+      "latencyP50": 2609.33,
+      "latencyP90": 8298.92,
+      "latencyP95": 8305.48,
+      "latencyP99": 8357.8,
+      "latencyMax": 8364.3,
+      "latencyMin": 4.98,
+      "statusCodes": {
+        "200": 2281
+      },
+      "bytesReceived": 2283281,
+      "activeUsers": 5000
+    },
+    {
+      "timestamp": 1774354674764,
+      "second": 24,
+      "requests": 2827,
+      "errors": 0,
+      "latencyAvg": 1976.16,
+      "latencyP50": 1998.3,
+      "latencyP90": 2089.93,
+      "latencyP95": 2095.41,
+      "latencyP99": 2131.8,
+      "latencyMax": 2158.95,
+      "latencyMin": 4.29,
+      "statusCodes": {
+        "200": 2827
+      },
+      "bytesReceived": 2829827,
+      "activeUsers": 5000
+    },
+    {
+      "timestamp": 1774354675327,
+      "second": 25,
+      "requests": 3890,
+      "errors": 0,
+      "latencyAvg": 1962.04,
+      "latencyP50": 1417.42,
+      "latencyP90": 5788.16,
+      "latencyP95": 5882.26,
+      "latencyP99": 5949.97,
+      "latencyMax": 5964.23,
+      "latencyMin": 723.23,
+      "statusCodes": {
+        "200": 3890
+      },
+      "bytesReceived": 3893890,
+      "activeUsers": 5000
+    }
+  ],
+  "status": "completed",
+  "protectionReport": {
+    "detections": [
+      {
+        "type": "rate-limiter",
+        "provider": "unknown",
+        "confidence": 60,
+        "confidenceLevel": "medium",
+        "indicators": [
+          {
+            "source": "behavior",
+            "name": "throttling",
+            "value": "Latencia media: 650ms -> 6350ms",
+            "detail": "Throttling detectado: latencia aumentou 9.8x durante o teste"
+          }
+        ],
+        "description": "Throttling detectado: latencia aumentou 9.8x durante o teste"
+      },
+      {
+        "type": "waf",
+        "provider": "unknown",
+        "confidence": 60,
+        "confidenceLevel": "medium",
+        "indicators": [
+          {
+            "source": "behavior",
+            "name": "blocking",
+            "value": "Error rate saltou de <20% para >50% em 1 segundo",
+            "detail": "Bloqueio detectado a partir do segundo 16: taxa de erro subiu abruptamente acima de 50%"
+          }
+        ],
+        "description": "Bloqueio detectado a partir do segundo 16: taxa de erro subiu abruptamente acima de 50%"
+      }
+    ],
+    "rateLimitInfo": {
+      "detected": false,
+      "recoveryPattern": "Parcialmente recuperavel -- taxa de erro diminui apos pico"
+    },
+    "behavioralPatterns": [
+      {
+        "type": "throttling",
+        "description": "Throttling detectado: latencia aumentou 9.8x durante o teste",
+        "startSecond": 8,
+        "evidence": "Latencia media: 650ms -> 6350ms"
+      },
+      {
+        "type": "blocking",
+        "description": "Bloqueio detectado a partir do segundo 16: taxa de erro subiu abruptamente acima de 50%",
+        "startSecond": 16,
+        "evidence": "Error rate saltou de <20% para >50% em 1 segundo"
+      }
+    ],
+    "overallRisk": "critical",
+    "summary": "Tipos de protecao: Rate Limiting, WAF. Padroes comportamentais: Throttling detectado: latencia aumentou 9.8x durante o teste; Bloqueio detectado a partir do segundo 16: taxa de erro subiu abruptamente acima de 50%.",
+    "analysisTimestamp": "2026-03-24T12:17:55.342Z"
+  }
+}

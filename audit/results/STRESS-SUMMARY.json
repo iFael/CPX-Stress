@@ -1,0 +1,36 @@
+{
+  "timestamp": "2026-03-24T12:17:55.358Z",
+  "verdict": "REJECTED",
+  "totals": {
+    "passed": 42,
+    "failed": 4,
+    "warned": 3,
+    "total": 49
+  },
+  "failures": [
+    {
+      "id": "B1-500VU:CMP-03",
+      "description": "Variação P99 entre repetições <= 25%",
+      "status": "FAIL",
+      "detail": "P99=[362.51, 197.80], maxVar=29.4%"
+    },
+    {
+      "id": "B1-500VU:SAT-01",
+      "description": "RPS steady-state CV <= 30%",
+      "status": "FAIL",
+      "detail": "avg=3171, CV=37.8%"
+    },
+    {
+      "id": "B3-3000VU:SAT-01",
+      "description": "RPS steady-state CV <= 30%",
+      "status": "FAIL",
+      "detail": "avg=1795, CV=31.2%"
+    },
+    {
+      "id": "B4-5000VU:SAT-01",
+      "description": "RPS steady-state CV <= 30%",
+      "status": "FAIL",
+      "detail": "avg=1133, CV=40.3%"
+    }
+  ]
+}

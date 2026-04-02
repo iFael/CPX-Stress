@@ -1,0 +1,57 @@
+{
+  "timestamp": "2026-03-24T13:00:44.304Z",
+  "verdict": "APPROVED",
+  "totals": {
+    "passed": 197,
+    "failed": 0,
+    "warned": 5,
+    "total": 202
+  },
+  "scenarios": [
+    {
+      "name": "A1-Baseline",
+      "passed": 34,
+      "failed": 0,
+      "warned": 1
+    },
+    {
+      "name": "A2-RampUp",
+      "passed": 32,
+      "failed": 0,
+      "warned": 1
+    },
+    {
+      "name": "A3-ErrorsMixed",
+      "passed": 33,
+      "failed": 0,
+      "warned": 1
+    },
+    {
+      "name": "A4-RateLimited",
+      "passed": 32,
+      "failed": 0,
+      "warned": 1
+    },
+    {
+      "name": "A5-VariableLatency",
+      "passed": 33,
+      "failed": 0,
+      "warned": 0
+    },
+    {
+      "name": "A6-HighLoad",
+      "passed": 31,
+      "failed": 0,
+      "warned": 1
+    }
+  ],
+  "failures": [],
+  "securityFindings": [
+    "FIXED: validateTargetHost() now called in engine.run()"
+  ],
+  "duplicationFindings": [
+    "Health score: 3 identical implementations",
+    "httpErrorRate: 3 identical implementations",
+    "FIXED: formatMs normalized across PDF and UI"
+  ]
+}
