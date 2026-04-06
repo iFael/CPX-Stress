@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useTestStore } from "@/stores/test-store";
 import { InfoTooltip } from "@/components/InfoTooltip";
+import { CredentialAlert } from "@/components/CredentialAlert";
 import type { ProgressData } from "@/types";
 import {
   MISTERT_OPERATION_COUNT,
@@ -68,6 +69,7 @@ export function TestConfig() {
   const addToHistory = useTestStore((s) => s.addToHistory);
   const error = useTestStore((s) => s.error);
   const setError = useTestStore((s) => s.setError);
+  const credentialStatus = useTestStore((s) => s.credentialStatus);
 
   /* ---- Estado local do formulario ---- */
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -85,6 +87,11 @@ export function TestConfig() {
   useEffect(() => setUsersStr(String(config.virtualUsers)), [config.virtualUsers]);
   useEffect(() => setDurationStr(String(config.duration)), [config.duration]);
   useEffect(() => setRampUpStr(String(config.rampUp || 0)), [config.rampUp]);
+
+  // Mostrar alerta quando credenciais foram verificadas e alguma esta ausente
+  const showCredentialAlert =
+    credentialStatus !== null &&
+    (!credentialStatus.STRESSFLOW_USER || !credentialStatus.STRESSFLOW_PASS);
 
   // Detectar a URL base atual a partir das operações
   const currentBaseUrl =
@@ -421,6 +428,9 @@ export function TestConfig() {
           </div>
         )}
       </div>
+
+      {/* ---- ALERTA DE CREDENCIAIS AUSENTES ---- */}
+      {showCredentialAlert && <CredentialAlert />}
 
       {/* ---- MENSAGEM DE ERRO GLOBAL ---- */}
       {error && (

@@ -23,6 +23,7 @@ import { TestConfig } from "@/components/TestConfig";
 import { TestProgress } from "@/components/TestProgress";
 import { TestResults } from "@/components/TestResults";
 import { HistoryPanel } from "@/components/HistoryPanel";
+import { CredentialsSettings } from "@/components/CredentialsSettings";
 import { ToastProvider } from "@/components/Toast";
 import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 import type { AppView, TestStatus } from "@/types";
@@ -80,6 +81,26 @@ export default function App() {
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
+
+  /**
+   * Verifica o status das credenciais MisterT ao iniciar o aplicativo.
+   * O resultado (mapa booleano) e armazenado no Zustand store para que
+   * o banner de alerta em TestConfig saiba se deve ser exibido.
+   */
+  const setCredentialStatus = useTestStore((s) => s.setCredentialStatus);
+
+  const checkCredentials = useCallback(async () => {
+    try {
+      const status = await window.stressflow.credentials.status();
+      setCredentialStatus(status);
+    } catch (err) {
+      console.warn("[StressFlow] Nao foi possivel verificar credenciais:", err);
+    }
+  }, [setCredentialStatus]);
+
+  useEffect(() => {
+    checkCredentials();
+  }, [checkCredentials]);
 
   return (
     <ErrorBoundary>
@@ -149,6 +170,11 @@ const MainContent = memo(function MainContent({
         <p className="text-sm text-sf-textSecondary">Carregando dados...</p>
       </div>
     );
+  }
+
+  /* ---- Pagina: Configuracoes de credenciais e ambiente ---- */
+  if (view === "settings") {
+    return <CredentialsSettings />;
   }
 
   /* ---- Página: Histórico de testes anteriores ---- */
