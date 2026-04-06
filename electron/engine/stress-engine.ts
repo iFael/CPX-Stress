@@ -465,6 +465,7 @@ export class StressEngine {
     string,
     {
       latencies: number[];
+      latencySampleCount: number;
       requests: number;
       errors: number;
       statusCodes: Record<string, number>;
@@ -623,6 +624,7 @@ export class StressEngine {
     for (const op of operations) {
       this.opMetrics.set(op.name, {
         latencies: [],
+        latencySampleCount: 0,
         requests: 0,
         errors: 0,
         statusCodes: {},
@@ -762,7 +764,15 @@ export class StressEngine {
       // Métricas por operação
       const opMet = this.opMetrics.get(operationName);
       if (opMet) {
-        opMet.latencies.push(latency);
+        opMet.latencySampleCount++;
+        if (opMet.latencies.length < RESERVOIR_MAX) {
+          opMet.latencies.push(latency);
+        } else {
+          const j = Math.floor(Math.random() * opMet.latencySampleCount);
+          if (j < RESERVOIR_MAX) {
+            opMet.latencies[j] = latency;
+          }
+        }
         opMet.requests++;
         opMet.statusCodes[code] = (opMet.statusCodes[code] || 0) + 1;
 
