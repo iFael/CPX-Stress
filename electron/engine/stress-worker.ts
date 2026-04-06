@@ -493,21 +493,43 @@ async function runVU(delay: number): Promise<void> {
   const authOps = config.operations.slice(0, authBoundary);
   const moduleOps = config.operations.slice(authBoundary);
 
-  while (Date.now() < config.endTime && !signal.aborted) {
-    // Fase 1: Executar cadeia de autenticação sequencialmente
-    for (const op of authOps) {
-      await executeOp(op);
-    }
+  // Fase de autenticação inicial — executa UMA VEZ por VU
+  for (const op of authOps) {
+    await executeOp(op);
+  }
 
+  // Determinar pathname da página de login para detecção de expiração de sessão
+  const loginPathname = authOps.length > 0
+    ? new URL(authOps[0].url).pathname.toLowerCase()
+    : null;
+
+  // Loop principal — apenas operações de módulo
+  while (Date.now() < config.endTime && !signal.aborted) {
     if (moduleOps.length === 0) {
-      // Sem módulos — apenas loop de autenticação
+      // Modo single-op ou auth-only: mantém comportamento original
+      for (const op of authOps) {
+        await executeOp(op);
+      }
       continue;
     }
 
-    // Fase 2: Selecionar módulo aleatório do pool de operações pós-autenticação
     const randomModule =
       moduleOps[Math.floor(Math.random() * moduleOps.length)];
-    await executeOp(randomModule);
+    const finalUrl = await executeOp(randomModule);
+
+    // Detecção de expiração de sessão
+    const sessionExpired =
+      loginPathname !== null &&
+      finalUrl !== undefined &&
+      finalUrl.pathname.toLowerCase() === loginPathname;
+
+    if (sessionExpired) {
+      cookieJar.clear();
+      extractedVars.clear();
+      for (const op of authOps) {
+        await executeOp(op);
+      }
+    }
   }
 }
 

@@ -1170,22 +1170,47 @@ export class StressEngine {
     const authOps = opts.operations.slice(0, authBoundary);
     const moduleOps = opts.operations.slice(authBoundary);
 
-    while (Date.now() < opts.endTime && !opts.signal.aborted) {
-      // Fase 1: Executar cadeia de autenticação sequencialmente
-      for (const op of authOps) {
-        await executeOp(op);
-      }
+    // Fase de autenticação inicial — executa UMA VEZ por VU, não a cada iteração
+    for (const op of authOps) {
+      await executeOp(op);
+    }
 
+    // Determinar pathname da página de login para detecção de expiração de sessão
+    // Quando um módulo retorna redirect para esta pathname, a sessão expirou
+    const loginPathname = authOps.length > 0
+      ? new URL(authOps[0].url).pathname.toLowerCase()
+      : null;
+
+    // Loop principal — apenas operações de módulo (sem re-autenticação desnecessária)
+    while (Date.now() < opts.endTime && !opts.signal.aborted) {
       if (moduleOps.length === 0) {
-        // Sem módulos — apenas loop de autenticação (teste single-op ou sem GET pós-auth)
+        // Modo single-op ou auth-only: mantém comportamento original
+        // (sem módulos, o loop continua executando authOps)
+        for (const op of authOps) {
+          await executeOp(op);
+        }
         continue;
       }
 
-      // Fase 2: Selecionar módulo aleatório do pool de operações pós-autenticação
-      // Isso garante cobertura uniforme de todos os módulos, mesmo em testes curtos
       const randomModule =
         moduleOps[Math.floor(Math.random() * moduleOps.length)];
-      await executeOp(randomModule);
+      const finalUrl = await executeOp(randomModule);
+
+      // Detecção de expiração de sessão: módulo retornou redirect para a página de login
+      const sessionExpired =
+        loginPathname !== null &&
+        finalUrl !== undefined &&
+        finalUrl.pathname.toLowerCase() === loginPathname;
+
+      if (sessionExpired) {
+        // Limpar estado de sessão antiga antes de re-autenticar
+        cookieJar.clear();
+        extractedVars.clear();
+        // Re-autenticar: executar a cadeia de auth sequencialmente
+        for (const op of authOps) {
+          await executeOp(op);
+        }
+      }
     }
   }
 
