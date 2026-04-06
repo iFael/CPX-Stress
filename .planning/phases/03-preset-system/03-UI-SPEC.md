@@ -34,7 +34,7 @@ Declared values (must be multiples of 4):
 | Token | Value | Usage in this phase |
 |-------|-------|---------------------|
 | xs | 4px | Icon-to-text gap inside buttons, badge internal padding |
-| sm | 8px | Gap between card metadata items, gap between action icon buttons |
+| sm | 8px | Gap between card metadata items, gap between action icon buttons, button vertical padding, badge vertical padding, icon button padding |
 | md | 16px | Card internal padding, modal body padding (px-4), grid gap between cards |
 | lg | 24px | Modal section spacing (gap between header/grid/footer) |
 | xl | 32px | Modal outer padding (px-8 pt-10 pb-8 matches WelcomeOverlay) |
@@ -52,11 +52,11 @@ Exceptions: none
 | Role | Size | Weight | Line Height | Tailwind Classes |
 |------|------|--------|-------------|------------------|
 | Body | 14px | 400 (regular) | 1.5 | `text-sm text-sf-text` |
-| Label | 14px | 500 (medium) | 1.5 | `text-sm font-medium text-sf-textSecondary` |
+| Label | 14px | 600 (semibold) | 1.5 | `text-sm font-semibold text-sf-textSecondary` |
 | Heading | 18px | 600 (semibold) | 1.28 | `text-lg font-semibold text-sf-text` |
-| Small | 12px | 500 (medium) | 1.33 | `text-xs font-medium text-sf-textMuted` |
+| Small | 12px | 600 (semibold) | 1.33 | `text-xs font-semibold text-sf-textMuted` |
 
-**Source:** Existing component patterns. TestConfig uses `text-sm` for body/labels, `text-lg font-semibold` for the title heading, `text-xs text-sf-textMuted` for help text. WelcomeOverlay uses `text-2xl font-bold` but that level is not needed in preset UI. Badge text uses existing `text-2xs` (10px) or `text-xs` (12px).
+**Source:** Existing component patterns. TestConfig uses `text-sm` for body/labels, `text-lg font-semibold` for the title heading, `text-xs text-sf-textMuted` for help text. WelcomeOverlay uses `text-2xl font-bold` but that level is not needed in preset UI. Badge text uses existing `text-2xs` (10px) or `text-xs` (12px). Only two weights allowed: 400 (regular) for body text, 600 (semibold) for all emphasis including labels, headings, small metadata, and badges.
 
 ---
 
@@ -66,12 +66,12 @@ Exceptions: none
 |------|-------|-----|---------------------|
 | Dominant (60%) | `sf-bg` | #0f1117 | Modal backdrop area behind overlay, page background |
 | Secondary (30%) | `sf-surface` | #1a1d27 | Modal panel background, preset card backgrounds, input fields |
-| Accent (10%) | `sf-primary` | #6366f1 | "Carregar" CTA on cards, "Salvar" CTA in dialogs, active state ring on loaded preset card, focus rings, "Presets" button hover tint |
+| Accent (10%) | `sf-primary` | #6366f1 | "Carregar Preset" CTA on cards, "Salvar Preset" CTA in dialogs, active state ring on loaded preset card, focus rings, "Presets" button hover tint |
 | Destructive | `sf-danger` | #ef4444 | Delete icon button on user cards, delete confirmation CTA background |
 
 Accent (`sf-primary` #6366f1) reserved for:
-1. "Carregar" button on each preset card (primary action)
-2. "Salvar" / "Atualizar" CTA in save dialog
+1. "Carregar Preset" button on each preset card (primary action)
+2. "Salvar Preset" / "Atualizar" CTA in save dialog
 3. Active/loaded preset card left border or ring indicator
 4. Focus-visible ring on all interactive elements
 5. Built-in badge background tint (`bg-sf-primary/10 text-sf-primary`)
@@ -136,7 +136,7 @@ Additional semantic colors used:
 
 | Property | Value |
 |----------|-------|
-| Trigger | Click "Carregar" button on any preset card |
+| Trigger | Click "Carregar Preset" button on any preset card |
 | Behavior | (1) Close modal with animation. (2) Replace `config` in Zustand store with the preset's `config_json`. (3) If built-in, apply URL base replacement using current environment selector value. (4) Set `activePreset` in store. (5) Show toast success. |
 | Toast | `toast.success("Preset '{name}' carregado")` |
 | Loading state | Button shows `Loader2` spinner during IPC round-trip (debounce not needed; IPC is fast) |
@@ -146,8 +146,8 @@ Additional semantic colors used:
 | Property | Value |
 |----------|-------|
 | Trigger | Click "Salvar Preset" button in TestConfig toolbar |
-| Behavior — no active preset or built-in active | Open SavePresetDialog with empty name field, CTA "Salvar" |
-| Behavior — user preset active | Open SavePresetDialog with two options: "Atualizar {name}" (overwrites) and "Salvar Como Novo" (prompts name) |
+| Behavior -- no active preset or built-in active | Open SavePresetDialog with empty name field, CTA "Salvar Preset" |
+| Behavior -- user preset active | Open SavePresetDialog with two options: "Atualizar {name}" (overwrites) and "Salvar Como Novo" (prompts name) |
 | Validation | Name is required. Name must be unique (check against existing presets). If duplicate, show inline error below input: "Ja existe um preset com este nome". |
 | Toast | `toast.success("Preset '{name}' salvo com sucesso")` |
 | Error | `toast.error("Nao foi possivel salvar o preset")` |
@@ -157,7 +157,7 @@ Additional semantic colors used:
 | Property | Value |
 |----------|-------|
 | Trigger | Click rename icon (Pencil icon from lucide-react) on a user-created preset card |
-| Behavior | Small dialog/popover with current name pre-filled in input, CTA "Renomear" |
+| Behavior | Small dialog/popover with current name pre-filled in input, CTA "Renomear Preset" |
 | Validation | Same as save: required, unique name |
 | Toast | `toast.success("Preset renomeado para '{name}'")` |
 | Restriction | Not available on built-in preset cards |
@@ -167,7 +167,7 @@ Additional semantic colors used:
 | Property | Value |
 |----------|-------|
 | Trigger | Click delete icon (Trash2 from lucide-react) on a user-created preset card |
-| Confirmation | Inline confirmation replaces the card actions area: "Excluir?" with two buttons — "Confirmar" (sf-danger) and "Cancelar" (sf-textMuted). No separate modal. |
+| Confirmation | Inline confirmation replaces the card actions area: "Excluir este preset?" with two buttons -- "Confirmar Exclusao" (sf-danger) and "Manter Preset" (sf-textMuted). No separate modal. |
 | Behavior | On confirm: (1) Delete via IPC. (2) Remove card with exit animation. (3) If deleted preset was active, clear `activePreset`. (4) Show toast. |
 | Toast | `toast.success("Preset '{name}' excluido")` |
 | Restriction | Not available on built-in preset cards |
@@ -177,6 +177,8 @@ Additional semantic colors used:
 ## Layout Contract
 
 ### Modal Panel
+
+**Focal point:** The preset card grid is the modal's focal point. On open, the first card in the grid receives visual prominence via its position at top-left and the staggered entry animation draws the eye there.
 
 ```
 +----------------------------------------------------------+
@@ -190,7 +192,7 @@ Additional semantic colors used:
 |  | MisterT Completo       |  | 5 operacoes | 50 VUs   |  |
 |  | 10 operacoes | -- VUs  |  | 120s                   |  |
 |  | --s                    |  |                         |  |
-|  |        [Carregar]      |  | [Carregar] [E] [X]     |  |  <- Built-in: only load
+|  |   [Carregar Preset]    |  |[Carregar Preset][E][X]  |  |  <- Built-in: only load
 |  +------------------------+  +------------------------+  |     User: load + rename + delete
 |                                                           |
 |  +------------------------+  +------------------------+  |
@@ -198,13 +200,13 @@ Additional semantic colors used:
 |  | 3 operacoes | 100 VUs  |  |  (empty slot or more    |  |
 |  | 300s                   |  |   preset cards)         |  |
 |  |                         |  |                         |  |
-|  | [Carregar] [E] [X]     |  |                         |  |
+|  |[Carregar Preset][E][X]  |  |                         |  |
 |  +------------------------+  +------------------------+  |
 |                                                           |
 +----------------------------------------------------------+
 ```
 
-- Modal max-width: `max-w-2xl` (672px) — wider than WelcomeOverlay's `max-w-lg` to accommodate 2-column grid
+- Modal max-width: `max-w-2xl` (672px) -- wider than WelcomeOverlay's `max-w-lg` to accommodate 2-column grid
 - Modal border-radius: `rounded-2xl` (matches WelcomeOverlay)
 - Grid: `grid grid-cols-2 gap-4` on large viewports; `grid-cols-1` on narrow windows (<640px)
 - Modal max-height: `max-h-[80vh]` with `overflow-y-auto sf-scrollbar-thin` on the card grid area
@@ -220,16 +222,16 @@ Additional semantic colors used:
 |                                           |
 |  10 operacoes  |  100 VUs  |  120s        |  <- text-xs text-sf-textMuted, pipe-separated
 |                                           |
-|  [Carregar]  [Rename icon] [Delete icon]  |  <- Action row at bottom
+|  [Carregar Preset] [Rename] [Delete]      |  <- Action row at bottom
 +-------------------------------------------+
 ```
 
 - Card uses `sf-card-interactive` utility class (existing)
 - Card padding: `p-4` (16px)
-- Built-in badge: `text-2xs font-bold uppercase tracking-wider bg-sf-primary/10 text-sf-primary px-2 py-0.5 rounded-md`
+- Built-in badge: `text-2xs font-semibold uppercase tracking-wider bg-sf-primary/10 text-sf-primary px-2 py-1 rounded-md`
 - Active preset indicator: `ring-2 ring-sf-primary/40 border-sf-primary` on the currently loaded card
-- "Carregar" button: `bg-sf-primary hover:bg-sf-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded-lg`
-- Rename/Delete icon buttons: `p-1.5 rounded-md text-sf-textMuted hover:text-sf-textSecondary hover:bg-sf-surfaceHover` (matches WelcomeOverlay close button pattern)
+- "Carregar Preset" button: `bg-sf-primary hover:bg-sf-primaryHover text-white text-xs font-semibold px-3 py-2 rounded-lg`
+- Rename/Delete icon buttons: `p-2 rounded-md text-sf-textMuted hover:text-sf-textSecondary hover:bg-sf-surfaceHover` (matches WelcomeOverlay close button pattern)
 
 ### TestConfig Toolbar (new row)
 
@@ -251,8 +253,8 @@ Additional semantic colors used:
 
 - Reuses the same modal overlay pattern but smaller: `max-w-sm` (384px)
 - Single input field for preset name using existing `inputBaseClass`
-- When updating active preset: two CTAs side by side — "Atualizar {name}" (primary) and "Salvar Como Novo" (secondary/outline)
-- When new save: single CTA "Salvar" (primary)
+- When updating active preset: two CTAs side by side -- "Atualizar {name}" (primary) and "Salvar Como Novo" (secondary/outline)
+- When new save: single CTA "Salvar Preset" (primary)
 - Cancel via backdrop click, X button, or Escape (same as PresetModal)
 
 ---
@@ -280,20 +282,20 @@ All text in Brazilian Portuguese (pt-BR) per project constraint.
 | "Save" button label (TestConfig) | Salvar Preset |
 | Built-in badge | Built-in |
 | Built-in preset name | MisterT Completo |
-| Card "Load" CTA | Carregar |
+| Card "Load" CTA | Carregar Preset |
 | Card metadata format | {N} operacoes \| {N} VUs \| {N}s |
 | Save dialog heading (new) | Salvar Preset |
 | Save dialog heading (update) | Atualizar Preset |
 | Save dialog name label | Nome do preset |
 | Save dialog name placeholder | Ex: MisterT - Apenas Estoque |
-| Save dialog CTA (new) | Salvar |
+| Save dialog CTA (new) | Salvar Preset |
 | Save dialog CTA (update) | Atualizar {name} |
 | Save dialog CTA (save as) | Salvar Como Novo |
 | Rename dialog heading | Renomear Preset |
-| Rename dialog CTA | Renomear |
+| Rename dialog CTA | Renomear Preset |
 | Delete inline confirm | Excluir este preset? |
-| Delete confirm CTA | Confirmar |
-| Delete cancel CTA | Cancelar |
+| Delete confirm CTA | Confirmar Exclusao |
+| Delete cancel CTA | Manter Preset |
 | Validation: empty name | Informe um nome para o preset |
 | Validation: duplicate name | Ja existe um preset com este nome |
 | Toast: load success | Preset '{name}' carregado |
