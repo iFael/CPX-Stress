@@ -1086,7 +1086,7 @@ export class StressEngine {
     const extractedVars = new Map<string, string>();
 
     // Helper: executa uma única operação (reutilizado nos modos sequencial e aleatório)
-    const executeOp = async (op: TestOperation): Promise<void> => {
+    const executeOp = async (op: TestOperation): Promise<URL | undefined> => {
       if (Date.now() >= opts.endTime || opts.signal.aborted) return;
 
       const resolvedUrl = this.resolveExtractVars(op.url, extractedVars);
@@ -1145,6 +1145,7 @@ export class StressEngine {
           op.captureSession !== false,
           result.sample,
         );
+        return result.finalUrl;
       } catch (err) {
         if (!opts.signal.aborted) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -1217,7 +1218,7 @@ export class StressEngine {
     return resolved;
   }
 
-  private makeRequest(
+  private makeSingleRequest(
     opts: {
       url: URL;
       isHttps: boolean;
@@ -1237,6 +1238,7 @@ export class StressEngine {
     bytes: number;
     sample?: ResponseSample;
     bodyText?: string;
+    locationHeader?: string;
   }> {
     return new Promise((resolve, reject) => {
       if (opts.signal.aborted) {
@@ -1365,7 +1367,10 @@ export class StressEngine {
             };
           }
 
-          resolve({ statusCode: res.statusCode ?? 0, bytes, sample, bodyText });
+          const locationHeader = typeof res.headers['location'] === 'string'
+            ? res.headers['location']
+            : undefined;
+          resolve({ statusCode: res.statusCode ?? 0, bytes, sample, bodyText, locationHeader });
         });
         res.on("error", (err) => {
           cleanup();
@@ -1388,6 +1393,95 @@ export class StressEngine {
       }
       req.end();
     });
+  }
+
+  /**
+   * Executa uma requisição HTTP seguindo até MAX_REDIRECT_HOPS redirects.
+   * Captura cookies em cada hop intermediário (essencial para ASP Classic que
+   * envia Set-Cookie no 302) e retorna a URL final após todos os redirects.
+   */
+  private async makeRequest(
+    opts: {
+      url: URL;
+      isHttps: boolean;
+      agent: http.Agent | https.Agent;
+      signal: AbortSignal;
+      method: string;
+      headers?: Record<string, string>;
+      body?: string;
+      cookieJar: CookieJar;
+      captureSession: boolean;
+      collectBody: boolean;
+    },
+    captureSample: boolean = false,
+  ): Promise<{
+    statusCode: number;
+    bytes: number;
+    sample?: ResponseSample;
+    bodyText?: string;
+    finalUrl: URL;
+  }> {
+    const MAX_REDIRECT_HOPS = 5;
+    let currentUrl = opts.url;
+    let currentIsHttps = opts.isHttps;
+    let currentMethod = opts.method;
+    let currentBody = opts.body;
+
+    // Selecionar agente correto por protocolo (pode mudar entre hops se scheme mudar)
+    const selectAgent = (isHttps: boolean): http.Agent | https.Agent =>
+      isHttps ? this.activeAgents.https! : this.activeAgents.http!;
+
+    let lastResult: Awaited<ReturnType<typeof this.makeSingleRequest>> | null = null;
+
+    for (let hop = 0; hop <= MAX_REDIRECT_HOPS; hop++) {
+      const isLastHop = hop === MAX_REDIRECT_HOPS;
+      lastResult = await this.makeSingleRequest(
+        {
+          ...opts,
+          url: currentUrl,
+          isHttps: currentIsHttps,
+          method: currentMethod,
+          body: currentBody,
+          agent: selectAgent(currentIsHttps),
+          // Coletar body em todos os hops — corpo de redirects é tipicamente vazio
+          collectBody: opts.collectBody,
+        },
+        captureSample,
+      );
+
+      const { statusCode, locationHeader } = lastResult;
+      const isRedirect = this.isRedirectStatus(statusCode);
+
+      if (!isRedirect || !locationHeader || isLastHop) {
+        break;
+      }
+
+      // Resolver URL relativa ou absoluta contra a URL atual
+      const redirectUrl = new URL(locationHeader, currentUrl.toString());
+
+      // RFC 7231: 302 e 303 sempre mudam para GET e descartam o body
+      if (statusCode === 302 || statusCode === 303) {
+        currentMethod = 'GET';
+        currentBody = undefined;
+      }
+      // 307 e 308: preservar método e body originais
+
+      currentUrl = redirectUrl;
+      currentIsHttps = redirectUrl.protocol === 'https:';
+    }
+
+    return {
+      statusCode: lastResult!.statusCode,
+      bytes: lastResult!.bytes,
+      sample: lastResult!.sample,
+      bodyText: lastResult!.bodyText,
+      finalUrl: currentUrl,
+    };
+  }
+
+  /** Verifica se o status HTTP é um redirect (3xx, exceto 304 Not Modified). */
+  private isRedirectStatus(statusCode: number): boolean {
+    return statusCode >= 300 && statusCode <= 308 && statusCode !== 304;
   }
 
   /** Classifica o tipo de erro baseado na mensagem. */

@@ -123,7 +123,7 @@ const batchTimer = setInterval(() => {
 // Execução de requisições HTTP
 // ---------------------------------------------------------------------------
 
-function makeRequest(
+function makeSingleRequest(
   opts: {
     url: URL;
     isHttps: boolean;
@@ -135,7 +135,7 @@ function makeRequest(
     collectBody: boolean;
   },
   captureSample: boolean,
-): Promise<{ statusCode: number; bytes: number; sample?: ResponseSample; bodyText?: string }> {
+): Promise<{ statusCode: number; bytes: number; sample?: ResponseSample; bodyText?: string; locationHeader?: string }> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) {
       reject(new Error("Cancelled"));
@@ -144,7 +144,7 @@ function makeRequest(
 
     const mod = opts.isHttps ? https : http;
     const mergedHeaders: Record<string, string> = {
-      "User-Agent": "StressFlow/1.0",
+      "User-Agent": "CPX-MisterT-Stress/1.0",
       Accept: "*/*",
       ...opts.headers,
     };
@@ -252,7 +252,10 @@ function makeRequest(
         const bodyText = needExtractBody && extractChunks.length > 0
           ? Buffer.concat(extractChunks).toString("utf-8")
           : undefined;
-        resolve({ statusCode: res.statusCode ?? 0, bytes, sample, bodyText });
+        const locationHeader = typeof res.headers['location'] === 'string'
+          ? res.headers['location']
+          : undefined;
+        resolve({ statusCode: res.statusCode ?? 0, bytes, sample, bodyText, locationHeader });
       });
 
       res.on("error", (err) => {
@@ -276,6 +279,86 @@ function makeRequest(
     }
     req.end();
   });
+}
+
+// ---------------------------------------------------------------------------
+// Redirect following — wrapper que segue até 5 redirects 3xx
+// ---------------------------------------------------------------------------
+
+function isRedirectStatus(statusCode: number): boolean {
+  return statusCode >= 300 && statusCode <= 308 && statusCode !== 304;
+}
+
+async function makeRequest(
+  opts: {
+    url: URL;
+    isHttps: boolean;
+    method: string;
+    headers?: Record<string, string>;
+    body?: string;
+    cookieJar: CookieJar;
+    captureSession: boolean;
+    collectBody: boolean;
+  },
+  captureSample: boolean,
+): Promise<{
+  statusCode: number;
+  bytes: number;
+  sample?: ResponseSample;
+  bodyText?: string;
+  finalUrl: URL;
+}> {
+  const MAX_REDIRECT_HOPS = 5;
+  let currentUrl = opts.url;
+  let currentIsHttps = opts.isHttps;
+  let currentMethod = opts.method;
+  let currentBody = opts.body;
+
+  let lastResult: Awaited<ReturnType<typeof makeSingleRequest>> | null = null;
+
+  for (let hop = 0; hop <= MAX_REDIRECT_HOPS; hop++) {
+    const isLastHop = hop === MAX_REDIRECT_HOPS;
+    lastResult = await makeSingleRequest(
+      {
+        ...opts,
+        url: currentUrl,
+        isHttps: currentIsHttps,
+        method: currentMethod,
+        body: currentBody,
+        // Coletar body em todos os hops — corpo de redirects é tipicamente vazio
+        collectBody: opts.collectBody,
+      },
+      captureSample,
+    );
+
+    const { statusCode, locationHeader } = lastResult;
+    const isRedirect = isRedirectStatus(statusCode);
+
+    if (!isRedirect || !locationHeader || isLastHop) {
+      break;
+    }
+
+    // Resolver URL relativa ou absoluta contra a URL atual
+    const redirectUrl = new URL(locationHeader, currentUrl.toString());
+
+    // RFC 7231: 302 e 303 sempre mudam para GET e descartam o body
+    if (statusCode === 302 || statusCode === 303) {
+      currentMethod = 'GET';
+      currentBody = undefined;
+    }
+    // 307 e 308: preservar método e body originais
+
+    currentUrl = redirectUrl;
+    currentIsHttps = redirectUrl.protocol === 'https:';
+  }
+
+  return {
+    statusCode: lastResult!.statusCode,
+    bytes: lastResult!.bytes,
+    sample: lastResult!.sample,
+    bodyText: lastResult!.bodyText,
+    finalUrl: currentUrl,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -327,7 +410,7 @@ async function runVU(delay: number): Promise<void> {
   const extractedVars = new Map<string, string>();
 
   // Helper: executa uma única operação (reutilizado nos modos sequencial e aleatório)
-  const executeOp = async (op: WorkerOperation): Promise<void> => {
+  const executeOp = async (op: WorkerOperation): Promise<URL | undefined> => {
     if (Date.now() >= config.endTime || signal.aborted) return;
 
     // Resolver placeholders {{VAR}} com valores extraídos
@@ -385,6 +468,7 @@ async function runVU(delay: number): Promise<void> {
         captureSession: op.captureSession !== false,
         sample: result.sample,
       });
+      return result.finalUrl;
     } catch (err) {
       if (!signal.aborted) {
         const msg = err instanceof Error ? err.message : String(err);
