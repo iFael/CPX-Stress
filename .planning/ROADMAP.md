@@ -32,16 +32,19 @@ Plans:
 - [x] 01-02-PLAN.md — ENGINE-02 (redirect following) + ENGINE-03 (VU loop reestruturado)
 
 ### Phase 2: Credentials System
-**Goal:** Usuário configura credenciais MisterT (usuário, senha, URL base) diretamente na interface gráfica sem editar arquivos manualmente, e a tela principal sinaliza quando as credenciais obrigatórias estão ausentes
+**Goal:** Usuário configura credenciais MisterT (usuário, senha) diretamente na interface gráfica sem editar arquivos manualmente, e a tela principal sinaliza quando as credenciais obrigatórias estão ausentes
 **Depends on:** Phase 1
 **Requirements:** CRED-01, CRED-02
 **Success Criteria:**
-1. Usuário preenche usuário, senha e URL base em campos mascarados e clica "Salvar" — as credenciais são persistidas no `.env` sem que o usuário abra um editor de texto ou terminal
+1. Usuário preenche usuário e senha em campos mascarados e clica "Salvar" — as credenciais são persistidas no `.env` sem que o usuário abra um editor de texto ou terminal
 2. A tela principal exibe alerta visual visível quando as credenciais obrigatórias não estão configuradas, com caminho direto para a tela de configuração
 3. Ao abrir a ferramenta com credenciais já salvas, o alerta não aparece e o botão "Iniciar Teste" está acessível
 4. O renderer nunca exibe os valores das credenciais — apenas confirmação de que estão salvas; os valores trafegam exclusivamente no main process
-**Plans:** TBD
-**UI hint:** yes
+**Plans:** 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — IPC infrastructure + types + Zustand store (credentials:status, credentials:save, credentials:load channels)
+- [ ] 02-02-PLAN.md — UI components + wiring (CredentialsSettings, CredentialAlert, Sidebar, App, TestConfig)
 
 ### Phase 3: Preset System
 **Goal:** Usuário executa o fluxo MisterT completo com um clique usando o preset built-in, e pode salvar, carregar, renomear e deletar suas próprias configurações de teste recorrentes
@@ -109,7 +112,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Engine Fixes | 2/2 | Complete | 2026-04-06 |
-| 2. Credentials System | 0/0 | Not started | - |
+| 2. Credentials System | 0/2 | Planned | - |
 | 3. Preset System | 0/0 | Not started | - |
 | 4. Module Selector | 0/0 | Not started | - |
 | 5. Error Filters | 0/0 | Not started | - |
