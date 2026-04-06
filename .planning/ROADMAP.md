@@ -43,8 +43,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — IPC infrastructure + types + Zustand store (credentials:status, credentials:save, credentials:load channels)
-- [ ] 02-02-PLAN.md — UI components + wiring (CredentialsSettings, CredentialAlert, Sidebar, App, TestConfig)
+- [x] 02-01-PLAN.md — IPC infrastructure + types + Zustand store (credentials:status, credentials:save, credentials:load channels)
+- [x] 02-02-PLAN.md — UI components + wiring (CredentialsSettings, CredentialAlert, Sidebar, App, TestConfig)
 
 ### Phase 3: Preset System
 **Goal:** Usuário executa o fluxo MisterT completo com um clique usando o preset built-in, e pode salvar, carregar, renomear e deletar suas próprias configurações de teste recorrentes
