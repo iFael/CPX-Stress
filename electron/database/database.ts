@@ -57,6 +57,102 @@ export function closeDatabase(): void {
   }
 }
 
+// ============================================================================
+// Built-in Preset: MisterT Completo
+// ============================================================================
+// CRITICO: Este JSON e definido inline no codigo do electron/.
+// NUNCA importar de src/constants/test-presets.ts — quebraria no build empacotado.
+// O conteudo e uma copia serializada das 10 operacoes padrao do MisterT ERP.
+// ============================================================================
+
+/** Versao atual do preset built-in. Incrementar quando o template mudar. */
+const CURRENT_BUILTIN_VERSION = 1;
+
+/** ID fixo do preset built-in (nao muda entre versoes). */
+const BUILTIN_PRESET_ID = "builtin-mistert-completo";
+
+/** Configuracao completa do preset built-in serializada como JSON. */
+const BUILTIN_CONFIG_JSON = JSON.stringify({
+  url: "https://dev-mistert.compex.com.br/MisterT.asp?MF=Y",
+  virtualUsers: 150,
+  duration: 60,
+  method: "GET",
+  operations: [
+    {
+      name: "Página de Login",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?MF=Y",
+      method: "GET",
+      captureSession: true,
+      extract: { CTRL: "CTRL=(\\d+)" },
+    },
+    {
+      name: "Login",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=1",
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "IN1={{STRESSFLOW_USER}}&IN2={{STRESSFLOW_PASS}}",
+      captureSession: true,
+      extract: { CTRL: "CTRL=(\\d+)" },
+    },
+    {
+      name: "Menu Principal",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=0",
+      method: "GET",
+      captureSession: true,
+      extract: { CTRL: "CTRL=(\\d+)" },
+    },
+    {
+      name: "CPX-Fretes",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=89",
+      method: "GET",
+      captureSession: true,
+      extract: { CTRL: "CTRL=(\\d+)" },
+    },
+    {
+      name: "CPX-Rastreio",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=90",
+      method: "GET",
+      captureSession: true,
+      extract: { CTRL: "CTRL=(\\d+)" },
+    },
+    {
+      name: "Estoque",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=122",
+      method: "GET",
+      captureSession: true,
+      extract: { CTRL: "CTRL=(\\d+)" },
+    },
+    {
+      name: "Ordens E/S",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=102",
+      method: "GET",
+      captureSession: true,
+      extract: { CTRL: "CTRL=(\\d+)" },
+    },
+    {
+      name: "Produção",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=84",
+      method: "GET",
+      captureSession: true,
+      extract: { CTRL: "CTRL=(\\d+)" },
+    },
+    {
+      name: "Faturamento",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=206",
+      method: "GET",
+      captureSession: true,
+      extract: { CTRL: "CTRL=(\\d+)" },
+    },
+    {
+      name: "Financeiro",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=250",
+      method: "GET",
+      captureSession: true,
+      extract: { CTRL: "CTRL=(\\d+)" },
+    },
+  ],
+});
+
 /**
  * Aplica migrations incrementais no banco.
  * Cada migration e executada dentro de uma transacao.
@@ -169,6 +265,62 @@ function applyMigrations(database: Database.Database): void {
         .prepare("INSERT INTO schema_version (version) VALUES (?)")
         .run(2);
     })();
+  }
+
+  if (version < 3) {
+    database.transaction(() => {
+      // Tabela de presets de teste (built-in + criados pelo usuario)
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS test_presets (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          config_json TEXT NOT NULL,
+          is_builtin INTEGER DEFAULT 0,
+          builtin_version INTEGER,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        )
+      `);
+
+      // Seed do preset built-in "MisterT Completo" via prepared statement
+      database
+        .prepare(
+          `INSERT INTO test_presets (id, name, config_json, is_builtin, builtin_version)
+           VALUES (?, ?, ?, 1, ?)`
+        )
+        .run(BUILTIN_PRESET_ID, "MisterT Completo", BUILTIN_CONFIG_JSON, CURRENT_BUILTIN_VERSION);
+
+      database
+        .prepare("INSERT INTO schema_version (version) VALUES (?)")
+        .run(3);
+    })();
+  }
+}
+
+/**
+ * Verifica se o preset built-in esta na versao mais recente.
+ * Se a versao no banco for inferior a CURRENT_BUILTIN_VERSION,
+ * atualiza o config_json e a builtin_version automaticamente.
+ * Chamado a cada inicializacao da aplicacao (apos migrations).
+ */
+export function ensureBuiltinPresetVersion(): void {
+  const database = getDatabase();
+  const row = database
+    .prepare("SELECT builtin_version FROM test_presets WHERE id = ?")
+    .get(BUILTIN_PRESET_ID) as { builtin_version: number } | undefined;
+
+  if (!row || row.builtin_version < CURRENT_BUILTIN_VERSION) {
+    database
+      .prepare(
+        `UPDATE test_presets
+         SET config_json = ?, builtin_version = ?, updated_at = datetime('now')
+         WHERE id = ?`
+      )
+      .run(BUILTIN_CONFIG_JSON, CURRENT_BUILTIN_VERSION, BUILTIN_PRESET_ID);
+
+    console.log(
+      `[StressFlow DB] Preset built-in atualizado para versao ${CURRENT_BUILTIN_VERSION}.`
+    );
   }
 }
 

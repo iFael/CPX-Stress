@@ -55,6 +55,20 @@ export interface ErrorRow {
 }
 
 // ============================================================================
+// Tipos de Preset
+// ============================================================================
+
+export interface PresetRow {
+  id: string;
+  name: string;
+  config_json: string;
+  is_builtin: number; // SQLite INTEGER para boolean (0 ou 1)
+  builtin_version: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================================
 // TestResult CRUD
 // ============================================================================
 
@@ -303,4 +317,150 @@ export function getErrorsByType(testId: string): Record<string, number> {
     result[row.error_type] = row.count;
   }
   return result;
+}
+
+// ============================================================================
+// Preset CRUD
+// ============================================================================
+
+/** Limite maximo de tamanho do config_json em bytes (1 MB). */
+const MAX_CONFIG_JSON_SIZE = 1_048_576;
+
+/** Converte uma row do SQLite para o formato TestPreset do renderer. */
+function rowToPreset(row: PresetRow) {
+  return {
+    id: row.id,
+    name: row.name,
+    config: JSON.parse(row.config_json),
+    isBuiltin: row.is_builtin === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+/** Lista todos os presets ordenados: built-in primeiro, depois por nome. */
+export function listPresets() {
+  const db = getDatabase();
+  const rows = db
+    .prepare("SELECT * FROM test_presets ORDER BY is_builtin DESC, name ASC")
+    .all() as PresetRow[];
+
+  return rows.map(rowToPreset);
+}
+
+/**
+ * Salva um preset (insert ou update).
+ * Se id e fornecido e existe no banco: atualiza (rejeita se built-in).
+ * Se id nao e fornecido ou nao existe: insere novo.
+ * Retorna o preset salvo.
+ */
+export function savePreset(data: {
+  id?: string;
+  name: string;
+  configJson: string;
+}): ReturnType<typeof rowToPreset> {
+  const db = getDatabase();
+
+  // Validacoes
+  if (!data.name || data.name.trim().length === 0) {
+    throw new Error("Informe um nome para o preset.");
+  }
+  if (data.name.trim().length > 100) {
+    throw new Error("O nome do preset deve ter no maximo 100 caracteres.");
+  }
+  if (!data.configJson || data.configJson.length > MAX_CONFIG_JSON_SIZE) {
+    throw new Error("A configuracao do preset excede o tamanho maximo permitido.");
+  }
+
+  // Validar que o JSON e parseavel
+  try {
+    JSON.parse(data.configJson);
+  } catch {
+    throw new Error("A configuracao do preset contem JSON invalido.");
+  }
+
+  if (data.id) {
+    // Verificar se o preset existe
+    const existing = db
+      .prepare("SELECT is_builtin FROM test_presets WHERE id = ?")
+      .get(data.id) as { is_builtin: number } | undefined;
+
+    if (existing) {
+      // Update existente
+      if (existing.is_builtin === 1) {
+        throw new Error("Presets built-in nao podem ser alterados.");
+      }
+      db.prepare(
+        `UPDATE test_presets
+         SET name = ?, config_json = ?, updated_at = datetime('now')
+         WHERE id = ? AND is_builtin = 0`
+      ).run(data.name.trim(), data.configJson, data.id);
+
+      const updated = db
+        .prepare("SELECT * FROM test_presets WHERE id = ?")
+        .get(data.id) as PresetRow;
+      return rowToPreset(updated);
+    }
+  }
+
+  // Insert novo preset
+  const { v4: uuidv4 } = require("uuid") as typeof import("uuid");
+  const id = data.id || uuidv4();
+
+  db.prepare(
+    `INSERT INTO test_presets (id, name, config_json, is_builtin, created_at, updated_at)
+     VALUES (?, ?, ?, 0, datetime('now'), datetime('now'))`
+  ).run(id, data.name.trim(), data.configJson);
+
+  const inserted = db
+    .prepare("SELECT * FROM test_presets WHERE id = ?")
+    .get(id) as PresetRow;
+  return rowToPreset(inserted);
+}
+
+/** Renomeia um preset do usuario. Rejeita built-in. */
+export function renamePreset(id: string, newName: string): void {
+  const db = getDatabase();
+
+  if (!newName || newName.trim().length === 0) {
+    throw new Error("Informe um nome para o preset.");
+  }
+  if (newName.trim().length > 100) {
+    throw new Error("O nome do preset deve ter no maximo 100 caracteres.");
+  }
+
+  const existing = db
+    .prepare("SELECT is_builtin FROM test_presets WHERE id = ?")
+    .get(id) as { is_builtin: number } | undefined;
+
+  if (!existing) {
+    throw new Error("Preset nao encontrado.");
+  }
+  if (existing.is_builtin === 1) {
+    throw new Error("Presets built-in nao podem ser renomeados.");
+  }
+
+  db.prepare(
+    `UPDATE test_presets
+     SET name = ?, updated_at = datetime('now')
+     WHERE id = ? AND is_builtin = 0`
+  ).run(newName.trim(), id);
+}
+
+/** Deleta um preset do usuario. Rejeita built-in. */
+export function deletePreset(id: string): void {
+  const db = getDatabase();
+
+  const existing = db
+    .prepare("SELECT is_builtin FROM test_presets WHERE id = ?")
+    .get(id) as { is_builtin: number } | undefined;
+
+  if (!existing) {
+    throw new Error("Preset nao encontrado.");
+  }
+  if (existing.is_builtin === 1) {
+    throw new Error("Presets built-in nao podem ser excluidos.");
+  }
+
+  db.prepare("DELETE FROM test_presets WHERE id = ? AND is_builtin = 0").run(id);
 }
