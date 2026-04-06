@@ -57,23 +57,21 @@
 
 ## Traceability
 
-> Preenchido pelo roadmapper ao criar ROADMAP.md
-
 | REQ-ID | Phase | Plans |
 |--------|-------|-------|
-| ENGINE-01 | — | — |
-| ENGINE-02 | — | — |
-| ENGINE-03 | — | — |
-| ENGINE-04 | — | — |
-| CRED-01 | — | — |
-| CRED-02 | — | — |
-| PRESET-01 | — | — |
-| PRESET-02 | — | — |
-| PRESET-03 | — | — |
-| ANALYTICS-01 | — | — |
-| ANALYTICS-02 | — | — |
-| ANALYTICS-03 | — | — |
-| ANALYTICS-04 | — | — |
+| ENGINE-01 | Phase 1 | TBD |
+| ENGINE-02 | Phase 1 | TBD |
+| ENGINE-03 | Phase 1 | TBD |
+| ENGINE-04 | Phase 1 | TBD |
+| CRED-01 | Phase 2 | TBD |
+| CRED-02 | Phase 2 | TBD |
+| PRESET-01 | Phase 3 | TBD |
+| PRESET-02 | Phase 3 | TBD |
+| PRESET-03 | Phase 4 | TBD |
+| ANALYTICS-01 | Phase 5 | TBD |
+| ANALYTICS-02 | Phase 5 | TBD |
+| ANALYTICS-03 | Phase 6 | TBD |
+| ANALYTICS-04 | Phase 7 | TBD |
 
 ---
 
