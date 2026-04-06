@@ -12,6 +12,7 @@ import {
   Server,
   BookOpen,
   Save,
+  LayoutGrid,
 } from "lucide-react";
 import { useTestStore } from "@/stores/test-store";
 import { InfoTooltip } from "@/components/InfoTooltip";
@@ -23,6 +24,7 @@ import {
   MISTERT_OPERATION_COUNT,
   MISTERT_DEFAULT_BASE_URL,
   buildMistertOperations,
+  MISTERT_MODULE_METADATA,
 } from "@/constants/test-presets";
 import compexLogo from "@/assets/compex-logo.gif";
 
@@ -42,6 +44,9 @@ const MISTERT_ENVIRONMENTS = [
   { label: "Desenvolvimento", url: "https://dev-mistert.compex.com.br", disabled: false },
   { label: "Produção", url: "https://mistert.compex.com.br", disabled: true },
 ] as const;
+
+/** Set de nomes de módulos MisterT para lookup O(1) na detecção e filtragem. */
+const MISTERT_MODULE_NAMES = new Set<string>(MISTERT_MODULE_METADATA.map((m) => m.name));
 
 /* =====================================================================
    ESTILOS REUTILIZAVEIS
@@ -76,6 +81,7 @@ export function TestConfig() {
   const credentialStatus = useTestStore((s) => s.credentialStatus);
   const activePreset = useTestStore((s) => s.activePreset);
   const setPresets = useTestStore((s) => s.setPresets);
+  const updateModuleSelection = useTestStore((s) => s.updateModuleSelection);
 
   /* ---- Estado local do formulario ---- */
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -114,6 +120,18 @@ export function TestConfig() {
       .replace(/\/MisterT\.asp.*$/, "")
       .replace(/\/+$/, "") || MISTERT_DEFAULT_BASE_URL;
 
+  // Detecção de preset MisterT e estado de seleção dos módulos
+  const isMistertPreset = (config.operations ?? []).some((op) =>
+    MISTERT_MODULE_NAMES.has(op.name)
+  );
+  const selectedModuleNames = new Set(
+    (config.operations ?? [])
+      .map((op) => op.name)
+      .filter((n) => MISTERT_MODULE_NAMES.has(n))
+  );
+  const allModulesSelected = selectedModuleNames.size === MISTERT_MODULE_METADATA.length;
+  const noModulesSelected = isMistertPreset && selectedModuleNames.size === 0;
+
   /**
    * Atualiza o ambiente MisterT: troca a URL base de todas as operações.
    */
@@ -127,6 +145,36 @@ export function TestConfig() {
     },
     [updateConfig],
   );
+
+  /**
+   * Toggle de módulo individual: reconstrói operations[] do template,
+   * mantendo infra ops [0-2] e filtrando módulos pela nova seleção.
+   */
+  const handleModuleToggle = useCallback(
+    (moduleName: string, checked: boolean) => {
+      const allOps = buildMistertOperations(currentBaseUrl);
+      const infraOps = allOps.slice(0, 3); // Página de Login, Login, Menu Principal (fixos)
+      const newSelectedNames = new Set(
+        checked
+          ? [...selectedModuleNames, moduleName]
+          : [...selectedModuleNames].filter((n) => n !== moduleName)
+      );
+      const moduleOps = allOps.slice(3).filter((op) => newSelectedNames.has(op.name));
+      updateModuleSelection([...infraOps, ...moduleOps]);
+    },
+    [currentBaseUrl, selectedModuleNames, updateModuleSelection],
+  );
+
+  /** Seleciona todos os 7 módulos (restaura o template completo). */
+  const handleSelectAll = useCallback(() => {
+    updateModuleSelection(buildMistertOperations(currentBaseUrl));
+  }, [currentBaseUrl, updateModuleSelection]);
+
+  /** Desmarca todos os módulos — mantém apenas as 3 infra ops fixas. */
+  const handleClearAll = useCallback(() => {
+    const allOps = buildMistertOperations(currentBaseUrl);
+    updateModuleSelection(allOps.slice(0, 3));
+  }, [currentBaseUrl, updateModuleSelection]);
 
   /* ---------------------------------------------------------------
      handleStart — Valida e inicia o teste de estresse MisterT.
@@ -363,6 +411,86 @@ export function TestConfig() {
           </p>
         </div>
       </fieldset>
+
+      {/* ---- MÓDULOS DO TESTE ---- */}
+      {isMistertPreset && (
+        <fieldset className="mb-4">
+          <legend className={labelClass}>
+            <LayoutGrid className="w-4 h-4" aria-hidden="true" />
+            Módulos do Teste
+            <InfoTooltip text="Selecione quais módulos do MisterT incluir neste teste. Módulos desmarcados serão removidos do fluxo. Login e Menu Principal são sempre executados." />
+          </legend>
+
+          {/* Linha de toggle Selecionar Todos / Limpar Seleção + contador */}
+          <div className="flex items-center justify-between mb-2">
+            <button
+              type="button"
+              onClick={allModulesSelected ? handleClearAll : handleSelectAll}
+              className="text-xs font-medium text-sf-primary hover:text-sf-primaryHover transition-colors"
+            >
+              {allModulesSelected ? "Limpar Seleção" : "Selecionar Todos"}
+            </button>
+            <span className="text-xs text-sf-textMuted">
+              {selectedModuleNames.size} de 7 selecionados
+            </span>
+          </div>
+
+          {/* Grid de checkboxes — 3 colunas, padrão peer/sr-only de WelcomeOverlay */}
+          <div className="grid grid-cols-3 gap-x-4 gap-y-2">
+            {MISTERT_MODULE_METADATA.map((module) => {
+              const isChecked = selectedModuleNames.has(module.name);
+              return (
+                <label
+                  key={module.name}
+                  className="flex items-center gap-2.5 cursor-pointer group select-none"
+                >
+                  <div className="relative flex items-center justify-center shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={(e) => handleModuleToggle(module.name, e.target.checked)}
+                      className="peer sr-only"
+                      aria-label={module.name}
+                    />
+                    {/* Caixa visual — padrão WelcomeOverlay linhas 260-278 */}
+                    <div className="w-[18px] h-[18px] rounded-md border border-sf-border bg-sf-surface peer-checked:bg-sf-primary peer-checked:border-sf-primary peer-focus-visible:ring-2 peer-focus-visible:ring-sf-primary/50 peer-focus-visible:ring-offset-1 peer-focus-visible:ring-offset-sf-bg transition-all duration-200">
+                      {isChecked && (
+                        <svg
+                          className="w-full h-full text-white p-0.5"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M2.5 6L5 8.5L9.5 3.5"
+                            stroke="currentColor"
+                            strokeWidth="1.75"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-sm text-sf-text truncate">{module.name}</span>
+                  <span className="text-xs text-sf-textMuted font-mono px-1.5 py-0.5 bg-sf-surface rounded ml-auto shrink-0">
+                    {module.code}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+
+          {/* Aviso quando nenhum módulo está selecionado */}
+          {noModulesSelected && (
+            <div role="status" className="mt-2 px-3 py-2 bg-sf-warning/10 rounded-lg animate-fade-in">
+              <p className="text-xs text-sf-warning leading-relaxed">
+                Nenhum módulo selecionado — o teste executará apenas login e menu.
+              </p>
+            </div>
+          )}
+        </fieldset>
+      )}
 
       {/* ---- CONFIGURAÇÕES AVANÇADAS ---- */}
       <div className="mb-4">
