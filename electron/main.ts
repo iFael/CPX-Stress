@@ -61,6 +61,71 @@ function loadEnvFile(): Record<string, string> {
   return env;
 }
 
+/**
+ * Salva entradas de credenciais no arquivo .env do diretorio userData.
+ * Faz merge com entradas existentes: atualiza chaves existentes in-place
+ * e adiciona novas chaves ao final. Preserva comentarios e linhas vazias.
+ *
+ * SEGURANCA:
+ *   - Apenas chaves com prefixo STRESSFLOW_ sao aceitas (whitelist).
+ *   - Escrita exclusivamente em app.getPath("userData")/.env — nunca em app.getAppPath() (ASAR read-only em producao).
+ *   - Apos escrita, recarrega envVars em memoria para que o proximo teste use os valores atualizados.
+ */
+function saveEnvFile(entries: Array<{ key: string; value: string }>): { saved: number; path: string } {
+  const envPath = path.join(app.getPath("userData"), ".env");
+
+  // Validar chaves: apenas STRESSFLOW_* permitidas
+  for (const entry of entries) {
+    if (!/^STRESSFLOW_\w+$/.test(entry.key)) {
+      throw new Error(`Chave invalida: ${entry.key}. Apenas chaves com prefixo STRESSFLOW_ sao permitidas.`);
+    }
+  }
+
+  // Ler .env existente (se houver)
+  let lines: string[] = [];
+  if (fs.existsSync(envPath)) {
+    lines = fs.readFileSync(envPath, "utf-8").split(/\r?\n/);
+  }
+
+  // Criar mapa das novas entradas
+  const newEntries = new Map(entries.map((e) => [e.key, e.value]));
+  const written = new Set<string>();
+
+  // Substituir valores existentes in-place (preserva ordem e comentarios)
+  const updatedLines = lines.map((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) return line;
+    const eqIndex = trimmed.indexOf("=");
+    if (eqIndex === -1) return line;
+    const key = trimmed.substring(0, eqIndex).trim();
+    if (newEntries.has(key)) {
+      written.add(key);
+      return `${key}=${newEntries.get(key)}`;
+    }
+    return line;
+  });
+
+  // Append chaves novas que nao existiam no arquivo
+  for (const [key, value] of newEntries) {
+    if (!written.has(key)) {
+      updatedLines.push(`${key}=${value}`);
+    }
+  }
+
+  // Garantir que o diretorio pai existe
+  const envDir = path.dirname(envPath);
+  if (!fs.existsSync(envDir)) {
+    fs.mkdirSync(envDir, { recursive: true });
+  }
+
+  fs.writeFileSync(envPath, updatedLines.join("\n"), "utf-8");
+
+  // CRITICO: Recarregar variaveis em memoria para que o proximo teste use os valores atualizados
+  envVars = loadEnvFile();
+
+  return { saved: entries.length, path: envPath };
+}
+
 /** Variáveis de ambiente carregadas do .env */
 let envVars: Record<string, string> = {};
 
@@ -771,6 +836,88 @@ ipcMain.handle("app:getPath", () => {
     return "Caminho indisponível";
   }
 });
+
+// ===========================================================================
+//  Handlers IPC — Gerenciamento de Credenciais
+// ===========================================================================
+// Estes handlers permitem que a interface verifique e salve credenciais
+// MisterT sem expor os valores reais ao processo de renderizacao.
+// SEGURANCA: Apenas booleanos e nomes de chaves sao retornados — nunca valores.
+// ===========================================================================
+
+/**
+ * Canal: credentials:status
+ * Verifica quais credenciais obrigatorias estao configuradas.
+ * Retorna um mapa booleano (chave -> configurada ou nao). NUNCA retorna valores.
+ */
+ipcMain.handle("credentials:status", async () => {
+  try {
+    const requiredKeys = ["STRESSFLOW_USER", "STRESSFLOW_PASS"];
+    const status: Record<string, boolean> = {};
+    for (const key of requiredKeys) {
+      status[key] = !!(envVars[key] && envVars[key].trim() !== "");
+    }
+    return status;
+  } catch (error) {
+    console.error("[StressFlow] Erro ao verificar credenciais:", error);
+    throw new Error("Nao foi possivel verificar o status das credenciais.");
+  }
+});
+
+/**
+ * Canal: credentials:load
+ * Retorna a lista de NOMES de chaves STRESSFLOW_* configuradas no .env.
+ * SEGURANCA: Retorna apenas nomes de chaves (string[]), NUNCA valores.
+ */
+ipcMain.handle("credentials:load", async () => {
+  try {
+    return Object.keys(envVars).filter((key) => key.startsWith("STRESSFLOW_"));
+  } catch (error) {
+    console.error("[StressFlow] Erro ao listar chaves de credenciais:", error);
+    throw new Error("Nao foi possivel listar as chaves de credenciais.");
+  }
+});
+
+/**
+ * Canal: credentials:save
+ * Salva credenciais no .env do diretorio userData.
+ * Aceita apenas chaves com prefixo STRESSFLOW_ (whitelist de seguranca).
+ * Entradas com valor vazio sao filtradas antes de salvar (preservam valor anterior).
+ */
+ipcMain.handle(
+  "credentials:save",
+  async (_event, entries: Array<{ key: string; value: string }>) => {
+    try {
+      if (!entries || !Array.isArray(entries)) {
+        throw new Error("Dados de credenciais invalidos.");
+      }
+
+      // Filtrar entradas vazias — campos em branco no formulario nao sobrescrevem valores existentes
+      const nonEmpty = entries.filter(
+        (e) => e && typeof e.key === "string" && typeof e.value === "string" && e.value.trim() !== "",
+      );
+
+      if (nonEmpty.length === 0) {
+        throw new Error("Nenhuma credencial para salvar. Preencha ao menos um campo.");
+      }
+
+      return saveEnvFile(nonEmpty);
+    } catch (error) {
+      console.error("[StressFlow] Erro ao salvar credenciais:", error);
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes("EACCES") || msg.includes("EPERM")) {
+        throw new Error(
+          "Sem permissao para salvar as credenciais. Verifique as permissoes do diretorio de dados.",
+        );
+      }
+      throw new Error(
+        msg.startsWith("Chave") || msg.startsWith("Nenhuma") || msg.startsWith("Dados") || msg.startsWith("Sem") || msg.startsWith("Nao")
+          ? msg
+          : `Nao foi possivel salvar as credenciais: ${msg}`,
+      );
+    }
+  },
+);
 
 // ===========================================================================
 //  Handlers IPC — Consulta de Erros Detalhados

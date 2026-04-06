@@ -55,6 +55,9 @@ const ALLOWED_INVOKE_CHANNELS = [
   "errors:search",
   "errors:byStatusCode",
   "errors:byErrorType",
+  "credentials:status",
+  "credentials:save",
+  "credentials:load",
 ] as const;
 
 /** Canais que o frontend pode escutar para receber dados em tempo real */
@@ -214,6 +217,29 @@ const api = {
       safeInvoke("errors:byErrorType", testId) as Promise<
         Record<string, number>
       >,
+  },
+
+  // ---------------------------------------------------------------------------
+  // Credenciais — verificar status, listar chaves e salvar credenciais MisterT
+  // SEGURANCA: Nenhuma funcao retorna valores — apenas booleanos ou nomes de chaves.
+  // ---------------------------------------------------------------------------
+  credentials: {
+    /** Verifica quais credenciais obrigatorias estao configuradas (retorna booleanos, nunca valores) */
+    status: (): Promise<Record<string, boolean>> =>
+      safeInvoke("credentials:status") as Promise<Record<string, boolean>>,
+
+    /** Retorna lista de nomes de chaves STRESSFLOW_* configuradas (nunca valores) */
+    load: (): Promise<string[]> =>
+      safeInvoke("credentials:load") as Promise<string[]>,
+
+    /** Salva credenciais no .env (main process escreve o arquivo). Campos vazios sao ignorados. */
+    save: (
+      entries: Array<{ key: string; value: string }>,
+    ): Promise<{ saved: number; path: string }> =>
+      safeInvoke("credentials:save", entries) as Promise<{
+        saved: number;
+        path: string;
+      }>,
   },
 };
 
