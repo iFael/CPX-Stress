@@ -5,9 +5,9 @@
 ### Phases
 
 - [x] **Phase 1: Engine Fixes** - Corrige os 4 bugs críticos que invalidam resultados de teste
-- [ ] **Phase 2: Credentials System** - Interface gráfica para configuração de credenciais MisterT
-- [ ] **Phase 3: Preset System** - Preset MisterT Completo built-in e CRUD de presets do usuário
-- [ ] **Phase 4: Module Selector** - Seleção granular de módulos via checkboxes no preset MisterT
+- [x] **Phase 2: Credentials System** - Interface gráfica para configuração de credenciais MisterT
+- [x] **Phase 3: Preset System** - Preset MisterT Completo built-in e CRUD de presets do usuário
+- [x] **Phase 4: Module Selector** - Seleção granular de módulos via checkboxes no preset MisterT
 - [ ] **Phase 5: Error Filters** - Filtros de operação e período de tempo no ErrorExplorer
 - [ ] **Phase 6: Cross-Test Analysis** - Análise comparativa de erros entre múltiplos testes históricos
 - [ ] **Phase 7: PDF Capacity Verdict** - Veredicto explícito de capacidade no relatório PDF para liderança
@@ -40,7 +40,7 @@ Plans:
 2. A tela principal exibe alerta visual visível quando as credenciais obrigatórias não estão configuradas, com caminho direto para a tela de configuração
 3. Ao abrir a ferramenta com credenciais já salvas, o alerta não aparece e o botão "Iniciar Teste" está acessível
 4. O renderer nunca exibe os valores das credenciais — apenas confirmação de que estão salvas; os valores trafegam exclusivamente no main process
-**Plans:** 2 plans
+**Plans:** 2/2 plans executed (COMPLETE)
 
 Plans:
 - [x] 02-01-PLAN.md — IPC infrastructure + types + Zustand store (credentials:status, credentials:save, credentials:load channels)
@@ -55,7 +55,7 @@ Plans:
 2. Aplicar o preset "MisterT Completo" carrega as 10 operações corretas (Login + 9 módulos com extração de CTRL) no formulário de configuração com um único clique
 3. Usuário pode salvar a configuração atual como preset nomeado, carregar, renomear e deletar presets criados por ele
 4. Presets salvos pelo usuário persistem corretamente após fechar e reabrir a aplicação
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans executed (COMPLETE)
 
 Plans:
 - [x] 03-01-PLAN.md — Backend infrastructure: types, Zustand store, migration v3, repository CRUD, IPC bridge (4 channels)
@@ -70,11 +70,11 @@ Plans:
 2. Desmarcar um módulo remove apenas a operação desse módulo do teste sem afetar os demais módulos selecionados
 3. Aplicar seleção parcial (ex: apenas Estoque + Financeiro) inicia o teste com as operações de Login seguidas apenas dos módulos selecionados — o JSON de configuração não contém os módulos desmarcados
 4. O comportamento sem seleção explícita é idêntico ao preset anterior: todos os 9 módulos incluídos, sem regressão
-**Plans:** 2 plans
+**Plans:** 2/2 plans executed (COMPLETE)
 
 Plans:
-- [ ] 04-01-PLAN.md — Camada de dados: MISTERT_MODULE_METADATA + updateModuleSelection no store
-- [ ] 04-02-PLAN.md — UI: fieldset de módulos com checkboxes em TestConfig + verificação humana
+- [x] 04-01-PLAN.md — Camada de dados: MISTERT_MODULE_METADATA + updateModuleSelection no store
+- [x] 04-02-PLAN.md — UI: checkboxes integrados na seção Ver Operações (refatorado após feedback humano)
 
 ### Phase 5: Error Filters
 **Goal:** Usuário localiza erros específicos no ErrorExplorer filtrando por nome de operação e por intervalo de data/hora, sem navegar por resultados irrelevantes de outros testes ou operações
@@ -118,9 +118,9 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Engine Fixes | 2/2 | Complete | 2026-04-06 |
-| 2. Credentials System | 0/2 | Planned | - |
-| 3. Preset System | 1/2 | In Progress|  |
-| 4. Module Selector | 0/0 | Not started | - |
+| 2. Credentials System | 2/2 | Complete | 2026-04-06 |
+| 3. Preset System | 2/2 | Complete | 2026-04-06 |
+| 4. Module Selector | 2/2 | Complete | 2026-04-06 |
 | 5. Error Filters | 0/0 | Not started | - |
 | 6. Cross-Test Analysis | 0/0 | Not started | - |
 | 7. PDF Capacity Verdict | 0/0 | Not started | - |

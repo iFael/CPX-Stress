@@ -51,23 +51,27 @@ completed: 2026-04-06
 
 # Phase 4 Plan 02: Module Selector UI Summary
 
-**Fieldset "Módulos do Teste" com 7 checkboxes em grid 3 colunas adicionado ao TestConfig, renderizado condicionalmente quando ops MisterT detectadas, com toggle Selecionar Todos/Limpar Seleção e aviso laranja para seleção vazia**
+**Checkboxes de módulos integrados diretamente na seção "Ver Operações" do TestConfig — módulos têm checkbox toggle, infra ops têm badge "fixo", módulos removidos aparecem como strikethrough com opção de reativar**
 
 ## Performance
 
-- **Duration:** ~15 min
+- **Duration:** ~25 min (incluindo fix pós-feedback)
 - **Started:** 2026-04-06T00:00:00Z
-- **Completed:** 2026-04-06T00:15:00Z
-- **Tasks:** 1 auto + 1 checkpoint (awaiting human verification)
+- **Completed:** 2026-04-06T00:25:00Z
+- **Tasks:** 1 auto + 1 checkpoint (human feedback applied) + 1 fix
 - **Files modified:** 1
 
 ## Accomplishments
 
-- Added `LayoutGrid` to lucide-react imports and `MISTERT_MODULE_METADATA` to test-presets imports
 - Declared `MISTERT_MODULE_NAMES = new Set<string>(...)` at module level for O(1) name lookups
 - Added `updateModuleSelection` selector, derived `isMistertPreset / selectedModuleNames / allModulesSelected / noModulesSelected`
 - Implemented `handleModuleToggle`, `handleSelectAll`, `handleClearAll` with `useCallback` (correct dependency arrays)
-- Inserted conditional `<fieldset>` between load config and advanced settings with full checkbox grid, toggle button, counter, and empty-selection warning (`role="status"`)
+- **[Post-feedback fix]** Removed redundant "Módulos do Teste" fieldset — integrated checkboxes directly into "Ver Operações" section
+- Module operations show checkbox toggle; infra ops (Login, Menu Principal) show "fixo" badge without checkbox
+- Unchecked modules appear at bottom of operations list as strikethrough with re-enable checkbox
+- Toggle "Selecionar Todos / Limpar Seleção" + counter inside operations panel header
+- Dynamic operation count in "Ver Operações" button reflects actual selection
+- Removed unused `LayoutGrid` and `MISTERT_OPERATION_COUNT` imports
 - TypeScript build passes (`npm run build` exit 0)
 
 ## Task Commits
@@ -75,7 +79,8 @@ completed: 2026-04-06
 Each task was committed atomically:
 
 1. **Task 1: Implementar seção Módulos do Teste em TestConfig.tsx** - `ac3fc05` (feat)
-2. **Task 2: Verificação humana do seletor de módulos** - checkpoint:human-verify (awaiting approval)
+2. **Task 2: Verificação humana do seletor de módulos** - checkpoint:human-verify (feedback: remover fieldset separado)
+3. **Task 3: Fix — integrar checkboxes na seção Ver Operações** - `edf5cd6` (fix)
 
 ## Files Created/Modified
 
@@ -99,10 +104,20 @@ Each task was committed atomically:
 - **Verification:** `npm run build` exits 0 after fix
 - **Committed in:** `ac3fc05` (Task 1 commit)
 
+### Human Feedback Fix
+
+**2. [Human feedback] Redundant "Módulos do Teste" fieldset**
+- **Found during:** Task 2 human checkpoint
+- **Issue:** User rejected the separate fieldset as redundant — "Não faz sentido ter duas opções com as mesmas coisas. Era mais fácil usar o que eu já tinha feito, e ter criado a opção de marcar ou desmarcar os módulos."
+- **Fix:** Removed entire "Módulos do Teste" fieldset (78 lines). Integrated checkboxes directly into "Ver Operações" section. Module ops get toggle checkbox, infra ops get "fixo" badge. Unchecked modules shown at bottom with strikethrough and re-enable option.
+- **Files modified:** `src/components/TestConfig.tsx`
+- **Verification:** `npm run build` exits 0 after fix
+- **Committed in:** `edf5cd6` (fix commit)
+
 ---
 
-**Total deviations:** 1 auto-fixed (1 Rule 1 type error)
-**Impact on plan:** Minimal — single-word fix (`new Set(` → `new Set<string>(`). No behavioral change. Required for TypeScript compilation.
+**Total deviations:** 1 auto-fixed (type error) + 1 human-feedback fix (UI layout)
+**Impact on plan:** Moderate — UI changed from separate fieldset to inline checkboxes in existing section. Same behavioral logic (handlers, derived state) preserved.
 
 ## Issues Encountered
 
@@ -114,13 +129,14 @@ None — no external service configuration required.
 
 ## Next Phase Readiness
 
-- Phase 4 is complete pending human verification (Task 2 checkpoint)
-- After verification, Phase 5 (Error Filters) can begin — it depends only on Phase 1 (Engine Fixes), not on Phase 4
+- Phase 4 is COMPLETE — human verification passed after fix
+- Phase 5 (Error Filters) can begin — depends only on Phase 1 (Engine Fixes)
 - No blockers
 
 ## Self-Check
 
-- [x] `src/components/TestConfig.tsx` imports `LayoutGrid` from "lucide-react"
+- [x] `src/components/TestConfig.tsx` does NOT import `LayoutGrid` (removed)
+- [x] `src/components/TestConfig.tsx` does NOT import `MISTERT_OPERATION_COUNT` (removed)
 - [x] `src/components/TestConfig.tsx` imports `MISTERT_MODULE_METADATA` from "@/constants/test-presets"
 - [x] Contains `const updateModuleSelection = useTestStore((s) => s.updateModuleSelection)`
 - [x] Contains `const MISTERT_MODULE_NAMES = new Set<string>` (module-level)
@@ -128,10 +144,12 @@ None — no external service configuration required.
 - [x] Contains `handleModuleToggle` with `useCallback`
 - [x] Contains `handleSelectAll` with `useCallback`
 - [x] Contains `handleClearAll` with `useCallback`
-- [x] Contains `MISTERT_MODULE_METADATA.map` in JSX
+- [x] No separate "Módulos do Teste" fieldset exists (removed per feedback)
+- [x] Checkboxes are inside "Ver Operações" section
 - [x] Contains `role="status"` for empty-selection warning
 - [x] `npm run build` exit code 0
-- [x] Commit `ac3fc05` exists
+- [x] Commit `ac3fc05` exists (initial)
+- [x] Commit `edf5cd6` exists (fix)
 
 ## Self-Check: PASSED
 

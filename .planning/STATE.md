@@ -2,21 +2,21 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Executing Phase 3
-last_updated: "2026-04-06T17:17:00.000Z"
+status: Phase 04 Complete
+last_updated: "2026-04-06T20:15:00.000Z"
 progress:
   total_phases: 7
-  completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
-  percent: 100
+  completed_phases: 4
+  total_plans: 8
+  completed_plans: 8
+  percent: 57
 ---
 
 # Project State
 
 ## Current Status
 
-Phase: 3
+Phase: 4 (complete)
 Last updated: 2026-04-06
 
 ## Project Reference
@@ -24,20 +24,21 @@ Last updated: 2026-04-06
 See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core value:** Simular carga realista no MisterT ERP com sessoes autenticadas e operacoes encadeadas, validando a capacidade do sistema antes de crises em producao.
-**Current focus:** Phase 3 -- Preset System (Plan 01 complete, Plan 02 complete, awaiting human verification)
+**Current focus:** Phase 4 complete — ready for Phase 5 (Error Filters)
 
 ## Completed Phases
 
 - Phase 1: Engine Fixes (2026-04-06) -- 4 ENGINE bugs fixed (SSRF guard, redirect following, auth-once VU lifecycle, reservoir sampling per operation)
 - Phase 2: Credentials System (2026-04-06) -- .env credential management with STRESSFLOW_* whitelist
+- Phase 3: Preset System (2026-04-06) -- Built-in MisterT preset + CRUD de presets do usuário (SQLite, IPC bridge, PresetModal, SavePresetDialog)
+- Phase 4: Module Selector (2026-04-06) -- Checkboxes inline na seção Ver Operações para seleção granular de módulos MisterT (7 módulos, 3 infra ops fixas)
 
 ## Active Phase
 
-Phase 3: Preset System -- Plan 01 complete (backend infrastructure), Plan 02 complete (UI components), awaiting human verification (checkpoint Task 3)
+(none — Phase 4 just completed)
 
 ## Backlog Phases
 
-- Phase 4: Module Selector
 - Phase 5: Error Filters
 - Phase 6: Cross-Test Analysis
 - Phase 7: PDF Capacity Verdict
@@ -46,9 +47,9 @@ Phase 3: Preset System -- Plan 01 complete (backend infrastructure), Plan 02 com
 
 ## Performance Metrics
 
-- Phases completed: 2/7
-- Requirements delivered: 4/13
-- Plans executed: 6
+- Phases completed: 4/7
+- Requirements delivered: 7/13
+- Plans executed: 8
 
 ## Accumulated Context
 
@@ -64,6 +65,9 @@ Phase 3: Preset System -- Plan 01 complete (backend infrastructure), Plan 02 com
 - loginPathname usa authOps[0].url pathname como referencia para detectar sessao expirada
 - replaceBaseUrl inline em PresetModal -- utility local, nao extraida para shared (unico ponto de uso)
 - Animacao self-contained em cada modal via inline style tag (padrao WelcomeOverlay)
+- MISTERT_MODULE_METADATA as const — array imutável, metadata separada do template de operações
+- updateModuleSelection não zera activePreset — seleção de módulo é customização temporary do preset carregado
+- Checkboxes integrados na seção Ver Operações (não em fieldset separado) — feedback do usuário
 
 ### Critical Constraints
 
@@ -81,5 +85,5 @@ Phase 3: Preset System -- Plan 01 complete (backend infrastructure), Plan 02 com
 
 ## Session Continuity
 
-- Last session: 2026-04-06 (phase 3 plan 02 execution complete)
-- Next action: Human verification of Preset System CRUD flow (03-02-PLAN.md Task 3 checkpoint)
+- Last session: 2026-04-06 (phase 4 complete — verification 4/4 human_needed)
+- Next action: `/gsd-plan-phase 5` (Error Filters) or `/gsd-discuss-phase 5`
