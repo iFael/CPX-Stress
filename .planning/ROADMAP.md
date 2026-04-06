@@ -59,7 +59,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — Backend infrastructure: types, Zustand store, migration v3, repository CRUD, IPC bridge (4 channels)
-- [ ] 03-02-PLAN.md — UI components: PresetModal, SavePresetDialog, TestConfig toolbar integration + human verification
+- [x] 03-02-PLAN.md — UI components: PresetModal, SavePresetDialog, TestConfig toolbar integration + human verification
 
 ### Phase 4: Module Selector
 **Goal:** Usuário seleciona via checkboxes quais módulos do MisterT incluir em um teste específico, sem precisar criar um preset do zero ou editar JSON
