@@ -55,10 +55,10 @@ Plans:
 2. Aplicar o preset "MisterT Completo" carrega as 10 operações corretas (Login + 9 módulos com extração de CTRL) no formulário de configuração com um único clique
 3. Usuário pode salvar a configuração atual como preset nomeado, carregar, renomear e deletar presets criados por ele
 4. Presets salvos pelo usuário persistem corretamente após fechar e reabrir a aplicação
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 03-01-PLAN.md — Backend infrastructure: types, Zustand store, migration v3, repository CRUD, IPC bridge (4 channels)
+- [x] 03-01-PLAN.md — Backend infrastructure: types, Zustand store, migration v3, repository CRUD, IPC bridge (4 channels)
 - [ ] 03-02-PLAN.md — UI components: PresetModal, SavePresetDialog, TestConfig toolbar integration + human verification
 
 ### Phase 4: Module Selector
@@ -116,7 +116,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Engine Fixes | 2/2 | Complete | 2026-04-06 |
 | 2. Credentials System | 0/2 | Planned | - |
-| 3. Preset System | 0/2 | Planned | - |
+| 3. Preset System | 1/2 | In Progress|  |
 | 4. Module Selector | 0/0 | Not started | - |
 | 5. Error Filters | 0/0 | Not started | - |
 | 6. Cross-Test Analysis | 0/0 | Not started | - |

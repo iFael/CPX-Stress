@@ -22,8 +22,8 @@
 
 ### Preset System
 
-- [ ] **PRESET-01**: A ferramenta disponibiliza um preset built-in nomeado "MisterT Completo" com as 10 operações padrão do ERP (Login + 9 módulos com extração de CTRL) configurado e pronto para uso com 1 clique, sem precisar configurar cada operação manualmente
-- [ ] **PRESET-02**: Usuário pode salvar a configuração de teste atual como um preset nomeado, carregar, renomear e deletar presets salvos anteriormente, de modo que configurações frequentes não precisem ser reconfiguradas a cada sessão
+- [x] **PRESET-01**: A ferramenta disponibiliza um preset built-in nomeado "MisterT Completo" com as 10 operações padrão do ERP (Login + 9 módulos com extração de CTRL) configurado e pronto para uso com 1 clique, sem precisar configurar cada operação manualmente
+- [x] **PRESET-02**: Usuário pode salvar a configuração de teste atual como um preset nomeado, carregar, renomear e deletar presets salvos anteriormente, de modo que configurações frequentes não precisem ser reconfiguradas a cada sessão
 - [ ] **PRESET-03**: Usuário pode selecionar via checkboxes quais dos 9 módulos do preset MisterT incluir em um teste específico (ex: apenas Estoque + Financeiro), sem precisar editar JSON ou criar um preset do zero
 
 ### Analytics e Reporting

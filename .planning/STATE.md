@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-last_updated: "2026-04-06T16:59:27.592Z"
+status: Executing Phase 3
+last_updated: "2026-04-06T17:09:41.432Z"
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 6
-  completed_plans: 4
-  percent: 67
+  completed_plans: 5
+  percent: 83
 ---
 
 # Project State
@@ -24,15 +24,16 @@ Last updated: 2026-04-06
 See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core value:** Simular carga realista no MisterT ERP com sessões autenticadas e operações encadeadas, validando a capacidade do sistema antes de crises em produção.
-**Current focus:** Phase 02 — credentials-system
+**Current focus:** Phase 3 — Preset System (Plan 01 complete, Plan 02 pending)
 
 ## Completed Phases
 
 - Phase 1: Engine Fixes (2026-04-06) — 4 ENGINE bugs fixed (SSRF guard, redirect following, auth-once VU lifecycle, reservoir sampling per operation)
+- Phase 2: Credentials System (2026-04-06) — .env credential management with STRESSFLOW_* whitelist
 
 ## Active Phase
 
-Phase 2: Credentials System — not yet planned
+Phase 3: Preset System — Plan 01 complete (backend infrastructure), Plan 02 pending (UI)
 
 ## Backlog Phases
 
@@ -67,7 +68,7 @@ Phase 2: Credentials System — not yet planned
 
 - Todo novo canal IPC: atualização atômica de 4 arquivos (preload whitelist, preload api, src/types/index.ts, main.ts)
 - Anti-padrão: nunca importar src/constants/test-presets.ts do código electron/ (quebra no build empacotado)
-- Próxima migração SQLite: v3 (tabela test_presets com flag is_builtin)
+- Próxima migração SQLite: v4 (v3 entregue com tabela test_presets)
 
 ### Active Blockers
 
@@ -79,5 +80,5 @@ Phase 2: Credentials System — not yet planned
 
 ## Session Continuity
 
-- Last session: 2026-04-06 (phase 1 execution complete)
-- Next action: `/gsd-plan-phase 2` to plan Credentials System
+- Last session: 2026-04-06 (phase 3 plan 01 execution complete)
+- Next action: Execute 03-02-PLAN.md (Preset System UI)
