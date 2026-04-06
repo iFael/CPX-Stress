@@ -380,14 +380,14 @@ const isMistertPreset = (config.operations || []).some(
 
 All major claims are verified from codebase and CONTEXT.md. No high-risk assumptions.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Grid column count (2 vs 3)**
+1. **Grid column count (2 vs 3)** — RESOLVED: 3 colunas (`grid-cols-3`) per UI-SPEC.md (Claude's discretion) e Plan 04-02.
    - What we know: D2 says "Grid of 2-3 columns". The TestConfig form has max-w-2xl (672px).
    - What's unclear: Whether 3 columns would be too tight for label text (longest: "CPX-Rastreio", "Faturamento")
    - Recommendation: Use 3 columns (`grid-cols-3`) since labels are short (max ~14 chars). This keeps the section compact. Planner can decide.
 
-2. **"Selecionar Todos/Nenhum" toggle**
+2. **"Selecionar Todos/Nenhum" toggle** — RESOLVED: Implementar per UI-SPEC.md (Claude's discretion) e Plan 04-02.
    - What we know: D2 marks this as "Optional"
    - What's unclear: Whether the added complexity is justified for 7 checkboxes
    - Recommendation: Implement it as a small text link above the grid. Cost is minimal (one extra callback) and it's a nice UX touch for "deselect all, then pick 2" workflows.
