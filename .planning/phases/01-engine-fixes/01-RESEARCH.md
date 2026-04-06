@@ -507,22 +507,22 @@ while (Date.now() < opts.endTime && !opts.signal.aborted) {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **MisterT session-expiry redirect URL path**
    - What we know: ASP Classic returns 302 to login page when session expires mid-test
    - What's unclear: Whether the redirect targets the same pathname as `authOps[0].url` or a different path
-   - Recommendation: The planner should include a task to manually observe a session-expiry 302 response from the actual MisterT ERP (or check IIS logs) to confirm the login redirect pathname before finalising ENGINE-03 session detection logic
+   - **RESOLVED** — Plan 01-02 Task 2 usa `authOps[0].url` pathname (assunção A2, confiança MEDIUM). Executor deve confirmar no SUMMARY após primeiro teste real contra MisterT. Se A2 estiver errada, o sinal é claro: módulos começarão a receber HTML de login sem `sessionExpired = true` sendo detectado.
 
 2. **Scope of `STRESSFLOW_ALLOW_INTERNAL` bypass**
    - What we know: The current implementation would bypass all SSRF checks including loopback
    - What's unclear: Team's preference — bypass all vs bypass only RFC-1918 ranges
-   - Recommendation: Document both options in the task and let the engineer choose; RFC-1918-only bypass is marginally safer
+   - **RESOLVED** — Plan 01-01 Task 1 escolheu bypass ALL checks (decisão de design documentada no plano). Justificativa: ferramenta de uso interno exclusivo da equipe de Engenharia; risco de loopback/metadata é aceitável neste contexto.
 
 3. **User-Agent branding fix (tracked in CONCERNS.md)**
    - Both `stress-engine.ts` line 1235 and `stress-worker.ts` line 147 send `"StressFlow/1.0"`
    - This is tech debt, not a Phase 1 requirement, but is in the same two files being modified
-   - Recommendation: The planner may include this as a zero-cost bonus fix alongside Phase 1 changes since the files are already being edited
+   - **RESOLVED** — Fix incluído como bônus em Plan 01-01 Task 1 (engine) e Plan 01-02 Task 1 (worker). Ambos os arquivos já sendo modificados, custo zero adicional de contexto.
 
 ---
 
