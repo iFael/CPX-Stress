@@ -36,7 +36,7 @@ Simular carga realista no MisterT ERP com sessões autenticadas e operações en
 - [ ] Preset das 10 operações do MisterT configurável via UI (Login, Dashboard, Consulta de Estoque, etc.) sem necessidade de configuração manual de cada chamada
 - [ ] Escalonamento confiável para 50–100+ usuários simultâneos com relatório de medição de confiabilidade
 - [ ] Interface de busca e análise dos erros armazenados no SQLite (filtrar por status HTTP, tipo de erro, operação, período)
-- [ ] Configuração guiada de credenciais MisterT diretamente na UI (preenchendo o `.env` via interface, sem edição manual de arquivo)
+- [x] Configuração guiada de credenciais MisterT diretamente na UI (preenchendo o `.env` via interface, sem edição manual de arquivo) — Validated in Phase 2: Credentials System
 - [ ] Relatório de capacidade consolidado adequado para apresentação à liderança (sumário executivo com interpretação dos resultados)
 
 ### Out of Scope
@@ -98,4 +98,4 @@ Este documento evolui a cada transição de fase e marco de milestone.
 4. Atualizar Context com estado atual
 
 ---
-*Last updated: 2026-04-06 after initialization*
+*Last updated: 2026-04-06 after Phase 2 (Credentials System) completion*
