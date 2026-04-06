@@ -49,6 +49,7 @@ import type {
   AppView,
   TestStatus,
   SecondMetrics,
+  CredentialStatus,
 } from "@/types";
 import {
   buildMistertOperations,
@@ -115,6 +116,15 @@ interface TestState {
 
   /** Mensagem de erro exibida ao usuário (null = nenhum erro ativo). */
   error: string | null;
+
+  // -- Credenciais: status de configuracao das credenciais MisterT --------
+
+  /**
+   * Status das credenciais obrigatorias (null = ainda nao verificado no startup).
+   * Contém apenas booleanos indicando se cada credencial esta configurada.
+   * Os valores reais NUNCA sao armazenados no store.
+   */
+  credentialStatus: CredentialStatus | null;
 }
 
 /**
@@ -172,6 +182,11 @@ interface TestActions {
 
   /** Define ou limpa a mensagem de erro. Passe null para limpar o erro. */
   setError: (error: string | null) => void;
+
+  // -- Credenciais --------------------------------------------------------
+
+  /** Atualiza o status booleano das credenciais no store. */
+  setCredentialStatus: (status: CredentialStatus | null) => void;
 }
 
 /**
@@ -224,6 +239,7 @@ const ESTADO_INICIAL: TestState = {
   currentResult: null,
   history: [],
   error: null,
+  credentialStatus: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -320,4 +336,10 @@ export const useTestStore = create<TestStore>((set) => ({
   // =========================================================================
 
   setError: (error) => set({ error }),
+
+  // =========================================================================
+  // Acoes de credenciais
+  // =========================================================================
+
+  setCredentialStatus: (status) => set({ credentialStatus: status }),
 }));

@@ -732,13 +732,26 @@ export interface ProtectionReport {
 // ============================================================================
 
 /**
+ * Status das credenciais obrigatorias do MisterT.
+ * Cada chave indica se a credencial esta configurada (true) ou ausente (false).
+ * Os valores reais NUNCA sao expostos ao renderer — apenas booleanos.
+ */
+export interface CredentialStatus {
+  /** Credencial de usuario do MisterT esta configurada. */
+  STRESSFLOW_USER: boolean;
+  /** Credencial de senha do MisterT esta configurada. */
+  STRESSFLOW_PASS: boolean;
+}
+
+/**
  * Telas disponiveis na aplicação.
  *
  * - 'test': Tela principal para configurar e executar testes
  * - 'history': Histórico de testes anteriores
  * - 'results': Visualização detalhada dos resultados de um teste
+ * - 'settings': Configurações de credenciais e ambiente
  */
-export type AppView = "test" | "history" | "results";
+export type AppView = "test" | "history" | "results" | "settings";
 
 /**
  * Estado atual do teste.
@@ -859,6 +872,20 @@ declare global {
 
         /** Retorna contagem de erros agrupados por tipo para um teste. */
         byErrorType: (testId: string) => Promise<Record<string, number>>;
+      };
+
+      /**
+       * Módulo de gerenciamento de credenciais MisterT.
+       * Permite verificar status, listar chaves e salvar credenciais.
+       * SEGURANCA: Nenhuma funcao retorna valores de credenciais — apenas booleanos ou nomes de chaves.
+       */
+      credentials: {
+        /** Verifica quais credenciais obrigatorias estao configuradas. Retorna booleanos, nunca valores. */
+        status: () => Promise<CredentialStatus>;
+        /** Lista nomes de chaves STRESSFLOW_* configuradas no .env. Nunca retorna valores. */
+        load: () => Promise<string[]>;
+        /** Salva credenciais no .env do main process. Campos vazios sao ignorados (nao sobrescrevem). */
+        save: (entries: Array<{ key: string; value: string }>) => Promise<{ saved: number; path: string }>;
       };
     };
   }
