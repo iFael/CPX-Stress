@@ -52,6 +52,7 @@ import type {
   CredentialStatus,
   TestPreset,
   ActivePresetInfo,
+  TestOperation,
 } from "@/types";
 import {
   buildMistertOperations,
@@ -214,6 +215,16 @@ interface TestActions {
 
   /** Limpa o preset ativo (chamado quando o usuario altera a config manualmente). */
   clearActivePreset: () => void;
+
+  /**
+   * Atualiza as operações do teste sem limpar o preset ativo.
+   * Usado pelo seletor de módulos para personalizar o fluxo MisterT
+   * sem perder a referência ao preset carregado (D4).
+   *
+   * Atualiza config.operations e config.url (primeira operação).
+   * NÃO zera activePreset — diferente de updateConfig que sempre zera.
+   */
+  updateModuleSelection: (operations: TestOperation[]) => void;
 }
 
 /**
@@ -386,4 +397,15 @@ export const useTestStore = create<TestStore>((set) => ({
   setPresets: (presets) => set({ presets }),
 
   clearActivePreset: () => set({ activePreset: null }),
+
+  updateModuleSelection: (operations) =>
+    set((state) => ({
+      config: {
+        ...state.config,
+        operations,
+        url: operations[0]?.url ?? state.config.url,
+      },
+      // activePreset NÃO é zerado — seleção de módulo é personalização temporária
+      // do preset ativo para um teste específico (D4 de 04-CONTEXT.md)
+    })),
 }));
