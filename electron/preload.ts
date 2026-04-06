@@ -58,6 +58,10 @@ const ALLOWED_INVOKE_CHANNELS = [
   "credentials:status",
   "credentials:save",
   "credentials:load",
+  "presets:list",
+  "presets:save",
+  "presets:rename",
+  "presets:delete",
 ] as const;
 
 /** Canais que o frontend pode escutar para receber dados em tempo real */
@@ -240,6 +244,31 @@ const api = {
         saved: number;
         path: string;
       }>,
+  },
+
+  // ---------------------------------------------------------------------------
+  // Presets — listar, salvar, renomear e deletar presets de teste
+  // ---------------------------------------------------------------------------
+  presets: {
+    /** Lista todos os presets (built-in primeiro, depois usuario por nome). */
+    list: (): Promise<unknown[]> =>
+      safeInvoke("presets:list") as Promise<unknown[]>,
+
+    /** Salva novo preset ou atualiza existente. Retorna o preset salvo. */
+    save: (data: {
+      id?: string;
+      name: string;
+      configJson: string;
+    }): Promise<unknown> =>
+      safeInvoke("presets:save", data) as Promise<unknown>,
+
+    /** Renomeia um preset do usuario (built-in rejeitado). */
+    rename: (id: string, newName: string): Promise<void> =>
+      safeInvoke("presets:rename", id, newName) as Promise<void>,
+
+    /** Deleta um preset do usuario (built-in rejeitado). */
+    delete: (id: string): Promise<void> =>
+      safeInvoke("presets:delete", id) as Promise<void>,
   },
 };
 

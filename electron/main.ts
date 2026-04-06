@@ -172,6 +172,7 @@ import {
   initDatabase,
   migrateFromJsonHistory,
   closeDatabase,
+  ensureBuiltinPresetVersion,
 } from "./database/database";
 import {
   saveTestResult,
@@ -183,6 +184,10 @@ import {
   searchErrors,
   getErrorsByStatusCode,
   getErrorsByType,
+  listPresets,
+  savePreset,
+  renamePreset,
+  deletePreset,
 } from "./database/repository";
 
 // ---------------------------------------------------------------------------
@@ -306,6 +311,7 @@ function initializeDatabase(): void {
     const dataPath = getDataPath();
     initDatabase(dataPath);
     migrateFromJsonHistory(dataPath);
+    ensureBuiltinPresetVersion(); // Atualiza preset built-in se versao mudou
     dbInitialized = true;
     console.log("[StressFlow] Banco de dados SQLite inicializado com sucesso.");
   } catch (error) {
@@ -918,6 +924,127 @@ ipcMain.handle(
     }
   },
 );
+
+// ===========================================================================
+//  Handlers IPC — Gerenciamento de Presets de Teste
+// ===========================================================================
+// Estes handlers permitem que a interface liste, salve, renomeie e delete
+// presets de teste. O preset built-in "MisterT Completo" e protegido contra
+// alteracoes e exclusao tanto na camada IPC quanto no repositorio.
+// ===========================================================================
+
+/**
+ * Canal: presets:list
+ * Lista todos os presets (built-in primeiro, depois usuario por nome).
+ */
+ipcMain.handle("presets:list", async () => {
+  try {
+    return listPresets();
+  } catch (error) {
+    console.error("[StressFlow] Erro ao listar presets:", error);
+    throw new Error("Nao foi possivel carregar os presets.");
+  }
+});
+
+/**
+ * Canal: presets:save
+ * Salva um novo preset ou atualiza um existente.
+ * Retorna o preset salvo com todos os campos.
+ */
+ipcMain.handle(
+  "presets:save",
+  async (
+    _event,
+    data: { id?: string; name: string; configJson: string },
+  ) => {
+    try {
+      if (!data || typeof data !== "object") {
+        throw new Error("Dados do preset invalidos.");
+      }
+      if (!data.name || typeof data.name !== "string") {
+        throw new Error("Informe um nome para o preset.");
+      }
+      if (!data.configJson || typeof data.configJson !== "string") {
+        throw new Error("Configuracao do preset ausente.");
+      }
+      return savePreset(data);
+    } catch (error) {
+      console.error("[StressFlow] Erro ao salvar preset:", error);
+      const msg = error instanceof Error ? error.message : String(error);
+      // Tratar UNIQUE constraint do SQLite para nome duplicado
+      if (msg.includes("UNIQUE constraint failed") || msg.includes("test_presets.name")) {
+        throw new Error("Ja existe um preset com este nome.");
+      }
+      throw new Error(
+        msg.startsWith("Informe") ||
+          msg.startsWith("Presets built-in") ||
+          msg.startsWith("O nome") ||
+          msg.startsWith("A configuracao") ||
+          msg.startsWith("Dados") ||
+          msg.startsWith("Configuracao")
+          ? msg
+          : `Nao foi possivel salvar o preset: ${msg}`,
+      );
+    }
+  },
+);
+
+/**
+ * Canal: presets:rename
+ * Renomeia um preset do usuario. Rejeita presets built-in.
+ */
+ipcMain.handle(
+  "presets:rename",
+  async (_event, id: string, newName: string) => {
+    try {
+      if (!id || typeof id !== "string") {
+        throw new Error("Identificador do preset nao informado.");
+      }
+      if (!newName || typeof newName !== "string") {
+        throw new Error("Informe um novo nome para o preset.");
+      }
+      renamePreset(id, newName);
+    } catch (error) {
+      console.error("[StressFlow] Erro ao renomear preset:", error);
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes("UNIQUE constraint failed") || msg.includes("test_presets.name")) {
+        throw new Error("Ja existe um preset com este nome.");
+      }
+      throw new Error(
+        msg.startsWith("Informe") ||
+          msg.startsWith("Preset nao") ||
+          msg.startsWith("Presets built-in") ||
+          msg.startsWith("O nome") ||
+          msg.startsWith("Identificador")
+          ? msg
+          : `Nao foi possivel renomear o preset: ${msg}`,
+      );
+    }
+  },
+);
+
+/**
+ * Canal: presets:delete
+ * Deleta um preset do usuario. Rejeita presets built-in.
+ */
+ipcMain.handle("presets:delete", async (_event, id: string) => {
+  try {
+    if (!id || typeof id !== "string") {
+      throw new Error("Identificador do preset nao informado.");
+    }
+    deletePreset(id);
+  } catch (error) {
+    console.error("[StressFlow] Erro ao excluir preset:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      msg.startsWith("Preset nao") ||
+        msg.startsWith("Presets built-in") ||
+        msg.startsWith("Identificador")
+        ? msg
+        : `Nao foi possivel excluir o preset: ${msg}`,
+    );
+  }
+});
 
 // ===========================================================================
 //  Handlers IPC — Consulta de Erros Detalhados
