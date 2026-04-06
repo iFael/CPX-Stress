@@ -218,6 +218,10 @@ function isBlockedIP(ip: string): boolean {
 
 // Correção de segurança: resolve o hostname e verifica se aponta para endereço privado/interno
 async function validateTargetHost(hostname: string): Promise<void> {
+  // Guard: permite rede interna corporativa quando opt-in explícito via .env
+  const allowInternal = process.env.STRESSFLOW_ALLOW_INTERNAL === 'true';
+  if (allowInternal) return;
+
   const normalizedHostname =
     hostname.startsWith("[") && hostname.endsWith("]")
       ? hostname.slice(1, -1)
@@ -1232,7 +1236,7 @@ export class StressEngine {
 
       const mod = opts.isHttps ? https : http;
       const mergedHeaders: Record<string, string> = {
-        "User-Agent": "StressFlow/1.0",
+        "User-Agent": "CPX-MisterT-Stress/1.0",
         Accept: "*/*",
         ...opts.headers,
       };
