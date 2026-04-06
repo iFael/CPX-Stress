@@ -70,8 +70,11 @@ Plans:
 2. Desmarcar um módulo remove apenas a operação desse módulo do teste sem afetar os demais módulos selecionados
 3. Aplicar seleção parcial (ex: apenas Estoque + Financeiro) inicia o teste com as operações de Login seguidas apenas dos módulos selecionados — o JSON de configuração não contém os módulos desmarcados
 4. O comportamento sem seleção explícita é idêntico ao preset anterior: todos os 9 módulos incluídos, sem regressão
-**Plans:** TBD
-**UI hint:** yes
+**Plans:** 2 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Camada de dados: MISTERT_MODULE_METADATA + updateModuleSelection no store
+- [ ] 04-02-PLAN.md — UI: fieldset de módulos com checkboxes em TestConfig + verificação humana
 
 ### Phase 5: Error Filters
 **Goal:** Usuário localiza erros específicos no ErrorExplorer filtrando por nome de operação e por intervalo de data/hora, sem navegar por resultados irrelevantes de outros testes ou operações
