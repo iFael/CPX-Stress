@@ -25,7 +25,11 @@
 2. O parâmetro `{{CTRL}}` é extraído corretamente após os redirects 302 do ASP Classic — URLs das requisições subsequentes contêm o valor real de CTRL (ex: `?CTRL=12345`), não a string literal `{{CTRL}}`
 3. Cada usuário virtual autentica uma única vez ao iniciar seu ciclo de vida e reutiliza a sessão nas operações de módulo em loop, re-autenticando apenas quando recebe 302 redirecionando para a página de login
 4. Teste de 10 minutos com 100 VUs e 10 operações completa sem crescimento anormal de memória — os arrays de latência por operação permanecem limitados a no máximo 100.000 entradas, igual ao reservoir global
-**Plans:** TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — ENGINE-01 (guard SSRF rede interna) + ENGINE-04 (reservoir cap opMetrics)
+- [ ] 01-02-PLAN.md — ENGINE-02 (redirect following) + ENGINE-03 (VU loop reestruturado)
 
 ### Phase 2: Credentials System
 **Goal:** Usuário configura credenciais MisterT (usuário, senha, URL base) diretamente na interface gráfica sem editar arquivos manualmente, e a tela principal sinaliza quando as credenciais obrigatórias estão ausentes
@@ -104,7 +108,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Engine Fixes | 0/0 | Not started | - |
+| 1. Engine Fixes | 0/2 | Not started | - |
 | 2. Credentials System | 0/0 | Not started | - |
 | 3. Preset System | 0/0 | Not started | - |
 | 4. Module Selector | 0/0 | Not started | - |
