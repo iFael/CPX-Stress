@@ -743,6 +743,43 @@ export interface CredentialStatus {
   STRESSFLOW_PASS: boolean;
 }
 
+// ============================================================================
+// 7. PRESET SYSTEM
+// ----------------------------------------------------------------------------
+// Presets sao configuracoes de teste salvas para reutilizacao.
+// O preset built-in "MisterT Completo" vem pre-configurado com as 10 operacoes
+// padrao do ERP. Usuarios podem salvar, carregar, renomear e deletar presets.
+// ============================================================================
+
+/** Informacoes resumidas do preset ativo (carregado no formulario). */
+export interface ActivePresetInfo {
+  /** Identificador unico do preset. */
+  id: string;
+  /** Nome exibido ao usuario. */
+  name: string;
+  /** Se este preset e built-in (nao editavel/deletavel). */
+  isBuiltin: boolean;
+}
+
+/**
+ * Preset de teste salvo no banco de dados.
+ * Contém a configuracao completa (TestConfig) serializada.
+ */
+export interface TestPreset {
+  /** Identificador unico do preset (UUID). */
+  id: string;
+  /** Nome exibido ao usuario. */
+  name: string;
+  /** Configuracao de teste completa (deserializada do config_json do banco). */
+  config: TestConfig;
+  /** Se este preset e built-in (nao editavel/deletavel pelo usuario). */
+  isBuiltin: boolean;
+  /** Data de criacao (ISO 8601). */
+  createdAt: string;
+  /** Data da ultima atualizacao (ISO 8601). */
+  updatedAt: string;
+}
+
 /**
  * Telas disponiveis na aplicação.
  *
@@ -750,8 +787,9 @@ export interface CredentialStatus {
  * - 'history': Histórico de testes anteriores
  * - 'results': Visualização detalhada dos resultados de um teste
  * - 'settings': Configurações de credenciais e ambiente
+ * - 'presets': Gerenciamento de presets de teste
  */
-export type AppView = "test" | "history" | "results" | "settings";
+export type AppView = "test" | "history" | "results" | "settings" | "presets";
 
 /**
  * Estado atual do teste.
@@ -886,6 +924,22 @@ declare global {
         load: () => Promise<string[]>;
         /** Salva credenciais no .env do main process. Campos vazios sao ignorados (nao sobrescrevem). */
         save: (entries: Array<{ key: string; value: string }>) => Promise<{ saved: number; path: string }>;
+      };
+
+      /**
+       * Modulo de gerenciamento de presets de teste.
+       * Permite listar, salvar, renomear e deletar presets.
+       * O preset built-in "MisterT Completo" nao pode ser renomeado ou deletado.
+       */
+      presets: {
+        /** Lista todos os presets (built-in + usuario). Built-in aparece primeiro. */
+        list: () => Promise<TestPreset[]>;
+        /** Salva um novo preset ou atualiza um existente. Retorna o preset salvo. */
+        save: (data: { id?: string; name: string; configJson: string }) => Promise<TestPreset>;
+        /** Renomeia um preset do usuario. Presets built-in sao rejeitados. */
+        rename: (id: string, newName: string) => Promise<void>;
+        /** Deleta um preset do usuario. Presets built-in sao rejeitados. */
+        delete: (id: string) => Promise<void>;
       };
     };
   }

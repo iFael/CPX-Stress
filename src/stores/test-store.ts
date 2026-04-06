@@ -50,6 +50,8 @@ import type {
   TestStatus,
   SecondMetrics,
   CredentialStatus,
+  TestPreset,
+  ActivePresetInfo,
 } from "@/types";
 import {
   buildMistertOperations,
@@ -125,6 +127,17 @@ interface TestState {
    * Os valores reais NUNCA sao armazenados no store.
    */
   credentialStatus: CredentialStatus | null;
+
+  // -- Presets: configuracoes de teste salvas para reutilizacao ---------------
+
+  /**
+   * Preset atualmente carregado no formulario (null = nenhum).
+   * Limpo automaticamente quando o usuario altera a configuracao manualmente.
+   */
+  activePreset: ActivePresetInfo | null;
+
+  /** Lista de presets carregados do banco (built-in + usuario). */
+  presets: TestPreset[];
 }
 
 /**
@@ -187,6 +200,20 @@ interface TestActions {
 
   /** Atualiza o status booleano das credenciais no store. */
   setCredentialStatus: (status: CredentialStatus | null) => void;
+
+  // -- Presets ---------------------------------------------------------------
+
+  /**
+   * Aplica um preset: define a configuracao e marca como preset ativo.
+   * Usa set() atomico para evitar flash de estado inconsistente.
+   */
+  applyPreset: (config: TestConfig, presetInfo: ActivePresetInfo) => void;
+
+  /** Substitui a lista de presets carregados do banco. */
+  setPresets: (presets: TestPreset[]) => void;
+
+  /** Limpa o preset ativo (chamado quando o usuario altera a config manualmente). */
+  clearActivePreset: () => void;
 }
 
 /**
@@ -240,6 +267,8 @@ const ESTADO_INICIAL: TestState = {
   history: [],
   error: null,
   credentialStatus: null,
+  activePreset: null,
+  presets: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -286,6 +315,7 @@ export const useTestStore = create<TestStore>((set) => ({
   updateConfig: (partial) =>
     set((state) => ({
       config: { ...state.config, ...partial },
+      activePreset: null,
     })),
 
   // =========================================================================
@@ -342,4 +372,18 @@ export const useTestStore = create<TestStore>((set) => ({
   // =========================================================================
 
   setCredentialStatus: (status) => set({ credentialStatus: status }),
+
+  // =========================================================================
+  // Acoes de presets
+  // =========================================================================
+
+  applyPreset: (config, presetInfo) =>
+    set({
+      config: { ...config },
+      activePreset: presetInfo,
+    }),
+
+  setPresets: (presets) => set({ presets }),
+
+  clearActivePreset: () => set({ activePreset: null }),
 }));
