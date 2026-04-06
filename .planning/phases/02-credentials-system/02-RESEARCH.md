@@ -228,7 +228,7 @@ export function CredentialAlert({ onNavigateToSettings }: { onNavigateToSettings
     >
       <AlertTriangle className="w-5 h-5 text-sf-warning shrink-0 mt-0.5" aria-hidden="true" />
       <div className="flex-1">
-        <p className="text-sm font-medium text-sf-warning">
+        <p className="text-sm font-semibold text-sf-warning">
           Credenciais MisterT nao configuradas
         </p>
         <p className="text-sm text-sf-warning/80 mt-1">
@@ -238,7 +238,7 @@ export function CredentialAlert({ onNavigateToSettings }: { onNavigateToSettings
       <button
         type="button"
         onClick={onNavigateToSettings}
-        className="text-sm text-sf-warning hover:text-sf-warning/80 font-medium underline shrink-0"
+        className="text-sm text-sf-warning hover:text-sf-warning/80 font-semibold underline shrink-0"
       >
         Configurar
       </button>

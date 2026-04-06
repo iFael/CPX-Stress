@@ -151,14 +151,14 @@ Accent reserved for:
 - Container: `max-w-2xl mx-auto animate-slide-up` (matches TestConfig container)
 - Page heading: `text-lg font-semibold text-sf-text` with Settings icon (`w-5 h-5`) in `flex items-center gap-2`
 - Card: `bg-sf-surface border border-sf-border rounded-xl p-6` (standard sf-card pattern)
-- Section heading inside card: `text-sm font-medium text-sf-text mb-4` with KeyRound icon
+- Section heading inside card: `text-sm font-semibold text-sf-text mb-4` with KeyRound icon
 - Input fields: Reuse `inputBaseClass` from TestConfig pattern: `w-full px-4 py-2.5 bg-sf-surface border border-sf-border rounded-xl text-sf-text focus:outline-none focus:ring-2 focus:ring-sf-primary/30 focus:border-sf-primary transition-all`
 - Input labels: Reuse `labelClass`: `flex items-center gap-2 text-sm text-sf-textSecondary mb-2`
 - Status indicators per field: Inline `flex items-center gap-1.5 text-xs` aligned right in the label row
   - Configured: `Check` icon (w-3.5 h-3.5) `text-sf-success` + "Configurado" `text-sf-success`
   - Not configured: `Minus` icon (w-3.5 h-3.5) `text-sf-textMuted` + "Nao configurado" `text-sf-textMuted`
 - Password eye toggle: Button inside the input container (absolute positioned right), icon `Eye` / `EyeOff` (w-4 h-4) `text-sf-textMuted hover:text-sf-textSecondary`
-- Save button: `w-full py-2.5 bg-sf-primary hover:bg-sf-primaryHover text-white font-medium rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-4` with Save icon (w-4 h-4)
+- Save button: `w-full py-2.5 bg-sf-primary hover:bg-sf-primaryHover text-white font-semibold rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-4` with Save icon (w-4 h-4)
 - Save button disabled state: `disabled:opacity-50 disabled:cursor-not-allowed` -- disabled when BOTH fields are empty
 - .env path info: `text-xs text-sf-textMuted mt-4` displayed below the save button
 
@@ -194,9 +194,9 @@ Accent reserved for:
 
 - Container: `mb-4 p-4 bg-sf-warning/10 border border-sf-warning/30 rounded-xl flex items-start gap-3`
 - Icon: `AlertTriangle` (w-5 h-5) `text-sf-warning shrink-0 mt-0.5`
-- Heading: `text-sm font-medium text-sf-warning`
+- Heading: `text-sm font-semibold text-sf-warning`
 - Body: `text-sm text-sf-warning/80 mt-1`
-- Action button: `text-sm text-sf-warning hover:text-sf-warning/80 font-medium underline shrink-0`
+- Action button: `text-sm text-sf-warning hover:text-sf-warning/80 font-semibold underline shrink-0`
 - ARIA: `role="alert"` on the container
 
 **Interaction contract:**
@@ -225,7 +225,7 @@ Accent reserved for:
 
 **Position:** Last item in NAV_ITEMS array (after "Historico"), above the running indicator / footer.
 
-**Visual:** Identical to existing nav items. Active state: `bg-sf-primary/10 text-sf-primary font-medium`. Inactive: `text-sf-textSecondary hover:bg-sf-surfaceHover hover:text-sf-text`.
+**Visual:** Identical to existing nav items. Active state: `bg-sf-primary/10 text-sf-primary font-semibold`. Inactive: `text-sf-textSecondary hover:bg-sf-surfaceHover hover:text-sf-text`.
 
 **Source:** Sidebar.tsx NAV_ITEMS pattern (lines 43-58), 02-RESEARCH.md Sidebar Navigation Addition.
 
