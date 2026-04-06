@@ -94,6 +94,24 @@ const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   },
 ];
 
+/**
+ * Metadados dos 7 módulos de negócio selecionáveis do MisterT ERP.
+ *
+ * Usado pelo seletor de módulos na UI para mapear checkboxes para operações.
+ * Os nomes DEVEM ser idênticos a MISTERT_OPERATIONS_TEMPLATE[3..9].name —
+ * a UI usa correspondência exata de string para detectar módulos no config.operations.
+ * A ordem reflete a ordem de execução no template.
+ */
+export const MISTERT_MODULE_METADATA = [
+  { name: "CPX-Fretes",   code: "R=89"  },
+  { name: "CPX-Rastreio", code: "R=90"  },
+  { name: "Estoque",      code: "R=122" },
+  { name: "Ordens E/S",   code: "R=102" },
+  { name: "Produção",     code: "R=84"  },
+  { name: "Faturamento",  code: "R=206" },
+  { name: "Financeiro",   code: "R=250" },
+] as const;
+
 export const MISTERT_OPERATION_COUNT = MISTERT_OPERATIONS_TEMPLATE.length;
 
 /**
