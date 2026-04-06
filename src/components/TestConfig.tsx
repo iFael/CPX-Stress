@@ -10,10 +10,14 @@ import {
   Loader2,
   Layers,
   Server,
+  BookOpen,
+  Save,
 } from "lucide-react";
 import { useTestStore } from "@/stores/test-store";
 import { InfoTooltip } from "@/components/InfoTooltip";
 import { CredentialAlert } from "@/components/CredentialAlert";
+import { PresetModal } from "@/components/PresetModal";
+import { SavePresetDialog } from "@/components/SavePresetDialog";
 import type { ProgressData } from "@/types";
 import {
   MISTERT_OPERATION_COUNT,
@@ -70,12 +74,16 @@ export function TestConfig() {
   const error = useTestStore((s) => s.error);
   const setError = useTestStore((s) => s.setError);
   const credentialStatus = useTestStore((s) => s.credentialStatus);
+  const activePreset = useTestStore((s) => s.activePreset);
+  const setPresets = useTestStore((s) => s.setPresets);
 
   /* ---- Estado local do formulario ---- */
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showOperations, setShowOperations] = useState(false);
   const [urlError, setUrlError] = useState("");
   const [isStarting, setIsStarting] = useState(false);
+  const [showPresetModal, setShowPresetModal] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
 
   // Campos numéricos: estado local em string para permitir edição livre;
   // sincroniza com a store apenas no blur (clampeado).
@@ -83,10 +91,17 @@ export function TestConfig() {
   const [durationStr, setDurationStr] = useState(String(config.duration));
   const [rampUpStr, setRampUpStr] = useState(String(config.rampUp || 0));
 
-  // Sincronizar se o store mudar por fora (ex: reset)
+  // Sincronizar se o store mudar por fora (ex: reset ou aplicacao de preset)
   useEffect(() => setUsersStr(String(config.virtualUsers)), [config.virtualUsers]);
   useEffect(() => setDurationStr(String(config.duration)), [config.duration]);
   useEffect(() => setRampUpStr(String(config.rampUp || 0)), [config.rampUp]);
+
+  // Carregar presets do banco na inicializacao (para SavePresetDialog validar nomes)
+  useEffect(() => {
+    window.stressflow.presets.list()
+      .then((data) => setPresets(data as import("@/types").TestPreset[]))
+      .catch(() => console.warn("[StressFlow] Erro ao carregar presets na inicializacao"));
+  }, [setPresets]);
 
   // Mostrar alerta quando credenciais foram verificadas e alguma esta ausente
   const showCredentialAlert =
@@ -202,6 +217,33 @@ export function TestConfig() {
         <h2 className="text-lg font-semibold text-sf-text select-none cursor-default">
           CPX — MisterT Stress
         </h2>
+      </div>
+
+      {/* ---- TOOLBAR: Presets ---- */}
+      <div className="flex items-center gap-3 mb-4">
+        <button
+          type="button"
+          onClick={() => setShowPresetModal(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-sf-surface border border-sf-border rounded-xl text-sm text-sf-textSecondary hover:text-sf-text hover:border-sf-textMuted transition-all"
+        >
+          <BookOpen size={16} aria-hidden="true" />
+          Presets
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowSaveDialog(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-sf-surface border border-sf-border rounded-xl text-sm text-sf-textSecondary hover:text-sf-text hover:border-sf-textMuted transition-all"
+        >
+          <Save size={16} aria-hidden="true" />
+          Salvar Preset
+        </button>
+
+        {activePreset && (
+          <span className="text-xs text-sf-textMuted ml-auto">
+            Preset ativo: <span className="text-sf-text font-semibold">{activePreset.name}</span>
+          </span>
+        )}
       </div>
 
       {/* ---- AMBIENTE MISTERT ---- */}
@@ -487,6 +529,19 @@ export function TestConfig() {
       </button>
 
       {/* ---- INFO ---- */}
+
+      {/* ---- Modais de Presets ---- */}
+      <PresetModal
+        isOpen={showPresetModal}
+        onClose={() => setShowPresetModal(false)}
+        currentBaseUrl={currentBaseUrl}
+      />
+
+      <SavePresetDialog
+        isOpen={showSaveDialog}
+        onClose={() => setShowSaveDialog(false)}
+        activePreset={activePreset}
+      />
     </div>
   );
 }
