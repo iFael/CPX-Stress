@@ -128,8 +128,8 @@ Plans:
 | 2. Credentials System | 2/2 | Complete | 2026-04-06 |
 | 3. Preset System | 2/2 | Complete | 2026-04-06 |
 | 4. Module Selector | 2/2 | Complete | 2026-04-06 |
-| 5. Error Filters | 2/2 | Complete |  |
-| 6. Cross-Test Analysis | 1/1 | Complete   | 2026-04-07 |
+| 5. Error Filters | 2/2 | Complete | 2026-04-07 |
+| 6. Cross-Test Analysis | 1/1 | Complete | 2026-04-07 |
 | 7. PDF Capacity Verdict | 0/0 | Not started | - |
 
 ---
