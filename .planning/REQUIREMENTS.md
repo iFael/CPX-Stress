@@ -28,8 +28,8 @@
 
 ### Analytics e Reporting
 
-- [ ] **ANALYTICS-01**: Usuário pode filtrar os erros armazenados no ErrorExplorer por nome de operação (ex: "Login", "Consulta Estoque"), além dos filtros existentes por status HTTP e tipo de erro
-- [ ] **ANALYTICS-02**: Usuário pode filtrar os erros armazenados no ErrorExplorer por intervalo de tempo (data/hora de início e fim do teste)
+- [x] **ANALYTICS-01**: Usuário pode filtrar os erros armazenados no ErrorExplorer por nome de operação (ex: "Login", "Consulta Estoque"), além dos filtros existentes por status HTTP e tipo de erro
+- [x] **ANALYTICS-02**: Usuário pode filtrar os erros armazenados no ErrorExplorer por intervalo de tempo (data/hora de início e fim do teste)
 - [ ] **ANALYTICS-03**: Usuário pode visualizar uma tela de análise cross-test que compara a distribuição de erros entre múltiplos testes históricos, identificando se erros de uma operação específica pioram com o tempo ou com aumento de carga
 - [ ] **ANALYTICS-04**: O relatório PDF inclui uma frase explícita de veredicto de capacidade (ex: "O sistema suportou X usuários simultâneos com tempo de resposta médio de Yms e taxa de erro de Z%") adequada para apresentação direta à liderança, como extensão da página "Resumo para Gestores" existente
 

@@ -85,11 +85,11 @@ Plans:
 2. Usuário pode definir data/hora de início e fim para limitar os erros exibidos ao período de execução de um teste específico
 3. Combinar os filtros de operação + período + status HTTP retorna corretamente a interseção dos critérios, sem resultados duplicados ou ausentes
 4. Os novos filtros não quebram os filtros existentes de status HTTP e tipo de erro — nenhuma regressão no comportamento anterior do ErrorExplorer
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 **UI hint:** yes
 
 Plans:
-- [ ] 05-01-PLAN.md — Backend: extend searchErrors() + getErrorsByOperationName() + IPC 4-file atomic update
+- [x] 05-01-PLAN.md — Backend: extend searchErrors() + getErrorsByOperationName() + IPC 4-file atomic update
 - [ ] 05-02-PLAN.md — Frontend: ErrorExplorer operation card, datetime period inputs, filter chips + human verification
 
 ### Phase 6: Cross-Test Analysis
@@ -125,7 +125,7 @@ Plans:
 | 2. Credentials System | 2/2 | Complete | 2026-04-06 |
 | 3. Preset System | 2/2 | Complete | 2026-04-06 |
 | 4. Module Selector | 2/2 | Complete | 2026-04-06 |
-| 5. Error Filters | 0/2 | Planned | - |
+| 5. Error Filters | 1/2 | In Progress|  |
 | 6. Cross-Test Analysis | 0/0 | Not started | - |
 | 7. PDF Capacity Verdict | 0/0 | Not started | - |
 

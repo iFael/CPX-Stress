@@ -2,29 +2,29 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-last_updated: "2026-04-07T11:53:51.498Z"
+status: Executing phase 5
+last_updated: "2026-04-07T12:09:26.798Z"
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 10
-  completed_plans: 8
-  percent: 80
+  completed_plans: 9
+  percent: 90
 ---
 
 # Project State
 
 ## Current Status
 
-Phase: 4 (complete)
-Last updated: 2026-04-06
+Phase: 5 (plan 01 complete, plan 02 pending)
+Last updated: 2026-04-07
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core value:** Simular carga realista no MisterT ERP com sessoes autenticadas e operacoes encadeadas, validando a capacidade do sistema antes de crises em producao.
-**Current focus:** Phase 05 — error-filters (context gathered, ready for planning)
+**Current focus:** Phase 05 — error-filters (Wave 1 complete, awaiting Wave 2: frontend UI)
 
 ## Completed Phases
 
@@ -35,11 +35,10 @@ See: .planning/PROJECT.md (updated 2026-04-06)
 
 ## Active Phase
 
-(none — Phase 4 just completed)
+- Phase 5: Error Filters (executing — Wave 1 complete, Wave 2 pending: frontend UI)
 
 ## Backlog Phases
 
-- Phase 5: Error Filters
 - Phase 6: Cross-Test Analysis
 - Phase 7: PDF Capacity Verdict
 
@@ -49,7 +48,7 @@ See: .planning/PROJECT.md (updated 2026-04-06)
 
 - Phases completed: 4/7
 - Requirements delivered: 7/13
-- Plans executed: 8
+- Plans executed: 9
 
 ## Accumulated Context
 
@@ -68,6 +67,9 @@ See: .planning/PROJECT.md (updated 2026-04-06)
 - MISTERT_MODULE_METADATA as const — array imutável, metadata separada do template de operações
 - updateModuleSelection não zera activePreset — seleção de módulo é customização temporary do preset carregado
 - Checkboxes integrados na seção Ver Operações (não em fieldset separado) — feedback do usuário
+- Extended searchErrors() params instead of new function — backward compatible, existing callers unaffected
+- getErrorsByOperationName() clones exact pattern of getErrorsByStatusCode() for codebase consistency
+- Timestamp filters use >= and <= (inclusive bounds) matching intuitive user expectation
 
 ### Critical Constraints
 
@@ -85,5 +87,5 @@ See: .planning/PROJECT.md (updated 2026-04-06)
 
 ## Session Continuity
 
-- Last session: 2026-04-06 (phase 5 context gathered)
-- Next action: `/gsd-plan-phase 5` (Error Filters)
+- Last session: 2026-04-07 (phase 5, plan 01 complete)
+- Next action: Wave 2 executor (Plan 05-02: frontend ErrorExplorer UI)
