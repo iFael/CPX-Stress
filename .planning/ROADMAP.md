@@ -9,7 +9,7 @@
 - [x] **Phase 3: Preset System** - Preset MisterT Completo built-in e CRUD de presets do usuário
 - [x] **Phase 4: Module Selector** - Seleção granular de módulos via checkboxes no preset MisterT
 - [ ] **Phase 5: Error Filters** - Filtros de operação e período de tempo no ErrorExplorer
-- [ ] **Phase 6: Cross-Test Analysis** - Análise comparativa de erros entre múltiplos testes históricos
+- [x] **Phase 6: Cross-Test Analysis** - Análise comparativa de erros entre múltiplos testes históricos (completed 2026-04-07)
 - [ ] **Phase 7: PDF Capacity Verdict** - Veredicto explícito de capacidade no relatório PDF para liderança
 
 ---
@@ -101,11 +101,11 @@ Plans:
 2. Usuário pode selecionar dois ou mais testes do histórico para comparar a distribuição de erros lado a lado
 3. A tela exibe a contagem de erros por operação para cada teste selecionado, permitindo identificar operações com degradação crescente entre execuções
 4. Erros de uma operação que crescem proporcionalmente com o número de VUs ficam imediatamente distinguíveis na comparação visual — o padrão de degradação é acionável sem precisar exportar dados
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 **UI hint:** yes
 
 Plans:
-- [ ] 06-01-PLAN.md — Navigation wiring + CrossTestAnalysis completo (test selector, comparison table, grouped bar chart, trend indicators)
+- [x] 06-01-PLAN.md — Navigation wiring + CrossTestAnalysis completo (test selector, comparison table, grouped bar chart, trend indicators)
 
 ### Phase 7: PDF Capacity Verdict
 **Goal:** O relatório PDF inclui veredicto explícito de capacidade com linguagem executiva, eliminando a necessidade de interpretação técnica para apresentação à liderança
@@ -129,7 +129,7 @@ Plans:
 | 3. Preset System | 2/2 | Complete | 2026-04-06 |
 | 4. Module Selector | 2/2 | Complete | 2026-04-06 |
 | 5. Error Filters | 2/2 | Complete |  |
-| 6. Cross-Test Analysis | 0/1 | Planned | - |
+| 6. Cross-Test Analysis | 1/1 | Complete   | 2026-04-07 |
 | 7. PDF Capacity Verdict | 0/0 | Not started | - |
 
 ---
