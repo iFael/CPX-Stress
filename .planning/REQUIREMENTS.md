@@ -67,11 +67,11 @@
 | CRED-02 | Phase 2 | TBD |
 | PRESET-01 | Phase 3 | TBD |
 | PRESET-02 | Phase 3 | TBD |
-| PRESET-03 | Phase 4 | TBD |
-| ANALYTICS-01 | Phase 5 | TBD |
-| ANALYTICS-02 | Phase 5 | TBD |
-| ANALYTICS-03 | Phase 6 | TBD |
-| ANALYTICS-04 | Phase 7 | TBD |
+| PRESET-03 | Phase 4 | 04-01, 04-02 |
+| ANALYTICS-01 | Phase 5 | 05-01, 05-02 |
+| ANALYTICS-02 | Phase 5 | 05-01, 05-02 |
+| ANALYTICS-03 | Phase 6 | 06-01 |
+| ANALYTICS-04 | Phase 7 | 07-01 |
 
 ---
 

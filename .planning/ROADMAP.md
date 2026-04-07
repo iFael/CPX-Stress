@@ -116,7 +116,10 @@ Plans:
 2. O veredicto é gerado automaticamente a partir dos campos do `TestResult` existente — o usuário não precisa configurar nada adicional para obtê-lo
 3. Quando a taxa de erro aumenta com o número de VUs, o relatório inclui uma linha de contexto sobre o comportamento esperado do limite de threads do IIS, sem jargão técnico excessivo
 4. Um gestor não-técnico consegue entender a conclusão de capacidade lendo apenas a primeira página do PDF, sem precisar consultar os gráficos de percentis
-**Plans:** TBD
+**Plans:** 1/1 plans complete
+
+Plans:
+- [x] 07-01-PLAN.md — Capacity verdict in drawLaypersonPage (buildVerdict three-tier + infrastructure context note)
 
 ---
 
@@ -130,7 +133,7 @@ Plans:
 | 4. Module Selector | 2/2 | Complete | 2026-04-06 |
 | 5. Error Filters | 2/2 | Complete | 2026-04-07 |
 | 6. Cross-Test Analysis | 1/1 | Complete | 2026-04-07 |
-| 7. PDF Capacity Verdict | 0/0 | Not started | - |
+| 7. PDF Capacity Verdict | 1/1 | Complete | 2026-04-07 |
 
 ---
 
