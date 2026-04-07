@@ -6,7 +6,11 @@ import {
   ChevronRight,
   Filter,
   XCircle,
+  Layers,
+  Calendar,
 } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import type { ErrorRecord } from "@/types";
 
 const PAGE_SIZE = 20;
@@ -66,21 +70,31 @@ export function ErrorExplorer({ testId }: ErrorExplorerProps) {
   const [filterErrorType, setFilterErrorType] = useState<string | undefined>(
     undefined,
   );
+  const [filterOperationName, setFilterOperationName] = useState<
+    string | undefined
+  >(undefined);
+  const [filterTimeStart, setFilterTimeStart] = useState<string>("");
+  const [filterTimeEnd, setFilterTimeEnd] = useState<string>("");
 
   // Resumos agregados
   const [byStatusCode, setByStatusCode] = useState<Record<string, number>>({});
   const [byErrorType, setByErrorType] = useState<Record<string, number>>({});
+  const [byOperationName, setByOperationName] = useState<
+    Record<string, number>
+  >({});
 
   // Carregar resumos ao montar
   useEffect(() => {
     const load = async () => {
       try {
-        const [sc, et] = await Promise.all([
+        const [sc, et, op] = await Promise.all([
           window.stressflow.errors.byStatusCode(testId),
           window.stressflow.errors.byErrorType(testId),
+          window.stressflow.errors.byOperationName(testId),
         ]);
         setByStatusCode(sc);
         setByErrorType(et);
+        setByOperationName(op);
       } catch {
         // Silenciar — dados opcionais
       }
@@ -92,10 +106,20 @@ export function ErrorExplorer({ testId }: ErrorExplorerProps) {
   const loadRecords = useCallback(async () => {
     setLoading(true);
     try {
+      const timestampStart = filterTimeStart
+        ? new Date(filterTimeStart).getTime()
+        : undefined;
+      const timestampEnd = filterTimeEnd
+        ? new Date(filterTimeEnd).getTime()
+        : undefined;
+
       const result = await window.stressflow.errors.search({
         testId,
         statusCode: filterStatusCode,
         errorType: filterErrorType,
+        operationName: filterOperationName,
+        timestampStart,
+        timestampEnd,
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
       });
@@ -107,7 +131,7 @@ export function ErrorExplorer({ testId }: ErrorExplorerProps) {
     } finally {
       setLoading(false);
     }
-  }, [testId, filterStatusCode, filterErrorType, page]);
+  }, [testId, filterStatusCode, filterErrorType, filterOperationName, filterTimeStart, filterTimeEnd, page]);
 
   useEffect(() => {
     loadRecords();
@@ -116,11 +140,13 @@ export function ErrorExplorer({ testId }: ErrorExplorerProps) {
   // Reset página ao mudar filtros
   useEffect(() => {
     setPage(0);
-  }, [filterStatusCode, filterErrorType]);
+  }, [filterStatusCode, filterErrorType, filterOperationName, filterTimeStart, filterTimeEnd]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const hasErrors =
-    Object.keys(byStatusCode).length > 0 || Object.keys(byErrorType).length > 0;
+    Object.keys(byStatusCode).length > 0 ||
+    Object.keys(byErrorType).length > 0 ||
+    Object.keys(byOperationName).length > 0;
 
   if (!hasErrors && !loading) {
     return (
@@ -133,7 +159,7 @@ export function ErrorExplorer({ testId }: ErrorExplorerProps) {
   return (
     <div className="space-y-4">
       {/* Resumo por tipo e por status code */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         {/* Por tipo de erro */}
         {Object.keys(byErrorType).length > 0 && (
           <div className="p-3 bg-sf-surface border border-sf-border rounded-xl">
@@ -198,11 +224,70 @@ export function ErrorExplorer({ testId }: ErrorExplorerProps) {
             </div>
           </div>
         )}
+
+        {/* Por operação */}
+        {Object.keys(byOperationName).length > 0 && (
+          <div className="p-3 bg-sf-surface border border-sf-border rounded-xl">
+            <h4 className="text-xs font-medium text-sf-textSecondary mb-2 flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5" />
+              Por Operação
+            </h4>
+            <div className="space-y-1">
+              {Object.entries(byOperationName).map(([name, count]) => (
+                <button
+                  key={name}
+                  onClick={() =>
+                    setFilterOperationName(
+                      filterOperationName === name ? undefined : name,
+                    )
+                  }
+                  className={`w-full flex justify-between items-center text-xs px-2 py-1 rounded transition-all ${
+                    filterOperationName === name
+                      ? "bg-sf-primary/20 text-sf-primary"
+                      : "hover:bg-sf-bg text-sf-textSecondary"
+                  }`}
+                >
+                  <span className="text-sf-text truncate">{name}</span>
+                  <span className="font-mono">
+                    {count.toLocaleString("pt-BR")}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Filtro de período */}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-3.5 h-3.5 text-sf-textMuted" />
+          <label className="text-xs text-sf-textMuted whitespace-nowrap">
+            Período:
+          </label>
+          <input
+            type="datetime-local"
+            value={filterTimeStart}
+            onChange={(e) => setFilterTimeStart(e.target.value)}
+            className="bg-sf-bg border border-sf-border rounded-lg px-2.5 py-1 text-xs text-sf-text focus:border-sf-primary focus:outline-none transition-colors"
+            style={{ colorScheme: "dark" }}
+            aria-label="Data/hora de início"
+          />
+          <span className="text-xs text-sf-textMuted">até</span>
+          <input
+            type="datetime-local"
+            value={filterTimeEnd}
+            onChange={(e) => setFilterTimeEnd(e.target.value)}
+            className="bg-sf-bg border border-sf-border rounded-lg px-2.5 py-1 text-xs text-sf-text focus:border-sf-primary focus:outline-none transition-colors"
+            style={{ colorScheme: "dark" }}
+            aria-label="Data/hora de fim"
+          />
+        </div>
       </div>
 
       {/* Filtros ativos */}
-      {(filterStatusCode || filterErrorType) && (
-        <div className="flex items-center gap-2 text-xs">
+      {(filterStatusCode || filterErrorType || filterOperationName || filterTimeStart || filterTimeEnd) && (
+        <div className="flex items-center gap-2 flex-wrap text-xs">
           <span className="text-sf-textMuted">Filtros ativos:</span>
           {filterStatusCode && (
             <button
@@ -219,6 +304,38 @@ export function ErrorExplorer({ testId }: ErrorExplorerProps) {
               className="flex items-center gap-1 px-2 py-0.5 bg-sf-primary/10 text-sf-primary rounded-full"
             >
               Tipo: {errorTypeLabel(filterErrorType)}
+              <XCircle className="w-3 h-3" />
+            </button>
+          )}
+          {filterOperationName && (
+            <button
+              onClick={() => setFilterOperationName(undefined)}
+              className="flex items-center gap-1 px-2 py-0.5 bg-sf-primary/10 text-sf-primary rounded-full"
+            >
+              Operação: {filterOperationName}
+              <XCircle className="w-3 h-3" />
+            </button>
+          )}
+          {(filterTimeStart || filterTimeEnd) && (
+            <button
+              onClick={() => {
+                setFilterTimeStart("");
+                setFilterTimeEnd("");
+              }}
+              className="flex items-center gap-1 px-2 py-0.5 bg-sf-primary/10 text-sf-primary rounded-full"
+            >
+              Período:{" "}
+              {filterTimeStart
+                ? format(new Date(filterTimeStart), "dd/MM HH:mm", {
+                    locale: ptBR,
+                  })
+                : "..."}{" "}
+              -{" "}
+              {filterTimeEnd
+                ? format(new Date(filterTimeEnd), "dd/MM HH:mm", {
+                    locale: ptBR,
+                  })
+                : "..."}
               <XCircle className="w-3 h-3" />
             </button>
           )}
