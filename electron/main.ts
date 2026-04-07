@@ -184,6 +184,7 @@ import {
   searchErrors,
   getErrorsByStatusCode,
   getErrorsByType,
+  getErrorsByOperationName,
   listPresets,
   savePreset,
   renamePreset,
@@ -1063,6 +1064,9 @@ ipcMain.handle(
       testId?: string;
       statusCode?: number;
       errorType?: string;
+      operationName?: string;
+      timestampStart?: number;
+      timestampEnd?: number;
       limit?: number;
       offset?: number;
     },
@@ -1104,6 +1108,20 @@ ipcMain.handle("errors:byErrorType", async (_event, testId: string) => {
   } catch (error) {
     console.error("[StressFlow] Erro ao buscar erros por tipo:", error);
     throw new Error("Não foi possível buscar os erros por tipo.");
+  }
+});
+
+/**
+ * Canal: errors:byOperationName
+ * Retorna contagem de erros agrupados por nome de operacao para um teste especifico.
+ */
+ipcMain.handle("errors:byOperationName", async (_event, testId: string) => {
+  try {
+    if (!testId || typeof testId !== "string") return {};
+    return getErrorsByOperationName(testId);
+  } catch (error) {
+    console.error("[StressFlow] Erro ao buscar erros por operacao:", error);
+    throw new Error("Nao foi possivel buscar os erros por operacao.");
   }
 });
 

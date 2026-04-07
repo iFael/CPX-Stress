@@ -901,6 +901,9 @@ declare global {
           testId?: string;
           statusCode?: number;
           errorType?: string;
+          operationName?: string;
+          timestampStart?: number;
+          timestampEnd?: number;
           limit?: number;
           offset?: number;
         }) => Promise<{ records: ErrorRecord[]; total: number }>;
@@ -910,6 +913,9 @@ declare global {
 
         /** Retorna contagem de erros agrupados por tipo para um teste. */
         byErrorType: (testId: string) => Promise<Record<string, number>>;
+
+        /** Retorna contagem de erros agrupados por nome de operacao para um teste. */
+        byOperationName: (testId: string) => Promise<Record<string, number>>;
       };
 
       /**

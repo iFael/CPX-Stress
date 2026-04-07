@@ -55,6 +55,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   "errors:search",
   "errors:byStatusCode",
   "errors:byErrorType",
+  "errors:byOperationName",
   "credentials:status",
   "credentials:save",
   "credentials:load",
@@ -197,11 +198,14 @@ const api = {
   // Erros - consulta e análise de erros detalhados armazenados no SQLite
   // ---------------------------------------------------------------------------
   errors: {
-    /** Busca erros com filtros opcionais (testId, statusCode, errorType) */
+    /** Busca erros com filtros opcionais (testId, statusCode, errorType, operationName, periodo) */
     search: (params: {
       testId?: string;
       statusCode?: number;
       errorType?: string;
+      operationName?: string;
+      timestampStart?: number;
+      timestampEnd?: number;
       limit?: number;
       offset?: number;
     }): Promise<{ records: unknown[]; total: number }> =>
@@ -219,6 +223,12 @@ const api = {
     /** Retorna contagem de erros agrupados por tipo */
     byErrorType: (testId: string): Promise<Record<string, number>> =>
       safeInvoke("errors:byErrorType", testId) as Promise<
+        Record<string, number>
+      >,
+
+    /** Retorna contagem de erros agrupados por nome de operacao */
+    byOperationName: (testId: string): Promise<Record<string, number>> =>
+      safeInvoke("errors:byOperationName", testId) as Promise<
         Record<string, number>
       >,
   },
