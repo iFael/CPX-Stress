@@ -101,8 +101,11 @@ Plans:
 2. Usuário pode selecionar dois ou mais testes do histórico para comparar a distribuição de erros lado a lado
 3. A tela exibe a contagem de erros por operação para cada teste selecionado, permitindo identificar operações com degradação crescente entre execuções
 4. Erros de uma operação que crescem proporcionalmente com o número de VUs ficam imediatamente distinguíveis na comparação visual — o padrão de degradação é acionável sem precisar exportar dados
-**Plans:** TBD
+**Plans:** 1 plan
 **UI hint:** yes
+
+Plans:
+- [ ] 06-01-PLAN.md — Navigation wiring + CrossTestAnalysis completo (test selector, comparison table, grouped bar chart, trend indicators)
 
 ### Phase 7: PDF Capacity Verdict
 **Goal:** O relatório PDF inclui veredicto explícito de capacidade com linguagem executiva, eliminando a necessidade de interpretação técnica para apresentação à liderança
@@ -125,8 +128,8 @@ Plans:
 | 2. Credentials System | 2/2 | Complete | 2026-04-06 |
 | 3. Preset System | 2/2 | Complete | 2026-04-06 |
 | 4. Module Selector | 2/2 | Complete | 2026-04-06 |
-| 5. Error Filters | 1/2 | In Progress|  |
-| 6. Cross-Test Analysis | 0/0 | Not started | - |
+| 5. Error Filters | 2/2 | Complete |  |
+| 6. Cross-Test Analysis | 0/1 | Planned | - |
 | 7. PDF Capacity Verdict | 0/0 | Not started | - |
 
 ---
