@@ -47,7 +47,7 @@ function errorTypeColor(type: string): string {
     http: "text-sf-warning",
     timeout: "text-sf-danger",
     connection: "text-sf-danger",
-    dns: "text-orange-400",
+    dns: "text-sf-warning",
     unknown: "text-sf-textMuted",
   };
   return map[type] || "text-sf-textMuted";

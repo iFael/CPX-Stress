@@ -60,7 +60,9 @@ export function useKeyboardShortcuts() {
       if (key === "Escape") {
         if (status === "running") {
           event.preventDefault();
-          window.stressflow.test.cancel();
+          window.stressflow.test.cancel().catch((err) => {
+            console.error("[StressFlow] Erro ao cancelar teste via atalho:", err);
+          });
         }
         return;
       }

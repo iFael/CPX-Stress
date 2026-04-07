@@ -34,20 +34,6 @@ import {
    os problemas encontrados — como uma prova escolar.
    ============================================================ */
 
-/**
- * Calcula a "nota de saude" do site com base nos resultados do teste.
- *
- * Analogia simples: imagine que o site comeca com nota 100 (perfeita).
- * Cada problema encontrado desconta pontos:
- *   - Muitas falhas? Perde pontos.
- *   - Respostas lentas? Perde pontos.
- *   - Servidor bloqueando acessos? Perde pontos.
- *   - Tempo de resposta muito inconsistente? Perde pontos.
- */
-function calcularNotaDeSaude(result: TestResult): number {
-  return calculateHealthScore(result);
-}
-
 /* ============================================================
    DETECÇÃO DE PROTEÇÃO (WAF / Rate Limiter / Anti-DDoS)
    Verifica se algum sistema de seguranca interferiu no teste.
@@ -109,7 +95,7 @@ function gerarTituloDaNota(nota: number): string {
  * Cada faixa de nota tem uma explicacao adaptada aos dados reais do teste.
  */
 function gerarTextoDoResumo(result: TestResult): string {
-  const nota = calcularNotaDeSaude(result);
+  const nota = calculateHealthScore(result);
   const usuários = result.config.virtualUsers;
   const duração = result.config.duration;
   const p95 = result.latency.p95;
@@ -181,16 +167,16 @@ function gerarTextoDeProtecao(result: TestResult): string | null {
 
 /** Retorna as classes CSS de fundo e borda de acordo com a faixa de nota. */
 function obterEstiloDeFundo(nota: number): string {
-  if (nota >= 80) return "bg-emerald-500/5 border-emerald-500/20";
-  if (nota >= 60) return "bg-blue-400/5 border-blue-400/20";
-  if (nota >= 40) return "bg-amber-400/5 border-amber-400/20";
-  return "bg-red-400/5 border-red-400/20";
+  if (nota >= 80) return "bg-sf-success/5 border-sf-success/20";
+  if (nota >= 60) return "bg-sf-primary/5 border-sf-primary/20";
+  if (nota >= 40) return "bg-sf-warning/5 border-sf-warning/20";
+  return "bg-sf-danger/5 border-sf-danger/20";
 }
 
 /** Retorna as classes CSS para a cor do texto de destaque. */
 function obterCorDoTexto(nota: number): string {
   if (nota >= 80) return "text-sf-success";
-  if (nota >= 60) return "text-blue-400";
+  if (nota >= 60) return "text-sf-primary";
   if (nota >= 40) return "text-sf-warning";
   return "text-sf-danger";
 }
@@ -200,7 +186,7 @@ function obterIcone(nota: number) {
   if (nota >= 80)
     return <ThumbsUp className="w-5 h-5 text-sf-success shrink-0" />;
   if (nota >= 60)
-    return <MessageCircle className="w-5 h-5 text-blue-400 shrink-0" />;
+    return <MessageCircle className="w-5 h-5 text-sf-primary shrink-0" />;
   if (nota >= 40)
     return <AlertTriangle className="w-5 h-5 text-sf-warning shrink-0" />;
   return <XCircle className="w-5 h-5 text-sf-danger shrink-0" />;
@@ -239,7 +225,7 @@ function PilulaDeMetrica({
    ============================================================ */
 
 export function ResultsSummary({ result }: { result: TestResult }) {
-  const nota = calcularNotaDeSaude(result);
+  const nota = calculateHealthScore(result);
   const título = gerarTituloDaNota(nota);
   const textoResumo = gerarTextoDoResumo(result);
   const textoProtecao = gerarTextoDeProtecao(result);

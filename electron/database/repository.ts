@@ -7,7 +7,23 @@
  */
 
 import { getDatabase } from "./database";
+import { v4 as uuidv4 } from "uuid";
 import type Database from "better-sqlite3";
+
+// ============================================================================
+// Utilitários internos
+// ============================================================================
+
+/** JSON.parse seguro — retorna fallback se o JSON estiver corrompido. */
+function safeJsonParse<T>(json: string | null | undefined, fallback: T): T {
+  if (!json) return fallback;
+  try {
+    return JSON.parse(json) as T;
+  } catch {
+    console.warn("[StressFlow] JSON corrompido no banco de dados, usando fallback.");
+    return fallback;
+  }
+}
 
 // ============================================================================
 // Tipos internos para o repositório
@@ -77,7 +93,7 @@ function rowToTestResult(row: TestResultRow) {
   return {
     id: row.id,
     url: row.url,
-    config: JSON.parse(row.config_json),
+    config: safeJsonParse(row.config_json, {}),
     startTime: row.start_time,
     endTime: row.end_time,
     durationSeconds: row.duration_seconds,
@@ -96,28 +112,21 @@ function rowToTestResult(row: TestResultRow) {
     errorRate: row.error_rate,
     throughputBytesPerSec: row.throughput_bytes_per_sec ?? 0,
     totalBytes: row.total_bytes ?? 0,
-    statusCodes: JSON.parse(row.status_codes_json || "{}"),
-    timeline: JSON.parse(row.timeline_json || "[]"),
+    statusCodes: safeJsonParse<Record<string, number>>(row.status_codes_json, {}),
+    timeline: safeJsonParse<unknown[]>(row.timeline_json, []),
     status: row.status as "completed" | "cancelled" | "error",
     errorMessage: row.error_message ?? undefined,
-    protectionReport: row.protection_report_json
-      ? JSON.parse(row.protection_report_json)
-      : undefined,
-    operationMetrics: row.operation_metrics_json
-      ? JSON.parse(row.operation_metrics_json)
-      : undefined,
-    errorBreakdown: row.error_breakdown_json
-      ? JSON.parse(row.error_breakdown_json)
-      : undefined,
+    protectionReport: safeJsonParse(row.protection_report_json, undefined),
+    operationMetrics: safeJsonParse(row.operation_metrics_json, undefined),
+    errorBreakdown: safeJsonParse(row.error_breakdown_json, undefined),
   };
 }
 
 /** Salva um resultado de teste no banco. */
 export function saveTestResult(result: Record<string, unknown>): void {
   const db = getDatabase();
-  const r = result as Record<string, unknown>;
 
-  const latency = r.latency as Record<string, number> | undefined;
+  const latency = result.latency as Record<string, number> | undefined;
 
   db.prepare(
     `
@@ -133,15 +142,15 @@ export function saveTestResult(result: Record<string, unknown>): void {
     )
   `,
   ).run(
-    r.id as string,
-    r.url as string,
-    JSON.stringify(r.config || {}),
-    r.startTime as string,
-    r.endTime as string,
-    r.durationSeconds as number,
-    r.totalRequests as number,
-    r.totalErrors as number,
-    r.rps as number,
+    result.id as string,
+    result.url as string,
+    JSON.stringify(result.config || {}),
+    result.startTime as string,
+    result.endTime as string,
+    result.durationSeconds as number,
+    result.totalRequests as number,
+    result.totalErrors as number,
+    result.rps as number,
     latency?.avg ?? null,
     latency?.min ?? null,
     latency?.p50 ?? null,
@@ -149,17 +158,17 @@ export function saveTestResult(result: Record<string, unknown>): void {
     latency?.p95 ?? null,
     latency?.p99 ?? null,
     latency?.max ?? null,
-    r.errorRate as number,
-    (r.throughputBytesPerSec as number) ?? null,
-    (r.totalBytes as number) ?? null,
-    JSON.stringify(r.statusCodes || {}),
-    JSON.stringify(r.timeline || []),
-    r.status as string,
-    (r.errorMessage as string) || null,
-    r.protectionReport ? JSON.stringify(r.protectionReport) : null,
-    r.operationMetrics ? JSON.stringify(r.operationMetrics) : null,
-    r.errorBreakdown ? JSON.stringify(r.errorBreakdown) : null,
-    (r.startTime as string) || new Date().toISOString(),
+    result.errorRate as number,
+    (result.throughputBytesPerSec as number) ?? null,
+    (result.totalBytes as number) ?? null,
+    JSON.stringify(result.statusCodes || {}),
+    JSON.stringify(result.timeline || []),
+    result.status as string,
+    (result.errorMessage as string) || null,
+    result.protectionReport ? JSON.stringify(result.protectionReport) : null,
+    result.operationMetrics ? JSON.stringify(result.operationMetrics) : null,
+    result.errorBreakdown ? JSON.stringify(result.errorBreakdown) : null,
+    (result.startTime as string) || new Date().toISOString(),
   );
 }
 
@@ -362,7 +371,7 @@ function rowToPreset(row: PresetRow) {
   return {
     id: row.id,
     name: row.name,
-    config: JSON.parse(row.config_json),
+    config: safeJsonParse(row.config_json, {}),
     isBuiltin: row.is_builtin === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -443,7 +452,6 @@ export function savePreset(data: {
   }
 
   // Insert novo preset
-  const { v4: uuidv4 } = require("uuid") as typeof import("uuid");
   const id = data.id || uuidv4();
 
   db.prepare(

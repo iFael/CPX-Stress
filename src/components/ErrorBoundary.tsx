@@ -254,7 +254,7 @@ export class ErrorBoundary extends Component<
 
           {/* Rodape informativo */}
           <p className="text-center text-2xs mt-4 text-sf-textFaint">
-            StressFlow &mdash; Se o problema persistir, reinicie a aplicação.
+            CPX &mdash; MisterT Stress &mdash; Se o problema persistir, reinicie a aplicação.
           </p>
         </div>
       </div>

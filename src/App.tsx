@@ -16,7 +16,6 @@ import { useEffect, useState, useCallback, memo } from "react";
 import { Loader2 } from "lucide-react";
 import { useTestStore } from "@/stores/test-store";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Layout } from "@/components/Layout";
 import { Sidebar } from "@/components/Sidebar";
 import { TestConfig } from "@/components/TestConfig";
@@ -104,29 +103,27 @@ export default function App() {
   }, [checkCredentials]);
 
   return (
-    <ErrorBoundary>
-      <ToastProvider>
-        <Layout>
-          {/* Container principal: menu lateral + area de conteúdo */}
-          <div className="flex h-full">
-            {/* Menu lateral com navegação (Novo Teste, Histórico, etc.) */}
-            <Sidebar />
+    <ToastProvider>
+      <Layout>
+        {/* Container principal: menu lateral + area de conteúdo */}
+        <div className="flex h-full">
+          {/* Menu lateral com navegação (Novo Teste, Histórico, etc.) */}
+          <Sidebar />
 
-            {/* Area de conteúdo principal — muda conforme a página ativa */}
-            <main className="flex-1 overflow-auto px-4 py-2 flex justify-center">
-              <div className="w-full max-w-4xl my-auto">
-                <MainContent
-                  view={view}
-                  status={status}
-                  isLoading={isLoadingHistory}
-                />
-              </div>
-            </main>
-          </div>
-        </Layout>
-        <WelcomeOverlay />
-      </ToastProvider>
-    </ErrorBoundary>
+          {/* Area de conteúdo principal — muda conforme a página ativa */}
+          <main className="flex-1 overflow-auto px-4 py-2 flex justify-center">
+            <div className="w-full max-w-4xl my-auto">
+              <MainContent
+                view={view}
+                status={status}
+                isLoading={isLoadingHistory}
+              />
+            </div>
+          </main>
+        </div>
+      </Layout>
+      <WelcomeOverlay />
+    </ToastProvider>
   );
 }
 

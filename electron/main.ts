@@ -268,11 +268,6 @@ function getDataPath(): string {
   }
 }
 
-/** Retorna o caminho do arquivo JSON onde o histórico de testes é salvo. */
-function getHistoryPath(): string {
-  return path.join(getDataPath(), "history.json");
-}
-
 /**
  * Retorna o caminho da pasta onde os relatórios PDF são armazenados.
  * Cria a pasta automaticamente caso ela ainda não exista.
@@ -517,7 +512,7 @@ ipcMain.handle("test:start", async (_event, config: TestConfig) => {
     const result = await activeTestPromise;
 
     // Salva o resultado no banco SQLite
-    saveTestResult(result as unknown as Record<string, unknown>);
+    saveTestResult(result);
 
     return result;
   } catch (error) {
