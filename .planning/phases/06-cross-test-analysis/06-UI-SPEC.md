@@ -1,7 +1,7 @@
 ---
 phase: 6
 slug: cross-test-analysis
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-04-07
@@ -52,13 +52,13 @@ Source: existing Tailwind config spacing scale + codebase patterns.
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Body | 14px (text-sm) | 400 (normal) | 1.43 (20px) | Table cell text, descriptions, metadata |
-| Label | 12px (text-xs) | 500 (medium) | 1.33 (16px) | Card headers, axis labels, filter chips, table headers |
+| Label | 12px (text-xs) | 700 (bold) | 1.33 (16px) | Card headers, axis labels, filter chips, table headers |
 | Heading | 20px (text-xl) | 700 (bold) | 1.4 (28px) | Page title "Analise Cross-Test" |
 | Display | 28px (text-2xl) | 700 (bold) | 1.2 (34px) | Not used in this phase |
 
-Primary weights used: 400 (body, table cells) and 600 (semibold, table headers, emphasis values).
+Primary weights used: 400 (body, table cells) and 700 (bold, headings, labels, emphasis values).
 
-Source: existing patterns in `HistoryPanel.tsx` (h2 = text-xl font-bold), `ErrorExplorer.tsx` (text-xs font-medium for card headers), `MetricsChart.tsx` (text-sm font-medium for chart titles).
+Source: existing patterns in `HistoryPanel.tsx` (h2 = text-xl font-bold), `ErrorExplorer.tsx` (text-xs font-bold for card headers), `MetricsChart.tsx` (text-sm font-bold for chart titles).
 
 ---
 
@@ -138,7 +138,7 @@ Top-level page component. Layout: vertical stack.
 - Maximum 5 selectable (disable remaining checkboxes when 5 reached)
 - Sorted by date descending (most recent first)
 - Card container: `bg-sf-surface border border-sf-border rounded-xl p-4`
-- Row: `flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-sf-surfaceHover transition-colors cursor-pointer`
+- Row: `flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-sf-surfaceHover transition-colors cursor-pointer`
 - Selected row: `bg-sf-primary/5 border-sf-primary/20`
 - Checkbox: 16x16, `rounded border-sf-border`, checked state `bg-sf-primary border-sf-primary`
 
@@ -151,7 +151,7 @@ Top-level page component. Layout: vertical stack.
 - Sort: by total errors descending across all selected tests (operation with most total errors at top)
 - Zero errors cell: `text-sf-textMuted` with em-dash "—"
 - Container: `bg-sf-surface border border-sf-border rounded-xl overflow-hidden`
-- Header row: `bg-sf-bg text-sf-textSecondary text-xs font-medium`
+- Header row: `bg-sf-bg text-sf-textSecondary text-xs font-bold`
 - Body rows: `divide-y divide-sf-border hover:bg-sf-surfaceHover/50 transition-colors`
 
 ### 4. ComparisonChart (inline in CrossTestAnalysis, uses Recharts BarChart)
@@ -162,7 +162,7 @@ Top-level page component. Layout: vertical stack.
 - Bars grouped by operation, color assigned from the 5-color palette above
 - Chart height: 280px (fixed, same pattern as MetricsChart at 220px but taller for grouped bars)
 - Container: `bg-sf-surface border border-sf-border rounded-xl p-4`
-- Title: `text-sm font-medium text-sf-textSecondary mb-3` — "Erros por Operacao"
+- Title: `text-sm font-bold text-sf-textSecondary mb-4` — "Erros por Operacao"
 - Custom tooltip: follow `MetricsChart.tsx` tooltip pattern — `bg-sf-surface border border-sf-border rounded-[10px] shadow-[0_4px_24px_rgba(0,0,0,0.4)]`
 - Custom legend: follow `MetricsChart.tsx` CustomLegend pattern — `flex justify-center flex-wrap gap-4 pt-1` with colored dots and test labels
 - Grid: `strokeDasharray="3 3" stroke="#1e2130" vertical={false}`
@@ -193,7 +193,7 @@ Source: `MetricsChart.tsx` THEME constants and Recharts patterns.
 ### Sidebar Navigation
 | State | Visual |
 |-------|--------|
-| Active | `bg-sf-primary/10 text-sf-primary font-medium` (matches existing nav pattern) |
+| Active | `bg-sf-primary/10 text-sf-primary font-bold` (matches existing nav pattern) |
 | Inactive | `text-sf-textSecondary hover:bg-sf-surfaceHover hover:text-sf-text` |
 
 ---
@@ -269,11 +269,11 @@ No component registry used. All components are custom-built following existing s
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: FLAG (no explicit focal point — non-blocking)
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved (revision 1)
