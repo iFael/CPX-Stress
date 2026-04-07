@@ -788,8 +788,9 @@ export interface TestPreset {
  * - 'results': Visualização detalhada dos resultados de um teste
  * - 'settings': Configurações de credenciais e ambiente
  * - 'presets': Gerenciamento de presets de teste
+ * - 'analysis': Analise comparativa de erros entre testes
  */
-export type AppView = "test" | "history" | "results" | "settings" | "presets";
+export type AppView = "test" | "history" | "results" | "settings" | "presets" | "analysis";
 
 /**
  * Estado atual do teste.

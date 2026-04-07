@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { Play, History, RotateCcw, Settings } from "lucide-react";
+import { Play, History, RotateCcw, Settings, BarChart3 } from "lucide-react";
 import { useTestStore } from "@/stores/test-store";
 import type { AppView } from "@/types";
 
@@ -56,11 +56,18 @@ const NAV_ITEMS: NavItem[] = [
     ariaLabel: "Ver histórico de testes realizados",
   },
   {
+    id: "analysis" as const,
+    label: "Análise de Erros",
+    description: "Comparar testes",
+    icon: BarChart3,
+    ariaLabel: "Ir para a tela de análise comparativa de erros entre testes",
+  },
+  {
     id: "settings" as const,
-    label: "Configuracoes",
+    label: "Configurações",
     description: "Credenciais e ambiente",
     icon: Settings,
-    ariaLabel: "Ir para a tela de configuracoes e credenciais",
+    ariaLabel: "Ir para a tela de configurações e credenciais",
   },
 ];
 

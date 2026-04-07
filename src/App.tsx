@@ -24,6 +24,7 @@ import { TestProgress } from "@/components/TestProgress";
 import { TestResults } from "@/components/TestResults";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { CredentialsSettings } from "@/components/CredentialsSettings";
+import { CrossTestAnalysis } from "@/components/CrossTestAnalysis";
 import { ToastProvider } from "@/components/Toast";
 import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 import type { AppView, TestStatus } from "@/types";
@@ -185,6 +186,11 @@ const MainContent = memo(function MainContent({
   /* ---- Página: Visualização detalhada de um resultado do histórico ---- */
   if (view === "results") {
     return <TestResults />;
+  }
+
+  /* ---- Pagina: Analise comparativa de erros entre testes ---- */
+  if (view === "analysis") {
+    return <CrossTestAnalysis />;
   }
 
   /* ---- Página: Fluxo principal do teste (configurar -> executar -> resultado) ---- */
