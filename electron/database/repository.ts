@@ -249,6 +249,9 @@ export function searchErrors(params: {
   testId?: string;
   statusCode?: number;
   errorType?: string;
+  operationName?: string;
+  timestampStart?: number;
+  timestampEnd?: number;
   limit?: number;
   offset?: number;
 }): { records: ErrorRow[]; total: number } {
@@ -267,6 +270,18 @@ export function searchErrors(params: {
   if (params.errorType) {
     conditions.push("error_type = ?");
     values.push(params.errorType);
+  }
+  if (params.operationName) {
+    conditions.push("operation_name = ?");
+    values.push(params.operationName);
+  }
+  if (params.timestampStart !== undefined && params.timestampStart !== null) {
+    conditions.push("timestamp >= ?");
+    values.push(params.timestampStart);
+  }
+  if (params.timestampEnd !== undefined && params.timestampEnd !== null) {
+    conditions.push("timestamp <= ?");
+    values.push(params.timestampEnd);
   }
 
   const where =
@@ -315,6 +330,22 @@ export function getErrorsByType(testId: string): Record<string, number> {
   const result: Record<string, number> = {};
   for (const row of rows) {
     result[row.error_type] = row.count;
+  }
+  return result;
+}
+
+/** Retorna contagem de erros agrupados por nome de operacao para um teste. */
+export function getErrorsByOperationName(testId: string): Record<string, number> {
+  const db = getDatabase();
+  const rows = db
+    .prepare(
+      "SELECT operation_name, COUNT(*) as count FROM test_errors WHERE test_id = ? GROUP BY operation_name ORDER BY count DESC",
+    )
+    .all(testId) as Array<{ operation_name: string; count: number }>;
+
+  const result: Record<string, number> = {};
+  for (const row of rows) {
+    result[row.operation_name] = row.count;
   }
   return result;
 }
@@ -377,6 +408,14 @@ export function savePreset(data: {
     JSON.parse(data.configJson);
   } catch {
     throw new Error("A configuracao do preset contem JSON invalido.");
+  }
+
+  // Verificar duplicata de nome (mensagem amigavel em vez de UNIQUE constraint)
+  const nameConflict = db
+    .prepare("SELECT id FROM test_presets WHERE LOWER(name) = LOWER(?) AND id != ?")
+    .get(data.name.trim(), data.id || "") as { id: string } | undefined;
+  if (nameConflict) {
+    throw new Error("Já existe um preset com este nome.");
   }
 
   if (data.id) {
