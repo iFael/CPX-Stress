@@ -90,7 +90,7 @@ Plans:
 
 Plans:
 - [x] 05-01-PLAN.md — Backend: extend searchErrors() + getErrorsByOperationName() + IPC 4-file atomic update
-- [ ] 05-02-PLAN.md — Frontend: ErrorExplorer operation card, datetime period inputs, filter chips + human verification
+- [x] 05-02-PLAN.md — Frontend: ErrorExplorer operation card, datetime period inputs, filter chips + human verification
 
 ### Phase 6: Cross-Test Analysis
 **Goal:** Usuário compara a distribuição de erros entre múltiplos testes históricos para identificar se erros em uma operação específica estão piorando com o tempo ou com o aumento de carga
