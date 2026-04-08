@@ -54,19 +54,30 @@ const MAX_PRESET_NAME_LENGTH = 100;
    ===================================================================== */
 
 /**
- * Substitui a URL base default do preset pela URL do ambiente selecionado.
- * Aplica-se tanto na url principal quanto em todas as operacoes.
+ * Extrai a URL base de um config de preset analisando a primeira operação.
+ * Retorna a parte da URL antes de "/MisterT.asp", ou a URL principal sem trailing slash.
+ */
+function extractBaseUrl(config: TestConfig): string {
+  const firstOpUrl = config.operations?.[0]?.url || config.url;
+  const match = firstOpUrl.match(/^(https?:\/\/[^/]+)/);
+  return match ? match[1] : MISTERT_DEFAULT_BASE_URL;
+}
+
+/**
+ * Substitui a URL base do preset pela URL do ambiente selecionado.
+ * Extrai a base URL dinamicamente do config do preset (não hardcoded).
  * (Decisao D5: URL Base Substituida ao Aplicar)
  */
 function replaceBaseUrl(config: TestConfig, newBaseUrl: string): TestConfig {
-  const defaultBase = MISTERT_DEFAULT_BASE_URL;
+  const presetBase = extractBaseUrl(config);
   const newBase = newBaseUrl.replace(/\/+$/, "");
+  if (presetBase === newBase) return config;
   return {
     ...config,
-    url: config.url.replace(defaultBase, newBase),
+    url: config.url.replace(presetBase, newBase),
     operations: config.operations?.map((op: TestOperation) => ({
       ...op,
-      url: op.url.replace(defaultBase, newBase),
+      url: op.url.replace(presetBase, newBase),
       headers: op.headers ? { ...op.headers } : undefined,
     })),
   };
@@ -110,7 +121,7 @@ export function PresetModal({ isOpen, onClose, currentBaseUrl }: PresetModalProp
       setPresets(data as TestPreset[]);
       storeSetPresets(data as TestPreset[]);
     } catch {
-      toast.error("Nao foi possivel carregar os presets");
+      toast.error("Não foi possível carregar os presets");
     } finally {
       setIsLoading(false);
     }
@@ -188,14 +199,14 @@ export function PresetModal({ isOpen, onClose, currentBaseUrl }: PresetModalProp
         return;
       }
       if (trimmed.length > MAX_PRESET_NAME_LENGTH) {
-        setRenameError(`Nome deve ter no maximo ${MAX_PRESET_NAME_LENGTH} caracteres`);
+        setRenameError(`Nome deve ter no máximo ${MAX_PRESET_NAME_LENGTH} caracteres`);
         return;
       }
       const isDuplicate = presets.some(
         (p) => p.id !== presetId && p.name.toLowerCase() === trimmed.toLowerCase(),
       );
       if (isDuplicate) {
-        setRenameError("Ja existe um preset com este nome");
+        setRenameError("Já existe um preset com este nome");
         return;
       }
 
@@ -208,7 +219,7 @@ export function PresetModal({ isOpen, onClose, currentBaseUrl }: PresetModalProp
         setRenameValue("");
         setRenameError("");
       } catch {
-        toast.error("Nao foi possivel renomear o preset");
+        toast.error("Não foi possível renomear o preset");
       } finally {
         setIsRenaming(false);
       }
@@ -236,10 +247,10 @@ export function PresetModal({ isOpen, onClose, currentBaseUrl }: PresetModalProp
         if (activePreset?.id === preset.id) {
           clearActivePreset();
         }
-        toast.success(`Preset '${preset.name}' excluido`);
+        toast.success(`Preset '${preset.name}' excluído`);
         setDeleteConfirmId(null);
       } catch {
-        toast.error("Nao foi possivel excluir o preset");
+        toast.error("Não foi possível excluir o preset");
       } finally {
         setIsDeleting(false);
       }
@@ -290,7 +301,7 @@ export function PresetModal({ isOpen, onClose, currentBaseUrl }: PresetModalProp
         <button
           type="button"
           onClick={handleClose}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-sf-textMuted hover:text-sf-text hover:bg-sf-surface transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sf-primary/50 z-10"
+          className="absolute top-4 right-4 p-2 rounded-lg text-sf-textMuted hover:text-sf-text hover:bg-sf-surface transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sf-primary/50 z-10"
           aria-label="Fechar"
         >
           <X className="w-5 h-5" />
@@ -307,7 +318,7 @@ export function PresetModal({ isOpen, onClose, currentBaseUrl }: PresetModalProp
                 Presets de Teste
               </h2>
               <p className="text-sm text-sf-textSecondary mt-1">
-                Selecione um preset para carregar ou gerencie suas configuracoes salvas.
+                Selecione um preset para carregar ou gerencie suas configurações salvas.
               </p>
             </div>
           </div>
@@ -366,8 +377,8 @@ export function PresetModal({ isOpen, onClose, currentBaseUrl }: PresetModalProp
               {/* Dica quando so tem built-in */}
               {hasOnlyBuiltin && (
                 <p className="text-sm text-sf-textMuted text-center py-8">
-                  Salve sua configuracao atual como preset usando o botao
-                  &apos;Salvar Preset&apos; na tela de configuracao.
+                  Salve sua configuração atual como preset usando o botão
+                  &apos;Salvar Preset&apos; na tela de configuração.
                 </p>
               )}
             </>
@@ -375,50 +386,6 @@ export function PresetModal({ isOpen, onClose, currentBaseUrl }: PresetModalProp
         </div>
       </div>
 
-      {/* ---- Estilos de animacao (padrao WelcomeOverlay) ---- */}
-      <style>{`
-        @keyframes overlay-fade-in {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-        @keyframes overlay-fade-out {
-          from { opacity: 1; }
-          to   { opacity: 0; }
-        }
-        @keyframes modal-scale-in {
-          from {
-            opacity: 0;
-            transform: scale(0.92) translateY(16px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-        @keyframes modal-scale-out {
-          from {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-          to {
-            opacity: 0;
-            transform: scale(0.92) translateY(16px);
-          }
-        }
-
-        .animate-overlay-fade-in {
-          animation: overlay-fade-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-overlay-fade-out {
-          animation: overlay-fade-out 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-modal-scale-in {
-          animation: modal-scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-modal-scale-out {
-          animation: modal-scale-out 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-      `}</style>
     </div>
   );
 }
@@ -515,7 +482,7 @@ function PresetCard({
               type="button"
               onClick={onConfirmRename}
               disabled={isRenamingSaving}
-              className="flex items-center gap-1.5 bg-sf-primary hover:bg-sf-primaryHover text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-60"
+              className="flex items-center gap-2 bg-sf-primary hover:bg-sf-primaryHover text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all disabled:opacity-60"
             >
               {isRenamingSaving ? (
                 <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
@@ -527,7 +494,7 @@ function PresetCard({
             <button
               type="button"
               onClick={onCancelRename}
-              className="text-sf-textMuted hover:text-sf-text text-xs px-3 py-1.5 transition-colors"
+              className="text-sf-textMuted hover:text-sf-text text-xs px-3 py-2 transition-colors"
             >
               Cancelar
             </button>
@@ -554,17 +521,17 @@ function PresetCard({
                 type="button"
                 onClick={onConfirmDelete}
                 disabled={isDeletingSaving}
-                className="flex items-center gap-1.5 bg-sf-danger hover:opacity-90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-60"
+                className="flex items-center gap-2 bg-sf-danger hover:opacity-90 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all disabled:opacity-60"
               >
                 {isDeletingSaving && (
                   <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
                 )}
-                Confirmar Exclusao
+                Confirmar Exclusão
               </button>
               <button
                 type="button"
                 onClick={onCancelDelete}
-                className="text-sf-textMuted hover:text-sf-text text-xs px-3 py-1.5 transition-colors"
+                className="text-sf-textMuted hover:text-sf-text text-xs px-3 py-2 transition-colors"
               >
                 Manter Preset
               </button>
@@ -578,7 +545,7 @@ function PresetCard({
             {preset.name}
           </div>
           <div className="text-xs text-sf-textMuted mt-1">
-            {opsCount} operacoes | {vus} VUs | {duration}s
+            {opsCount} operações | {vus} VUs | {duration}s
           </div>
 
           {/* Acoes */}
@@ -587,7 +554,7 @@ function PresetCard({
               type="button"
               onClick={onLoad}
               disabled={isLoadingThis}
-              className="flex-1 bg-sf-primary hover:bg-sf-primaryHover text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all disabled:opacity-60"
+              className="flex-1 bg-sf-primary hover:bg-sf-primaryHover text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-all disabled:opacity-60"
             >
               {isLoadingThis ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />

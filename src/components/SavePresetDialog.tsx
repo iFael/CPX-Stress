@@ -119,7 +119,7 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
       }
       // Validacao: tamanho maximo
       if (trimmedName.length > MAX_PRESET_NAME_LENGTH) {
-        setNameError(`Nome deve ter no maximo ${MAX_PRESET_NAME_LENGTH} caracteres`);
+        setNameError(`Nome deve ter no máximo ${MAX_PRESET_NAME_LENGTH} caracteres`);
         return;
       }
       // Validacao: duplicata
@@ -128,7 +128,7 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
         return p.name.toLowerCase() === trimmedName.toLowerCase();
       });
       if (isDuplicate) {
-        setNameError("Ja existe um preset com este nome");
+        setNameError("Já existe um preset com este nome");
         return;
       }
 
@@ -163,7 +163,7 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
         if (msg.includes("Ja existe")) {
           setNameError(msg);
         } else {
-          toast.error("Nao foi possivel salvar o preset");
+          toast.error("Não foi possível salvar o preset");
         }
       } finally {
         setIsSaving(false);
@@ -192,7 +192,7 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
       toast.success(`Preset '${activePreset.name}' atualizado`);
       handleClose();
     } catch {
-      toast.error("Nao foi possivel salvar o preset");
+      toast.error("Não foi possível salvar o preset");
     } finally {
       setIsSaving(false);
     }
@@ -249,7 +249,7 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
         <button
           type="button"
           onClick={handleClose}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-sf-textMuted hover:text-sf-text hover:bg-sf-surface transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sf-primary/50 z-10"
+          className="absolute top-4 right-4 p-2 rounded-lg text-sf-textMuted hover:text-sf-text hover:bg-sf-surface transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sf-primary/50 z-10"
           aria-label="Fechar"
         >
           <X className="w-5 h-5" />
@@ -351,50 +351,6 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
         </div>
       </div>
 
-      {/* ---- Estilos de animacao (padrao WelcomeOverlay) ---- */}
-      <style>{`
-        @keyframes overlay-fade-in {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-        @keyframes overlay-fade-out {
-          from { opacity: 1; }
-          to   { opacity: 0; }
-        }
-        @keyframes modal-scale-in {
-          from {
-            opacity: 0;
-            transform: scale(0.92) translateY(16px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-        @keyframes modal-scale-out {
-          from {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-          to {
-            opacity: 0;
-            transform: scale(0.92) translateY(16px);
-          }
-        }
-
-        .animate-overlay-fade-in {
-          animation: overlay-fade-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-overlay-fade-out {
-          animation: overlay-fade-out 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-modal-scale-in {
-          animation: modal-scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-modal-scale-out {
-          animation: modal-scale-out 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-      `}</style>
     </div>
   );
 }

@@ -66,10 +66,10 @@ function StatusBadge({
   ) : (
     <span
       className="flex items-center gap-1.5 text-xs text-sf-textMuted"
-      aria-label={`Credencial de ${fieldLabel} nao configurada`}
+      aria-label={`Credencial de ${fieldLabel} não configurada`}
     >
       <Minus className="w-3.5 h-3.5" aria-hidden="true" />
-      Nao configurado
+      Não configurado
     </span>
   );
 }
@@ -130,7 +130,7 @@ export function CredentialsSettings() {
       toast.error(
         err instanceof Error
           ? err.message
-          : "Nao foi possivel salvar as credenciais. Verifique as permissoes do sistema.",
+          : "Não foi possível salvar as credenciais. Verifique as permissões do sistema.",
       );
     } finally {
       setIsSaving(false);
@@ -149,7 +149,7 @@ export function CredentialsSettings() {
       <div className="mb-6">
         <div className="flex items-center gap-2">
           <Settings className="w-5 h-5 text-sf-text" aria-hidden="true" />
-          <h2 className="text-lg font-semibold text-sf-text">Configuracoes</h2>
+          <h2 className="text-lg font-semibold text-sf-text">Configurações</h2>
         </div>
       </div>
 
