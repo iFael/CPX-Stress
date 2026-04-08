@@ -1,31 +1,43 @@
 {
   "version": "1.0",
-  "timestamp": "2026-04-08T20:44:32.580Z",
-  "phase": "milestone-1-complete",
-  "phase_name": "milestone 1 wrap-up",
+  "timestamp": "2026-04-08T23:57:43.930Z",
+  "phase": "agentchat-integration",
+  "phase_name": "agentchat hooks integration",
   "phase_dir": ".planning",
   "plan": 0,
   "task": 0,
   "total_tasks": 0,
   "status": "paused",
   "completed_tasks": [
-    {"id": 1, "name": "commit message standardization (96 commits rewritten)", "status": "done", "commit": "e5279dc"},
-    {"id": 2, "name": "uncommitted component refactor committed", "status": "done", "commit": "2dc6c4c"},
-    {"id": 3, "name": "delete accidental Open-Claude repo from GitHub", "status": "done"},
-    {"id": 4, "name": "move openclaude repo to Desktop/Project/openclaude", "status": "done"},
-    {"id": 5, "name": "install VS Build Tools, agentic-qe, gh CLI", "status": "done"},
-    {"id": 6, "name": "force push rewritten history to origin", "status": "done"}
+    {"id": 1, "name": "commit standardization (96 commits rewritten)", "status": "done"},
+    {"id": 2, "name": "repo cleanup (Open-Claude deleted, openclaude moved)", "status": "done"},
+    {"id": 3, "name": "tooling setup (VS Build Tools, agentic-qe, gh CLI)", "status": "done"},
+    {"id": 4, "name": "agentchat: repo created, protocol defined", "status": "done"},
+    {"id": 5, "name": "agentchat: WebSocket server built and tested", "status": "done"},
+    {"id": 6, "name": "agentchat: CLI built and tested (agent-home)", "status": "done"},
+    {"id": 7, "name": "agentchat: MCP tool v0.2 built (agent-home)", "status": "done"},
+    {"id": 8, "name": "agentchat: HTTP API added to server (port 3334)", "status": "done"},
+    {"id": 9, "name": "agentchat: PostToolUse hook created and tested", "status": "done"},
+    {"id": 10, "name": "agentchat: hook configured in PC Work settings.json", "status": "done"},
+    {"id": 11, "name": "agentchat: config.json fallback fix for env vars", "status": "done"}
   ],
   "remaining_tasks": [
-    {"id": 7, "name": "start milestone 2 via /gsd-new-milestone", "status": "not_started"}
+    {"id": 12, "name": "agent-home: git pull, add hook to settings.json, restart session", "status": "not_started"},
+    {"id": 13, "name": "agent-work: restart session to load hook", "status": "not_started"},
+    {"id": 14, "name": "test end-to-end: both agents communicating via hooks autonomously", "status": "not_started"},
+    {"id": 15, "name": "CPX-MisterT Stress: start Milestone 2", "status": "not_started"}
   ],
   "blockers": [],
-  "human_actions_pending": [],
+  "human_actions_pending": [
+    {"action": "keep server running in separate terminal", "context": "server must be up for hooks to work", "blocking": true}
+  ],
   "decisions": [
-    {"decision": "commit format: type: lowercase message, no scopes", "rationale": "user wants clean uniform git log", "phase": "housekeeping"},
-    {"decision": "last commit changed from fix to refactor type", "rationale": "applying coding standards is refactoring, not a bugfix", "phase": "housekeeping"}
+    {"decision": "use PostToolUse hooks instead of MCP for agent communication", "rationale": "MCP failed to load on PC Home (openclaude proxy). Hooks already work on both PCs via GSD.", "phase": "agentchat"},
+    {"decision": "HTTP API on port 3334 for hook polling", "rationale": "hooks have 5s timeout, HTTP GET is faster and simpler than WebSocket connect/disconnect", "phase": "agentchat"},
+    {"decision": "per-agent read cursors on server", "rationale": "each agent only gets unread messages, no duplicates", "phase": "agentchat"},
+    {"decision": "commit format: type: lowercase message, no scopes", "rationale": "user preference for clean git log", "phase": "housekeeping"}
   ],
   "uncommitted_files": [],
-  "next_action": "run /gsd-new-milestone to define and start Milestone 2",
-  "context_notes": "Milestone 1 is fully delivered (7/7 phases). This session was housekeeping: commit standardization, tooling setup, repo cleanup. Project is in a clean state ready for Milestone 2 planning."
+  "next_action": "restart Claude Code session on both PCs, test hook-based communication",
+  "context_notes": "Milestone 1 CPX-MisterT complete. AgentChat nearly done — hooks approach replaces MCP. Server must be running in a separate terminal for hooks to poll. Both PCs need to restart Claude Code sessions to load the new PostToolUse hook."
 }
