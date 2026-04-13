@@ -15,6 +15,25 @@
 // ============================================================================
 
 import type { MeasurementReliability } from "@/shared/test-analysis";
+import type {
+  MistertValidationResult,
+  OperationAccessMode,
+  OperationNavigationHints,
+  OperationSourceAction,
+  OperationValidationHints,
+  OperationValidationResult,
+  ValidationDimensionStatus,
+} from "@/shared/mistert-validation";
+
+export type {
+  MistertValidationResult,
+  OperationAccessMode,
+  OperationNavigationHints,
+  OperationSourceAction,
+  OperationValidationHints,
+  OperationValidationResult,
+  ValidationDimensionStatus,
+} from "@/shared/mistert-validation";
 
 // ============================================================================
 // 1. CONFIGURAÇÃO DO TESTE
@@ -69,6 +88,19 @@ export interface TestOperation {
    * Essencial para aplicações com tokens dinâmicos por navegação.
    */
   extract?: Record<string, string>;
+
+  /**
+   * Dicas opcionais para a validação funcional do fluxo MisterT.
+   * Não alteram o stress test; servem apenas para a checagem prévia.
+   */
+  validation?: OperationValidationHints;
+
+  /**
+   * Metadados de navegação da operação.
+   * Usado para indicar se a página é reproduzível por URL direta ou se
+   * depende de uma ação anterior, como submit de formulário.
+   */
+  navigation?: OperationNavigationHints;
 }
 
 /**
@@ -839,6 +871,15 @@ declare global {
          * Retorna uma função para cancelar o registro (unsubscribe).
          */
         onProgress: (callback: (data: ProgressData) => void) => () => void;
+      };
+
+      /**
+       * Módulo de validação prévia do fluxo MisterT.
+       * Executa uma passada sequencial para confirmar sessão, extração
+       * dinâmica e evidência funcional das abas configuradas.
+       */
+      validation: {
+        run: (config: TestConfig) => Promise<MistertValidationResult>;
       };
 
       /**

@@ -66,7 +66,7 @@ export function closeDatabase(): void {
 // ============================================================================
 
 /** Versao atual do preset built-in. Incrementar quando o template mudar. */
-const CURRENT_BUILTIN_VERSION = 1;
+const CURRENT_BUILTIN_VERSION = 5;
 
 /** ID fixo do preset built-in (nao muda entre versoes). */
 const BUILTIN_PRESET_ID = "builtin-mistert-completo";
@@ -84,6 +84,19 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
       method: "GET",
       captureSession: true,
       extract: { CTRL: "CTRL=(\\d+)" },
+      navigation: {
+        accessMode: "url-driven",
+        sourceAction: {
+          kind: "direct-url",
+          method: "GET",
+          description: "Entry-point público do fluxo MisterT.",
+        },
+        notes: "Pode ser aberta diretamente por URL para iniciar a sessão.",
+      },
+      validation: {
+        expectedAnyText: ["Nome", "Senha", "Bem vindo"],
+        rejectLoginLikeContent: false,
+      },
     },
     {
       name: "Login",
@@ -93,6 +106,23 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
       body: "IN1={{STRESSFLOW_USER}}&IN2={{STRESSFLOW_PASS}}",
       captureSession: true,
       extract: { CTRL: "CTRL=(\\d+)" },
+      navigation: {
+        accessMode: "action-driven",
+        sourceAction: {
+          kind: "form-submit",
+          method: "POST",
+          fields: {
+            IN1: "{{STRESSFLOW_USER}}",
+            IN2: "{{STRESSFLOW_PASS}}",
+          },
+          description: "Submete o formulário de autenticação do MisterT.",
+        },
+        notes: "A URL sozinha não autentica; precisa do POST com credenciais.",
+      },
+      validation: {
+        expectedAnyText: ["Novidades", "Tutorial do MisterT"],
+        rejectLoginLikeContent: true,
+      },
     },
     {
       name: "Menu Principal",
@@ -100,6 +130,13 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
       method: "GET",
       captureSession: true,
       extract: { CTRL: "CTRL=(\\d+)" },
+      navigation: {
+        accessMode: "url-driven",
+        notes: "Página navegável por GET dentro da sessão autenticada.",
+      },
+      validation: {
+        rejectLoginLikeContent: true,
+      },
     },
     {
       name: "CPX-Fretes",
@@ -107,6 +144,15 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
       method: "GET",
       captureSession: true,
       extract: { CTRL: "CTRL=(\\d+)" },
+      navigation: {
+        accessMode: "url-driven",
+        notes: "Página replayable por URL dentro da sessão do mesmo VU.",
+      },
+      validation: {
+        expectedAnyText: ["CPX-Fretes"],
+        rejectLoginLikeContent: true,
+        rejectOnAnyText: ["Este erro nunca deve ocorrer"],
+      },
     },
     {
       name: "CPX-Rastreio",
@@ -114,6 +160,15 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
       method: "GET",
       captureSession: true,
       extract: { CTRL: "CTRL=(\\d+)" },
+      navigation: {
+        accessMode: "url-driven",
+        notes: "Página replayable por URL dentro da sessão do mesmo VU.",
+      },
+      validation: {
+        expectedAnyText: ["CPX-Rastreio"],
+        rejectLoginLikeContent: true,
+        rejectOnAnyText: ["Este erro nunca deve ocorrer"],
+      },
     },
     {
       name: "Estoque",
@@ -121,27 +176,63 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
       method: "GET",
       captureSession: true,
       extract: { CTRL: "CTRL=(\\d+)" },
+      navigation: {
+        accessMode: "url-driven",
+        notes: "Página replayable por URL dentro da sessão do mesmo VU.",
+      },
+      validation: {
+        expectedAnyText: ["Estoque"],
+        rejectLoginLikeContent: true,
+        rejectOnAnyText: ["Este erro nunca deve ocorrer"],
+      },
     },
     {
       name: "Ordens E/S",
-      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=102",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=232",
       method: "GET",
       captureSession: true,
       extract: { CTRL: "CTRL=(\\d+)" },
+      navigation: {
+        accessMode: "url-driven",
+        notes: "Página replayable por URL dentro da sessão do mesmo VU.",
+      },
+      validation: {
+        expectedAnyText: ["Ordens", "Entrada", "Saída"],
+        rejectLoginLikeContent: true,
+        rejectOnAnyText: ["Este erro nunca deve ocorrer"],
+      },
     },
     {
       name: "Produção",
-      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=84",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=169",
       method: "GET",
       captureSession: true,
       extract: { CTRL: "CTRL=(\\d+)" },
+      navigation: {
+        accessMode: "url-driven",
+        notes: "Página replayable por URL dentro da sessão do mesmo VU.",
+      },
+      validation: {
+        expectedAnyText: ["Ordens de Produ"],
+        rejectLoginLikeContent: true,
+        rejectOnAnyText: ["Este erro nunca deve ocorrer"],
+      },
     },
     {
-      name: "Faturamento",
-      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=206",
+      name: "Envio de GNREs",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=18",
       method: "GET",
       captureSession: true,
       extract: { CTRL: "CTRL=(\\d+)" },
+      navigation: {
+        accessMode: "url-driven",
+        notes: "Página replayable por URL dentro da sessão do mesmo VU.",
+      },
+      validation: {
+        expectedAnyText: ["Envio GNREs", "GNRE"],
+        rejectLoginLikeContent: true,
+        rejectOnAnyText: ["Este erro nunca deve ocorrer"],
+      },
     },
     {
       name: "Financeiro",
@@ -149,6 +240,15 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
       method: "GET",
       captureSession: true,
       extract: { CTRL: "CTRL=(\\d+)" },
+      navigation: {
+        accessMode: "url-driven",
+        notes: "Página replayable por URL dentro da sessão do mesmo VU.",
+      },
+      validation: {
+        expectedAnyText: ["Financeiro"],
+        rejectLoginLikeContent: true,
+        rejectOnAnyText: ["Este erro nunca deve ocorrer"],
+      },
     },
   ],
 });
