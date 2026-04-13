@@ -104,7 +104,7 @@ export function TestConfig() {
   useEffect(() => {
     window.stressflow.presets.list()
       .then((data) => setPresets(data as import("@/types").TestPreset[]))
-      .catch(() => console.warn("[StressFlow] Erro ao carregar presets na inicializacao"));
+      .catch(() => console.warn("[CPX-Stress] Erro ao carregar presets na inicializacao"));
   }, [setPresets]);
 
   // Mostrar alerta quando credenciais foram verificadas e alguma esta ausente
@@ -261,7 +261,7 @@ export function TestConfig() {
           </div>
         </div>
         <h2 className="text-lg font-semibold text-sf-text select-none cursor-default">
-          CPX — MisterT Stress
+          CPX-Stress
         </h2>
       </div>
 

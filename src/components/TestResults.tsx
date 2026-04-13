@@ -447,7 +447,7 @@ export function TestResults() {
       }
 
       const base64 = await generatePDF(result, { rps, latency, errors }, errorRecords);
-      const filename = `cpx-mistert-stress-${format(new Date(result.startTime), "yyyy-MM-dd-HHmmss")}.pdf`;
+      const filename = `cpx-stress-${format(new Date(result.startTime), "yyyy-MM-dd-HHmmss")}.pdf`;
       const filePath = await window.stressflow.pdf.save(base64, filename);
       await window.stressflow.pdf.open(filePath);
     } catch (err) {
@@ -460,7 +460,7 @@ export function TestResults() {
   /** Exporta os resultados como arquivo JSON bruto */
   const handleExportJSON = useCallback(async () => {
     try {
-      const filename = `cpx-mistert-stress-${format(new Date(result.startTime), "yyyy-MM-dd-HHmmss")}.json`;
+      const filename = `cpx-stress-${format(new Date(result.startTime), "yyyy-MM-dd-HHmmss")}.json`;
       await window.stressflow.json.export(
         JSON.stringify(result, null, 2),
         filename,
@@ -603,7 +603,7 @@ export function TestResults() {
                 className={`text-sm font-medium ${reliabilityMeta.color} flex items-center gap-1`}
               >
                 Confiabilidade da Medição
-                <InfoTooltip text="Mostra se o próprio StressFlow permaneceu estável durante o teste. Quando a medição degrada, parte da variação pode vir do gerador de carga e não apenas do servidor avaliado." />
+                <InfoTooltip text="Mostra se o próprio CPX-Stress permaneceu estável durante o teste. Quando a medição degrada, parte da variação pode vir do gerador de carga e não apenas do servidor avaliado." />
               </div>
               <div className="flex items-center gap-2">
                 <span

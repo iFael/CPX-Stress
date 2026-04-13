@@ -4,7 +4,7 @@
  * Componente reutilizavel para exibir uma unica métrica com valor,
  * rótulo, icone, tendencia e area opcional de mini-gráfico (sparkline).
  *
- * Projetado para o tema escuro do StressFlow, utilizando a paleta sf-*.
+ * Projetado para o tema escuro do CPX-Stress, utilizando a paleta sf-*.
  * As descrições e rótulos estao em português para manter consistencia
  * com o restante da aplicação.
  *

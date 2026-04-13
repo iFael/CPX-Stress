@@ -111,7 +111,7 @@ export function TestProgress() {
     try {
       await window.stressflow.test.cancel();
     } catch (err) {
-      console.warn("[StressFlow] Falha ao cancelar teste:", err);
+      console.warn("[CPX-Stress] Falha ao cancelar teste:", err);
     }
   }, []);
 

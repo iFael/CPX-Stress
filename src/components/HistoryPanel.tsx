@@ -325,7 +325,7 @@ export function HistoryPanel() {
         await window.stressflow.history.delete(id);
         setHistory(history.filter((t) => t.id !== id));
       } catch (err) {
-        console.warn("[StressFlow] Falha ao excluir teste:", err);
+        console.warn("[CPX-Stress] Falha ao excluir teste:", err);
       }
       setBusyDeleteId(null);
       setDeletingId(null);
@@ -347,7 +347,7 @@ export function HistoryPanel() {
       await window.stressflow.history.clear();
       setHistory([]);
     } catch (err) {
-      console.warn("[StressFlow] Falha ao limpar histórico:", err);
+      console.warn("[CPX-Stress] Falha ao limpar histórico:", err);
     }
     setClearingAll(false);
     setConfirmClear(false);
