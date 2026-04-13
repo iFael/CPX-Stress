@@ -66,7 +66,7 @@ export function closeDatabase(): void {
 // ============================================================================
 
 /** Versao atual do preset built-in. Incrementar quando o template mudar. */
-const CURRENT_BUILTIN_VERSION = 5;
+const CURRENT_BUILTIN_VERSION = 6;
 
 /** ID fixo do preset built-in (nao muda entre versoes). */
 const BUILTIN_PRESET_ID = "builtin-mistert-completo";
@@ -140,6 +140,7 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     },
     {
       name: "CPX-Fretes",
+      moduleGroup: "CPX-Fretes",
       url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=89",
       method: "GET",
       captureSession: true,
@@ -156,6 +157,7 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     },
     {
       name: "CPX-Rastreio",
+      moduleGroup: "CPX-Rastreio",
       url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=90",
       method: "GET",
       captureSession: true,
@@ -172,6 +174,7 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     },
     {
       name: "Estoque",
+      moduleGroup: "Estoque",
       url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=122",
       method: "GET",
       captureSession: true,
@@ -188,6 +191,7 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     },
     {
       name: "Ordens E/S",
+      moduleGroup: "Ordens E/S",
       url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=232",
       method: "GET",
       captureSession: true,
@@ -204,6 +208,7 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     },
     {
       name: "Produção",
+      moduleGroup: "Produção",
       url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=169",
       method: "GET",
       captureSession: true,
@@ -220,6 +225,7 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     },
     {
       name: "Envio de GNREs",
+      moduleGroup: "Envio de GNREs",
       url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=18",
       method: "GET",
       captureSession: true,
@@ -236,6 +242,7 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     },
     {
       name: "Financeiro",
+      moduleGroup: "Financeiro",
       url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=250",
       method: "GET",
       captureSession: true,
@@ -246,6 +253,56 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
       },
       validation: {
         expectedAnyText: ["Financeiro"],
+        rejectLoginLikeContent: true,
+        rejectOnAnyText: ["Este erro nunca deve ocorrer"],
+      },
+    },
+    {
+      name: "Sessões Especiais",
+      moduleGroup: "Sessões Especiais",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=864",
+      method: "GET",
+      captureSession: true,
+      extract: {
+        CTRL: "action=[\"'][^\"']*CTRL=(\\d+)&R=2",
+      },
+      navigation: {
+        accessMode: "url-driven",
+        notes:
+          "Página de índice/lista acessível por GET. Ela emite um novo CTRL interno para as ações do formulário.",
+      },
+      validation: {
+        expectedAnyText: ["Pesquisar", "Insere Novo Registro"],
+        rejectLoginLikeContent: true,
+        rejectOnAnyText: ["Este erro nunca deve ocorrer"],
+      },
+    },
+    {
+      name: "Sessões Especiais - Inserir Novo Registro",
+      moduleGroup: "Sessões Especiais",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=2",
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "IN5=Insere+Novo+Registro",
+      captureSession: true,
+      extract: { CTRL: "CTRL=(\\d+)" },
+      navigation: {
+        accessMode: "action-driven",
+        sourceAction: {
+          kind: "form-submit",
+          method: "POST",
+          submitControlName: "IN5",
+          submitControlValue: "Insere Novo Registro",
+          fields: {
+            IN5: "Insere Novo Registro",
+          },
+          description: "Submete o botão de ação que abre a tela de edição.",
+        },
+        notes:
+          "A URL final não é portátil; precisa do POST do formulário da tela de Sessões Especiais.",
+      },
+      validation: {
+        expectedAnyText: ["Sessões Especiais", "Descrição", "Usuário"],
         rejectLoginLikeContent: true,
         rejectOnAnyText: ["Este erro nunca deve ocorrer"],
       },

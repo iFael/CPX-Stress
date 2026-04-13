@@ -31,6 +31,7 @@ if (!parentPort) {
 
 interface WorkerOperation {
   name: string;
+  moduleGroup?: string;
   url: string;
   method: string;
   headers?: Record<string, string>;
@@ -492,21 +493,33 @@ async function runVU(delay: number): Promise<void> {
     }
   };
 
-  // Separar operações em: cadeia de autenticação (sequencial) e módulos (aleatório).
-  // A cadeia de autenticação inclui tudo até o primeiro GET após o último POST/PUT,
-  // garantindo que login e estabelecimento de sessão ocorram em ordem.
-  // Os módulos restantes são acessados aleatoriamente, assegurando cobertura
-  // uniforme mesmo com tempos de execução curtos.
-  let lastMutationIndex = -1;
-  for (let i = 0; i < config.operations.length; i++) {
-    if (config.operations[i].method !== "GET") lastMutationIndex = i;
+  const firstModuleIndex = config.operations.findIndex(
+    (operation) =>
+      typeof operation.moduleGroup === "string" &&
+      operation.moduleGroup.trim() !== "",
+  );
+  const authOps =
+    firstModuleIndex >= 0
+      ? config.operations.slice(0, firstModuleIndex)
+      : config.operations;
+  const moduleOps =
+    firstModuleIndex >= 0 ? config.operations.slice(firstModuleIndex) : [];
+  const moduleFlows: WorkerOperation[][] = [];
+
+  for (const operation of moduleOps) {
+    const groupName = operation.moduleGroup || operation.name;
+    const currentFlow = moduleFlows[moduleFlows.length - 1];
+    const currentGroupName =
+      currentFlow && currentFlow.length > 0
+        ? currentFlow[0].moduleGroup || currentFlow[0].name
+        : null;
+
+    if (currentFlow && currentGroupName === groupName) {
+      currentFlow.push(operation);
+    } else {
+      moduleFlows.push([operation]);
+    }
   }
-  const authBoundary =
-    lastMutationIndex >= 0
-      ? Math.min(lastMutationIndex + 2, config.operations.length)
-      : 0;
-  const authOps = config.operations.slice(0, authBoundary);
-  const moduleOps = config.operations.slice(authBoundary);
 
   // Fase de autenticação inicial — executa UMA VEZ por VU
   for (const op of authOps) {
@@ -518,7 +531,7 @@ async function runVU(delay: number): Promise<void> {
 
   // Loop principal — apenas operações de módulo
   while (Date.now() < config.endTime && !signal.aborted) {
-    if (moduleOps.length === 0) {
+    if (moduleFlows.length === 0) {
       // Modo single-op ou auth-only: mantém comportamento original
       for (const op of authOps) {
         await executeOp(op);
@@ -526,18 +539,25 @@ async function runVU(delay: number): Promise<void> {
       continue;
     }
 
-    const randomModule =
-      moduleOps[Math.floor(Math.random() * moduleOps.length)];
-    const opResult = await executeOp(randomModule);
-    const finalUrl = opResult.finalUrl;
+    const randomFlow =
+      moduleFlows[Math.floor(Math.random() * moduleFlows.length)];
+    let sessionExpired = false;
 
-    // Detecção de expiração de sessão: redirect para login ou erro de sessão no body
-    const sessionExpired =
-      opResult.sessionInvalid ||
-      (loginUrl !== null &&
-       finalUrl !== undefined &&
-       finalUrl.pathname.toLowerCase() === loginUrl.pathname.toLowerCase() &&
-       finalUrl.searchParams.toString() === loginUrl.searchParams.toString());
+    for (const operation of randomFlow) {
+      const opResult = await executeOp(operation);
+      const finalUrl = opResult.finalUrl;
+
+      sessionExpired =
+        opResult.sessionInvalid ||
+        (loginUrl !== null &&
+         finalUrl !== undefined &&
+         finalUrl.pathname.toLowerCase() === loginUrl.pathname.toLowerCase() &&
+         finalUrl.searchParams.toString() === loginUrl.searchParams.toString());
+
+      if (sessionExpired) {
+        break;
+      }
+    }
 
     if (sessionExpired) {
       cookieJar.clear();

@@ -21,6 +21,7 @@ import type {
 
 export interface TestOperation {
   name: string;
+  moduleGroup?: string;
   url: string;
   method: "GET" | "POST" | "PUT" | "DELETE";
   headers?: Record<string, string>;
@@ -353,6 +354,16 @@ function validateOperation(operation: TestOperation, index: number): void {
 
   if (typeof operation.name !== "string" || operation.name.trim() === "") {
     throw new Error(`Operação ${index + 1} precisa ter um nome`);
+  }
+
+  if (
+    operation.moduleGroup !== undefined &&
+    (typeof operation.moduleGroup !== "string" ||
+      operation.moduleGroup.trim() === "")
+  ) {
+    throw new Error(
+      `moduleGroup da operação ${index + 1} deve ser uma string não vazia`,
+    );
   }
 
   validateHttpUrl(operation.url, `URL da operação ${index + 1}`);
@@ -1289,21 +1300,33 @@ export class StressEngine {
       }
     };
 
-    // Separar operações em: cadeia de autenticação (sequencial) e módulos (aleatório).
-    // A cadeia de autenticação inclui tudo até o primeiro GET após o último POST/PUT,
-    // garantindo que login e estabelecimento de sessão ocorram em ordem.
-    // Os módulos restantes são acessados aleatoriamente, assegurando cobertura
-    // uniforme mesmo com tempos de execução curtos.
-    let lastMutationIndex = -1;
-    for (let i = 0; i < opts.operations.length; i++) {
-      if (opts.operations[i].method !== "GET") lastMutationIndex = i;
+    const firstModuleIndex = opts.operations.findIndex(
+      (operation) =>
+        typeof operation.moduleGroup === "string" &&
+        operation.moduleGroup.trim() !== "",
+    );
+    const authOps =
+      firstModuleIndex >= 0
+        ? opts.operations.slice(0, firstModuleIndex)
+        : opts.operations;
+    const moduleOps =
+      firstModuleIndex >= 0 ? opts.operations.slice(firstModuleIndex) : [];
+    const moduleFlows: TestOperation[][] = [];
+
+    for (const operation of moduleOps) {
+      const groupName = operation.moduleGroup || operation.name;
+      const currentFlow = moduleFlows[moduleFlows.length - 1];
+      const currentGroupName =
+        currentFlow && currentFlow.length > 0
+          ? currentFlow[0].moduleGroup || currentFlow[0].name
+          : null;
+
+      if (currentFlow && currentGroupName === groupName) {
+        currentFlow.push(operation);
+      } else {
+        moduleFlows.push([operation]);
+      }
     }
-    const authBoundary =
-      lastMutationIndex >= 0
-        ? Math.min(lastMutationIndex + 2, opts.operations.length)
-        : 0;
-    const authOps = opts.operations.slice(0, authBoundary);
-    const moduleOps = opts.operations.slice(authBoundary);
 
     // Fase de autenticação inicial — executa UMA VEZ por VU, não a cada iteração
     for (const op of authOps) {
@@ -1316,7 +1339,7 @@ export class StressEngine {
 
     // Loop principal — apenas operações de módulo (sem re-autenticação desnecessária)
     while (Date.now() < opts.endTime && !opts.signal.aborted) {
-      if (moduleOps.length === 0) {
+      if (moduleFlows.length === 0) {
         // Modo single-op ou auth-only: mantém comportamento original
         // (sem módulos, o loop continua executando authOps)
         for (const op of authOps) {
@@ -1325,18 +1348,25 @@ export class StressEngine {
         continue;
       }
 
-      const randomModule =
-        moduleOps[Math.floor(Math.random() * moduleOps.length)];
-      const opResult = await executeOp(randomModule);
-      const finalUrl = opResult.finalUrl;
+      const randomFlow =
+        moduleFlows[Math.floor(Math.random() * moduleFlows.length)];
+      let sessionExpired = false;
 
-      // Detecção de expiração de sessão: redirect para login ou erro de sessão no body
-      const sessionExpired =
-        opResult.sessionInvalid ||
-        (loginUrl !== null &&
-         finalUrl !== undefined &&
-         finalUrl.pathname.toLowerCase() === loginUrl.pathname.toLowerCase() &&
-         finalUrl.searchParams.toString() === loginUrl.searchParams.toString());
+      for (const operation of randomFlow) {
+        const opResult = await executeOp(operation);
+        const finalUrl = opResult.finalUrl;
+
+        sessionExpired =
+          opResult.sessionInvalid ||
+          (loginUrl !== null &&
+            finalUrl !== undefined &&
+            finalUrl.pathname.toLowerCase() === loginUrl.pathname.toLowerCase() &&
+            finalUrl.searchParams.toString() === loginUrl.searchParams.toString());
+
+        if (sessionExpired) {
+          break;
+        }
+      }
 
       if (sessionExpired) {
         // Limpar estado de sessão antiga antes de re-autenticar
@@ -1922,6 +1952,7 @@ export class StressEngine {
           vuCount,
           operations: operations.map((op) => ({
             name: op.name,
+            moduleGroup: op.moduleGroup,
             url: op.url,
             method: op.method,
             headers: op.headers,
