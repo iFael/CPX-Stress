@@ -96,14 +96,14 @@ function loadEnvFile(): Record<string, string> {
 }
 
 /**
- * Salva entradas de credenciais no arquivo .env do diretorio userData.
+ * Salva entradas de credenciais no arquivo .env do diretório userData.
  * Faz merge com entradas existentes: atualiza chaves existentes in-place
- * e adiciona novas chaves ao final. Preserva comentarios e linhas vazias.
+ * e adiciona novas chaves ao final. Preserva comentários e linhas vazias.
  *
  * SEGURANCA:
- *   - Apenas chaves com prefixo STRESSFLOW_ sao aceitas (whitelist).
- *   - Escrita exclusivamente em app.getPath("userData")/.env — nunca em app.getAppPath() (ASAR read-only em producao).
- *   - Apos escrita, recarrega envVars em memoria para que o proximo teste use os valores atualizados.
+ *   - Apenas chaves com prefixo STRESSFLOW_ são aceitas (whitelist).
+ *   - Escrita exclusivamente em app.getPath("userData")/.env — nunca em app.getAppPath() (ASAR read-only em produção).
+ *   - Após escrita, recarrega envVars em memória para que o próximo teste use os valores atualizados.
  */
 function saveEnvFile(entries: Array<{ key: string; value: string }>): { saved: number; path: string } {
   const envPath = path.join(app.getPath("userData"), ".env");
@@ -111,7 +111,7 @@ function saveEnvFile(entries: Array<{ key: string; value: string }>): { saved: n
   // Validar chaves: apenas STRESSFLOW_* permitidas
   for (const entry of entries) {
     if (!/^STRESSFLOW_\w+$/.test(entry.key)) {
-      throw new Error(`Chave invalida: ${entry.key}. Apenas chaves com prefixo STRESSFLOW_ sao permitidas.`);
+      throw new Error(`Chave invalida: ${entry.key}. Apenas chaves com prefixo STRESSFLOW_ são permitidas.`);
     }
   }
 
@@ -125,7 +125,7 @@ function saveEnvFile(entries: Array<{ key: string; value: string }>): { saved: n
   const newEntries = new Map(entries.map((e) => [e.key, e.value]));
   const written = new Set<string>();
 
-  // Substituir valores existentes in-place (preserva ordem e comentarios)
+  // Substituir valores existentes in-place (preserva ordem e comentários)
   const updatedLines = lines.map((line) => {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) return line;
@@ -139,14 +139,14 @@ function saveEnvFile(entries: Array<{ key: string; value: string }>): { saved: n
     return line;
   });
 
-  // Append chaves novas que nao existiam no arquivo
+  // Append chaves novas que não existiam no arquivo
   for (const [key, value] of newEntries) {
     if (!written.has(key)) {
       updatedLines.push(`${key}=${value}`);
     }
   }
 
-  // Garantir que o diretorio pai existe
+  // Garantir que o diretório pai existe
   const envDir = path.dirname(envPath);
   if (!fs.existsSync(envDir)) {
     fs.mkdirSync(envDir, { recursive: true });
@@ -154,7 +154,7 @@ function saveEnvFile(entries: Array<{ key: string; value: string }>): { saved: n
 
   fs.writeFileSync(envPath, updatedLines.join("\n"), "utf-8");
 
-  // CRITICO: Recarregar variaveis em memoria para que o proximo teste use os valores atualizados
+  // CRITICO: Recarregar variáveis em memória para que o próximo teste use os valores atualizados
   envVars = loadEnvFile();
 
   return { saved: entries.length, path: envPath };
@@ -306,7 +306,7 @@ function initializeDatabase(): void {
     const dataPath = getDataPath();
     initDatabase(dataPath);
     migrateFromJsonHistory(dataPath);
-    ensureBuiltinPresetVersion(); // Atualiza preset built-in se versao mudou
+    ensureBuiltinPresetVersion(); // Atualiza preset built-in se versão mudou
     dbInitialized = true;
     console.log("[CPX-Stress] Banco de dados SQLite inicializado com sucesso.");
   } catch (error) {
@@ -871,14 +871,14 @@ if (canUseElectronMainApis) {
 //  Handlers IPC — Gerenciamento de Credenciais
 // ===========================================================================
 // Estes handlers permitem que a interface verifique e salve credenciais
-// MisterT sem expor os valores reais ao processo de renderizacao.
-// SEGURANCA: Apenas booleanos e nomes de chaves sao retornados — nunca valores.
+// MisterT sem expor os valores reais ao processo de renderização.
+// SEGURANCA: Apenas booleanos e nomes de chaves são retornados — nunca valores.
 // ===========================================================================
 
 /**
  * Canal: credentials:status
- * Verifica quais credenciais obrigatorias estao configuradas.
- * Retorna um mapa booleano (chave -> configurada ou nao). NUNCA retorna valores.
+ * Verifica quais credenciais obrigatorias estão configuradas.
+ * Retorna um mapa booleano (chave -> configurada ou não). NUNCA retorna valores.
  */
   ipcMain.handle("credentials:status", async () => {
   try {
@@ -890,7 +890,7 @@ if (canUseElectronMainApis) {
     return status;
   } catch (error) {
     console.error("[CPX-Stress] Erro ao verificar credenciais:", error);
-    throw new Error("Nao foi possivel verificar o status das credenciais.");
+    throw new Error("Não foi possível verificar o status das credenciais.");
   }
   });
 
@@ -904,25 +904,25 @@ if (canUseElectronMainApis) {
     return Object.keys(envVars).filter((key) => key.startsWith("STRESSFLOW_"));
   } catch (error) {
     console.error("[CPX-Stress] Erro ao listar chaves de credenciais:", error);
-    throw new Error("Nao foi possivel listar as chaves de credenciais.");
+    throw new Error("Não foi possível listar as chaves de credenciais.");
   }
   });
 
 /**
  * Canal: credentials:save
- * Salva credenciais no .env do diretorio userData.
+ * Salva credenciais no .env do diretório userData.
  * Aceita apenas chaves com prefixo STRESSFLOW_ (whitelist de seguranca).
- * Entradas com valor vazio sao filtradas antes de salvar (preservam valor anterior).
+ * Entradas com valor vazio são filtradas antes de salvar (preservam valor anterior).
  */
   ipcMain.handle(
   "credentials:save",
   async (_event, entries: Array<{ key: string; value: string }>) => {
     try {
       if (!entries || !Array.isArray(entries)) {
-        throw new Error("Dados de credenciais invalidos.");
+        throw new Error("Dados de credenciais inválidos.");
       }
 
-      // Filtrar entradas vazias — campos em branco no formulario nao sobrescrevem valores existentes
+      // Filtrar entradas vazias — campos em branco no formulario não sobrescrevem valores existentes
       const nonEmpty = entries.filter(
         (e) => e && typeof e.key === "string" && typeof e.value === "string" && e.value.trim() !== "",
       );
@@ -937,13 +937,13 @@ if (canUseElectronMainApis) {
       const msg = error instanceof Error ? error.message : String(error);
       if (msg.includes("EACCES") || msg.includes("EPERM")) {
         throw new Error(
-          "Sem permissao para salvar as credenciais. Verifique as permissoes do diretorio de dados.",
+          "Sem permissao para salvar as credenciais. Verifique as permissoes do diretório de dados.",
         );
       }
       throw new Error(
-        msg.startsWith("Chave") || msg.startsWith("Nenhuma") || msg.startsWith("Dados") || msg.startsWith("Sem") || msg.startsWith("Nao")
+        msg.startsWith("Chave") || msg.startsWith("Nenhuma") || msg.startsWith("Dados") || msg.startsWith("Sem") || msg.startsWith("Não")
           ? msg
-          : `Nao foi possivel salvar as credenciais: ${msg}`,
+          : `Não foi possível salvar as credenciais: ${msg}`,
       );
     }
   },
@@ -954,19 +954,19 @@ if (canUseElectronMainApis) {
 // ===========================================================================
 // Estes handlers permitem que a interface liste, salve, renomeie e delete
 // presets de teste. O preset built-in "MisterT Completo" e protegido contra
-// alteracoes e exclusao tanto na camada IPC quanto no repositorio.
+// alterações e exclusão tanto na camada IPC quanto no repositório.
 // ===========================================================================
 
 /**
  * Canal: presets:list
- * Lista todos os presets (built-in primeiro, depois usuario por nome).
+ * Lista todos os presets (built-in primeiro, depois usuário por nome).
  */
   ipcMain.handle("presets:list", async () => {
   try {
     return listPresets();
   } catch (error) {
     console.error("[CPX-Stress] Erro ao listar presets:", error);
-    throw new Error("Nao foi possivel carregar os presets.");
+    throw new Error("Não foi possível carregar os presets.");
   }
   });
 
@@ -983,13 +983,13 @@ if (canUseElectronMainApis) {
   ) => {
     try {
       if (!data || typeof data !== "object") {
-        throw new Error("Dados do preset invalidos.");
+        throw new Error("Dados do preset inválidos.");
       }
       if (!data.name || typeof data.name !== "string") {
         throw new Error("Informe um nome para o preset.");
       }
       if (!data.configJson || typeof data.configJson !== "string") {
-        throw new Error("Configuracao do preset ausente.");
+        throw new Error("Configuração do preset ausente.");
       }
       return savePreset(data);
     } catch (error) {
@@ -997,17 +997,17 @@ if (canUseElectronMainApis) {
       const msg = error instanceof Error ? error.message : String(error);
       // Tratar UNIQUE constraint do SQLite para nome duplicado
       if (msg.includes("UNIQUE constraint failed") || msg.includes("test_presets.name")) {
-        throw new Error("Ja existe um preset com este nome.");
+        throw new Error("Já existe um preset com este nome.");
       }
       throw new Error(
         msg.startsWith("Informe") ||
           msg.startsWith("Presets built-in") ||
           msg.startsWith("O nome") ||
-          msg.startsWith("A configuracao") ||
+          msg.startsWith("A configuração") ||
           msg.startsWith("Dados") ||
-          msg.startsWith("Configuracao")
+          msg.startsWith("Configuração")
           ? msg
-          : `Nao foi possivel salvar o preset: ${msg}`,
+          : `Não foi possível salvar o preset: ${msg}`,
       );
     }
   },
@@ -1015,14 +1015,14 @@ if (canUseElectronMainApis) {
 
 /**
  * Canal: presets:rename
- * Renomeia um preset do usuario. Rejeita presets built-in.
+ * Renomeia um preset do usuário. Rejeita presets built-in.
  */
   ipcMain.handle(
   "presets:rename",
   async (_event, id: string, newName: string) => {
     try {
       if (!id || typeof id !== "string") {
-        throw new Error("Identificador do preset nao informado.");
+        throw new Error("Identificador do preset não informado.");
       }
       if (!newName || typeof newName !== "string") {
         throw new Error("Informe um novo nome para o preset.");
@@ -1032,16 +1032,16 @@ if (canUseElectronMainApis) {
       console.error("[CPX-Stress] Erro ao renomear preset:", error);
       const msg = error instanceof Error ? error.message : String(error);
       if (msg.includes("UNIQUE constraint failed") || msg.includes("test_presets.name")) {
-        throw new Error("Ja existe um preset com este nome.");
+        throw new Error("Já existe um preset com este nome.");
       }
       throw new Error(
         msg.startsWith("Informe") ||
-          msg.startsWith("Preset nao") ||
+          msg.startsWith("Preset não") ||
           msg.startsWith("Presets built-in") ||
           msg.startsWith("O nome") ||
           msg.startsWith("Identificador")
           ? msg
-          : `Nao foi possivel renomear o preset: ${msg}`,
+          : `Não foi possível renomear o preset: ${msg}`,
       );
     }
   },
@@ -1049,23 +1049,23 @@ if (canUseElectronMainApis) {
 
 /**
  * Canal: presets:delete
- * Deleta um preset do usuario. Rejeita presets built-in.
+ * Deleta um preset do usuário. Rejeita presets built-in.
  */
   ipcMain.handle("presets:delete", async (_event, id: string) => {
   try {
     if (!id || typeof id !== "string") {
-      throw new Error("Identificador do preset nao informado.");
+      throw new Error("Identificador do preset não informado.");
     }
     deletePreset(id);
   } catch (error) {
     console.error("[CPX-Stress] Erro ao excluir preset:", error);
     const msg = error instanceof Error ? error.message : String(error);
     throw new Error(
-      msg.startsWith("Preset nao") ||
+      msg.startsWith("Preset não") ||
         msg.startsWith("Presets built-in") ||
         msg.startsWith("Identificador")
         ? msg
-        : `Nao foi possivel excluir o preset: ${msg}`,
+        : `Não foi possível excluir o preset: ${msg}`,
     );
   }
   });
@@ -1136,15 +1136,15 @@ if (canUseElectronMainApis) {
 
 /**
  * Canal: errors:byOperationName
- * Retorna contagem de erros agrupados por nome de operacao para um teste especifico.
+ * Retorna contagem de erros agrupados por nome de operação para um teste específico.
  */
   ipcMain.handle("errors:byOperationName", async (_event, testId: string) => {
   try {
     if (!testId || typeof testId !== "string") return {};
     return getErrorsByOperationName(testId);
   } catch (error) {
-    console.error("[CPX-Stress] Erro ao buscar erros por operacao:", error);
-    throw new Error("Nao foi possivel buscar os erros por operacao.");
+    console.error("[CPX-Stress] Erro ao buscar erros por operação:", error);
+    throw new Error("Não foi possível buscar os erros por operação.");
   }
   });
 

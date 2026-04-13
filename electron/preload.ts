@@ -80,7 +80,7 @@ type ReceiveChannel = (typeof ALLOWED_RECEIVE_CHANNELS)[number];
 
 /**
  * Envia uma mensagem ao processo principal e aguarda a resposta.
- * Valida se o canal esta na lista de canais permitidos antes de enviar.
+ * Valida se o canal está na lista de canais permitidos antes de enviar.
  */
 function safeInvoke(
   channel: InvokeChannel,
@@ -200,7 +200,7 @@ const api = {
   // Aplicação - informações gerais
   // ---------------------------------------------------------------------------
   app: {
-    /** Retorna o caminho do diretorio de dados da aplicação */
+    /** Retorna o caminho do diretório de dados da aplicação */
     getPath: (): Promise<string> =>
       safeInvoke("app:getPath") as Promise<string>,
   },
@@ -209,7 +209,7 @@ const api = {
   // Erros - consulta e análise de erros detalhados armazenados no SQLite
   // ---------------------------------------------------------------------------
   errors: {
-    /** Busca erros com filtros opcionais (testId, statusCode, errorType, operationName, periodo) */
+    /** Busca erros com filtros opcionais (testId, statusCode, errorType, operationName, período) */
     search: (params: {
       testId?: string;
       statusCode?: number;
@@ -237,7 +237,7 @@ const api = {
         Record<string, number>
       >,
 
-    /** Retorna contagem de erros agrupados por nome de operacao */
+    /** Retorna contagem de erros agrupados por nome de operação */
     byOperationName: (testId: string): Promise<Record<string, number>> =>
       safeInvoke("errors:byOperationName", testId) as Promise<
         Record<string, number>
@@ -246,10 +246,10 @@ const api = {
 
   // ---------------------------------------------------------------------------
   // Credenciais — verificar status, listar chaves e salvar credenciais MisterT
-  // SEGURANCA: Nenhuma funcao retorna valores — apenas booleanos ou nomes de chaves.
+  // SEGURANCA: Nenhuma função retorna valores — apenas booleanos ou nomes de chaves.
   // ---------------------------------------------------------------------------
   credentials: {
-    /** Verifica quais credenciais obrigatorias estao configuradas (retorna booleanos, nunca valores) */
+    /** Verifica quais credenciais obrigatorias estão configuradas (retorna booleanos, nunca valores) */
     status: (): Promise<Record<string, boolean>> =>
       safeInvoke("credentials:status") as Promise<Record<string, boolean>>,
 
@@ -257,7 +257,7 @@ const api = {
     load: (): Promise<string[]> =>
       safeInvoke("credentials:load") as Promise<string[]>,
 
-    /** Salva credenciais no .env (main process escreve o arquivo). Campos vazios sao ignorados. */
+    /** Salva credenciais no .env (main process escreve o arquivo). Campos vazios são ignorados. */
     save: (
       entries: Array<{ key: string; value: string }>,
     ): Promise<{ saved: number; path: string }> =>
@@ -271,7 +271,7 @@ const api = {
   // Presets — listar, salvar, renomear e deletar presets de teste
   // ---------------------------------------------------------------------------
   presets: {
-    /** Lista todos os presets (built-in primeiro, depois usuario por nome). */
+    /** Lista todos os presets (built-in primeiro, depois usuário por nome). */
     list: (): Promise<unknown[]> =>
       safeInvoke("presets:list") as Promise<unknown[]>,
 
@@ -283,11 +283,11 @@ const api = {
     }): Promise<unknown> =>
       safeInvoke("presets:save", data) as Promise<unknown>,
 
-    /** Renomeia um preset do usuario (built-in rejeitado). */
+    /** Renomeia um preset do usuário (built-in rejeitado). */
     rename: (id: string, newName: string): Promise<void> =>
       safeInvoke("presets:rename", id, newName) as Promise<void>,
 
-    /** Deleta um preset do usuario (built-in rejeitado). */
+    /** Deleta um preset do usuário (built-in rejeitado). */
     delete: (id: string): Promise<void> =>
       safeInvoke("presets:delete", id) as Promise<void>,
   },

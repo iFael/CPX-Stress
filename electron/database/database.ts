@@ -39,7 +39,7 @@ export function initDatabase(dataPath: string): Database.Database {
   return db;
 }
 
-/** Retorna a instância do banco ja inicializada. */
+/** Retorna a instância do banco já inicializada. */
 export function getDatabase(): Database.Database {
   if (!db) {
     throw new Error(
@@ -60,18 +60,18 @@ export function closeDatabase(): void {
 // ============================================================================
 // Built-in Preset: MisterT Completo
 // ============================================================================
-// CRITICO: Este JSON e definido inline no codigo do electron/.
+// CRITICO: Este JSON e definido inline no código do electron/.
 // NUNCA importar de src/constants/test-presets.ts — quebraria no build empacotado.
-// O conteudo e uma copia serializada das 10 operacoes padrao do MisterT ERP.
+// O conteúdo e uma copia serializada das 10 operações padrão do MisterT ERP.
 // ============================================================================
 
-/** Versao atual do preset built-in. Incrementar quando o template mudar. */
+/** Versão atual do preset built-in. Incrementar quando o template mudar. */
 const CURRENT_BUILTIN_VERSION = 6;
 
-/** ID fixo do preset built-in (nao muda entre versoes). */
+/** ID fixo do preset built-in (não muda entre versões). */
 const BUILTIN_PRESET_ID = "builtin-mistert-completo";
 
-/** Configuracao completa do preset built-in serializada como JSON. */
+/** Configuração completa do preset built-in serializada como JSON. */
 const BUILTIN_CONFIG_JSON = JSON.stringify({
   url: "https://dev-mistert.compex.com.br/MisterT.asp?MF=Y",
   virtualUsers: 150,
@@ -426,7 +426,7 @@ function applyMigrations(database: Database.Database): void {
 
   if (version < 3) {
     database.transaction(() => {
-      // Tabela de presets de teste (built-in + criados pelo usuario)
+      // Tabela de presets de teste (built-in + criados pelo usuário)
       database.exec(`
         CREATE TABLE IF NOT EXISTS test_presets (
           id TEXT PRIMARY KEY,
@@ -455,10 +455,10 @@ function applyMigrations(database: Database.Database): void {
 }
 
 /**
- * Verifica se o preset built-in esta na versao mais recente.
- * Se a versao no banco for inferior a CURRENT_BUILTIN_VERSION,
+ * Verifica se o preset built-in está na versão mais recente.
+ * Se a versão no banco for inferior a CURRENT_BUILTIN_VERSION,
  * atualiza o config_json e a builtin_version automaticamente.
- * Chamado a cada inicializacao da aplicacao (apos migrations).
+ * Chamado a cada inicialização da aplicação (após migrations).
  */
 export function ensureBuiltinPresetVersion(): void {
   const database = getDatabase();
@@ -476,7 +476,7 @@ export function ensureBuiltinPresetVersion(): void {
       .run(BUILTIN_CONFIG_JSON, CURRENT_BUILTIN_VERSION, BUILTIN_PRESET_ID);
 
     console.log(
-      `[CPX-Stress DB] Preset built-in atualizado para versao ${CURRENT_BUILTIN_VERSION}.`
+      `[CPX-Stress DB] Preset built-in atualizado para versão ${CURRENT_BUILTIN_VERSION}.`
     );
   }
 }
@@ -494,7 +494,7 @@ export function migrateFromJsonHistory(dataPath: string): void {
     .prepare("SELECT COUNT(*) as c FROM test_results")
     .get() as { c: number };
 
-  // Se ja tem dados no SQLite, não migrar (pode ser re-execução)
+  // Se já tem dados no SQLite, não migrar (pode ser re-execução)
   if (existingCount.c > 0) return;
 
   try {

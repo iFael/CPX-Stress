@@ -343,7 +343,7 @@ export function getErrorsByType(testId: string): Record<string, number> {
   return result;
 }
 
-/** Retorna contagem de erros agrupados por nome de operacao para um teste. */
+/** Retorna contagem de erros agrupados por nome de operação para um teste. */
 export function getErrorsByOperationName(testId: string): Record<string, number> {
   const db = getDatabase();
   const rows = db
@@ -363,7 +363,7 @@ export function getErrorsByOperationName(testId: string): Record<string, number>
 // Preset CRUD
 // ============================================================================
 
-/** Limite maximo de tamanho do config_json em bytes (1 MB). */
+/** Limite máximo de tamanho do config_json em bytes (1 MB). */
 const MAX_CONFIG_JSON_SIZE = 1_048_576;
 
 /** Converte uma row do SQLite para o formato TestPreset do renderer. */
@@ -391,7 +391,7 @@ export function listPresets() {
 /**
  * Salva um preset (insert ou update).
  * Se id e fornecido e existe no banco: atualiza (rejeita se built-in).
- * Se id nao e fornecido ou nao existe: insere novo.
+ * Se id não e fornecido ou não existe: insere novo.
  * Retorna o preset salvo.
  */
 export function savePreset(data: {
@@ -465,7 +465,7 @@ export function savePreset(data: {
   return rowToPreset(inserted);
 }
 
-/** Renomeia um preset do usuario. Rejeita built-in. */
+/** Renomeia um preset do usuário. Rejeita built-in. */
 export function renamePreset(id: string, newName: string): void {
   const db = getDatabase();
 
@@ -494,7 +494,7 @@ export function renamePreset(id: string, newName: string): void {
   ).run(newName.trim(), id);
 }
 
-/** Deleta um preset do usuario. Rejeita built-in. */
+/** Deleta um preset do usuário. Rejeita built-in. */
 export function deletePreset(id: string): void {
   const db = getDatabase();
 

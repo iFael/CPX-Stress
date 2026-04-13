@@ -5,7 +5,7 @@ import type { SecondMetrics } from "./stress-engine";
 // ============================================================================
 //
 // Este módulo analisa as respostas HTTP coletadas durante um teste de estresse
-// para identificar quais mecanismos de proteção estao ativos no alvo.
+// para identificar quais mecanismos de proteção estão ativos no alvo.
 //
 // -- CONCEITOS --
 //
@@ -43,7 +43,7 @@ import type { SecondMetrics } from "./stress-engine";
 //   Desafios visuais ou interativos que exigem intervencao humana para
 //   provar que não e um robo. Exemplos: reCAPTCHA (Google), hCaptcha,
 //   Cloudflare Turnstile. Quando aparecem, o teste de estresse e
-//   efetivamente bloqueado ate que o desafio seja resolvido.
+//   efetivamente bloqueado até que o desafio seja resolvido.
 //
 // ============================================================================
 
@@ -471,7 +471,7 @@ const HEADER_SIGNATURES: HeaderSignature[] = [
   // "x-ratelimit-limit":     quantas requests são permitidas na janela
   // "x-ratelimit-remaining": quantas requests restam na janela atual
   // "x-ratelimit-reset":     timestamp de quando a janela reseta
-  // "retry-after":           segundos ate poder tentar novamente (RFC 7231)
+  // "retry-after":           segundos até poder tentar novamente (RFC 7231)
   {
     header: "x-ratelimit-limit",
     pattern: /.+/,
@@ -660,7 +660,7 @@ const COOKIE_SIGNATURES: CookieSignature[] = [
 //
 // Quando um WAF ou proteção DDoS bloqueia uma requisição, geralmente retorna
 // uma página HTML própria com mensagens de erro ou challenges. Esses padrões
-// no corpo da resposta ajudam a identificar qual proteção esta ativa.
+// no corpo da resposta ajudam a identificar qual proteção está ativa.
 // ---------------------------------------------------------------------------
 
 interface BodySignature {
@@ -859,7 +859,7 @@ const BLOCKING_NORMAL_THRESHOLD = 20;
 /** Fracao de respostas 403/503 para considerar challenge pages (30%). */
 const CHALLENGE_RATIO_THRESHOLD = 0.3;
 
-/** Fator de queda de RPS para considerar degradacao (queda de 60%). */
+/** Fator de queda de RPS para considerar degradação (queda de 60%). */
 const DEGRADATION_RPS_FACTOR = 0.4;
 
 // ---------------------------------------------------------------------------
@@ -1289,7 +1289,7 @@ export class ProtectionDetector {
    * Analisa se o servidor se recupera após o pico de erros.
    *
    * "Parcialmente recuperavel" = taxa de erro diminui após o pico
-   * "Sem recuperação" = bloqueio persiste ate o fim do teste
+   * "Sem recuperação" = bloqueio persiste até o fim do teste
    */
   private detectRecoveryPattern(): string | undefined {
     const timeline = this.timelineReference;
@@ -1442,7 +1442,7 @@ export class ProtectionDetector {
 
   /**
    * Detecta challenge pages: grande proporcao de respostas 403/503
-   * indica que o servidor esta apresentando páginas de verificação
+   * indica que o servidor está apresentando páginas de verificação
    * (CAPTCHA, JavaScript challenge, etc.).
    */
   private detectChallenge(timeline: SecondMetrics[]): BehavioralPattern | null {
@@ -1465,9 +1465,9 @@ export class ProtectionDetector {
   }
 
   /**
-   * Detecta degradacao de throughput: o número de requests por segundo
+   * Detecta degradação de throughput: o número de requests por segundo
    * cai significativamente durante o teste, indicando que o servidor
-   * ou alguma proteção esta limitando a capacidade.
+   * ou alguma proteção está limitando a capacidade.
    */
   private detectDegradation(
     timeline: SecondMetrics[],
@@ -1495,7 +1495,7 @@ export class ProtectionDetector {
 
     return {
       type: "degradation",
-      description: `Degradacao de throughput: RPS caiu ${dropPercentage}% durante o teste`,
+      description: `Degradação de throughput: RPS caiu ${dropPercentage}% durante o teste`,
       startSecond: firstThirdEnd,
       evidence: `RPS: ${avgRpsFirstThird.toFixed(0)} -> ${avgRpsLastThird.toFixed(0)}`,
     };
@@ -1656,7 +1656,7 @@ export class ProtectionDetector {
   /**
    * Insere ou atualiza uma detecção no mapa.
    *
-   * Se ja existe uma detecção com a mesma chave, atualiza a confianca
+   * Se já existe uma detecção com a mesma chave, atualiza a confianca
    * (mantendo o maior valor) e adiciona o indicador se for novo.
    * Se não existe, cria uma nova detecção.
    */
