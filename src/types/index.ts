@@ -1,8 +1,8 @@
 // ============================================================================
-// StressFlow - Definicoes de Tipos
+// CPX-Stress - Definicoes de Tipos
 // ============================================================================
 //
-// Este arquivo contém todas as definicoes de tipos usadas no StressFlow.
+// Este arquivo contém todas as definicoes de tipos usadas no CPX-Stress.
 // Cada tipo descreve a "forma" dos dados que circulam pela aplicação.
 //
 // Organizacao:
@@ -490,7 +490,7 @@ export interface TestResult {
 // ============================================================================
 // 4. MOTOR DE DETECÇÃO DE PROTEÇÃO
 // ----------------------------------------------------------------------------
-// O StressFlow analisa as respostas do servidor para identificar mecanismos
+// O CPX-Stress analisa as respostas do servidor para identificar mecanismos
 // de proteção como firewalls (WAF), CDNs, limitadores de taxa e protecoes
 // anti-bot. Isso ajuda o usuário a entender por que o servidor pode estar
 // bloqueando ou limitando as requisições durante o teste.
@@ -811,7 +811,7 @@ export type TestStatus =
 // ============================================================================
 // 6. API GLOBAL (ELECTRON)
 // ----------------------------------------------------------------------------
-// O StressFlow e uma aplicação desktop feita com Electron. A comunicação
+// O CPX-Stress e uma aplicação desktop feita com Electron. A comunicação
 // entre a interface (frontend/React) e o sistema operacional (backend/Node.js)
 // acontece por meio de uma ponte chamada "contextBridge".
 //

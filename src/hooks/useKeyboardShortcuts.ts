@@ -1,5 +1,5 @@
 /**
- * useKeyboardShortcuts.ts - Atalhos de teclado globais do StressFlow
+ * useKeyboardShortcuts.ts - Atalhos de teclado globais do CPX-Stress
  *
  * Registra listeners de teclado para acoes comuns da aplicação.
  * O hook deve ser chamado uma unica vez no componente raiz (App.tsx).
@@ -61,7 +61,7 @@ export function useKeyboardShortcuts() {
         if (status === "running") {
           event.preventDefault();
           window.stressflow.test.cancel().catch((err) => {
-            console.error("[StressFlow] Erro ao cancelar teste via atalho:", err);
+            console.error("[CPX-Stress] Erro ao cancelar teste via atalho:", err);
           });
         }
         return;

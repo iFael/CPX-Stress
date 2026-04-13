@@ -1,5 +1,5 @@
 /**
- * StressFlow — Worker Thread para execução paralela de VUs.
+ * CPX-Stress — Worker Thread para execução paralela de VUs.
  *
  * Este arquivo roda em threads separadas do Node.js (worker_threads),
  * permitindo distribuir usuários virtuais (VUs) entre múltiplos cores da CPU.
@@ -144,7 +144,7 @@ function makeSingleRequest(
 
     const mod = opts.isHttps ? https : http;
     const mergedHeaders: Record<string, string> = {
-      "User-Agent": "CPX-MisterT-Stress/1.0",
+      "User-Agent": "CPX-Stress/1.0",
       Accept: "*/*",
       ...opts.headers,
     };

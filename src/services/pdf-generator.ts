@@ -461,7 +461,7 @@ function drawCover(
   doc.setTextColor(...C.white);
   doc.setFontSize(26);
   doc.setFont("helvetica", "bold");
-  doc.text("CPX \u2014 MisterT Stress", w / 2, 28, { align: "center" });
+  doc.text("CPX-Stress", w / 2, 28, { align: "center" });
 
   doc.setFontSize(12);
   doc.setFont("helvetica", "normal");
@@ -568,7 +568,7 @@ function drawCover(
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...C.textFaint);
   doc.text(
-    "Gerado automaticamente por CPX \u2014 MisterT Stress",
+    "Gerado automaticamente por CPX-Stress",
     w / 2,
     h - 12,
     { align: "center" },
@@ -1843,7 +1843,7 @@ function addFooters(doc: jsPDF, result: TestResult): void {
     doc.setFontSize(6.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...C.textFaint);
-    doc.text("CPX \u2014 MisterT Stress", M, h - 8);
+    doc.text("CPX-Stress", M, h - 8);
     doc.text(dateStr, w / 2, h - 8, { align: "center" });
     doc.text(`${i} / ${pages}`, w - M, h - 8, { align: "right" });
   }

@@ -4,7 +4,7 @@
  *
  * O QUE E ESTE ARQUIVO?
  * ---------------------
- * Este arquivo e o "cerebro" da aplicação StressFlow. Ele guarda todos os
+ * Este arquivo e o "cerebro" da aplicação CPX-Stress. Ele guarda todos os
  * dados importantes que a interface precisa exibir ao usuário, como:
  *   - Qual tela esta sendo exibida (navegação)
  *   - A configuração do teste de estresse (parâmetros)
@@ -287,7 +287,7 @@ const ESTADO_INICIAL: TestState = {
 // ---------------------------------------------------------------------------
 
 /**
- * Hook principal do estado global do StressFlow.
+ * Hook principal do estado global do CPX-Stress.
  *
  * Este e o ponto de acesso único para todo o estado da aplicação.
  * Use-o nos componentes React para ler dados e executar acoes.
