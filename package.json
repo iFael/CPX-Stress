@@ -46,6 +46,7 @@
     "format:check": "prettier --check \"{src,electron,audit,scripts}/**/*.{ts,tsx,css,json,js,md}\" \"*.{json,md}\"",
     "audit:ssrf": "tsx audit/test-ssrf.ts",
     "audit:engine": "tsx scripts/run-audit-with-mock.ts audit/engine-test-harness.ts",
+    "audit:mistert": "tsx audit/mistert-validation.ts",
     "audit:extreme": "tsx scripts/run-audit-with-mock.ts audit/stress-extreme-test.ts",
     "verify": "npm run lint && npm run format:check && npm run typecheck && npm run build && npm run audit:ssrf && npm run audit:engine",
     "clean": "rimraf dist dist-electron",

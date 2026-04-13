@@ -23,18 +23,32 @@ import { app, BrowserWindow, ipcMain, dialog, shell, session, nativeImage } from
 import path from "node:path";
 import fs from "node:fs";
 import { StressEngine, validateTestConfig } from "./engine/stress-engine";
+import {
+  resolveConfigEnvPlaceholders,
+  runMistertValidation,
+} from "./engine/mistert-validation";
 
 const APP_DISPLAY_NAME = "CPX-Stress";
 const APP_WINDOW_BACKGROUND = "#000000";
 const LEGACY_USER_DATA_DIRNAME = "stressflow";
 const LEGACY_DATA_DIRNAME = "stressflow-data";
 const DEFAULT_JSON_EXPORT_NAME = "cpx-stress-export.json";
+const canUseElectronMainApis =
+  !!app &&
+  !!ipcMain &&
+  typeof app.whenReady === "function" &&
+  typeof app.on === "function" &&
+  typeof ipcMain.handle === "function";
 
 /**
  * Mantém o diretório legado do Electron para preservar .env, histórico,
  * presets e banco SQLite já existentes após o rebrand.
  */
 function configureLegacyUserDataPath(): void {
+  // Em dev, o Vite pode avaliar este módulo em um contexto Node sem a app API pronta.
+  if (!app || typeof app.getPath !== "function" || typeof app.setPath !== "function") {
+    return;
+  }
   const legacyUserDataPath = path.join(
     app.getPath("appData"),
     LEGACY_USER_DATA_DIRNAME,
@@ -148,41 +162,6 @@ function saveEnvFile(entries: Array<{ key: string; value: string }>): { saved: n
 
 /** Variáveis de ambiente carregadas do .env */
 let envVars: Record<string, string> = {};
-
-/**
- * Substitui placeholders {{CHAVE}} em uma string pelo valor correspondente do .env.
- * Somente chaves com prefixo STRESSFLOW_ são resolvidas (segurança por whitelist).
- */
-function resolveEnvPlaceholders(input: string): string {
-  return input.replace(/\{\{(STRESSFLOW_\w+)\}\}/g, (_match, key: string) => {
-    return envVars[key] ?? "";
-  });
-}
-
-/**
- * Resolve placeholders {{STRESSFLOW_*}} em todos os campos de texto da config de teste.
- * Chamada antes de passar a config ao StressEngine para que credenciais do .env
- * sejam injetadas de forma segura (nunca expostas no renderer).
- */
-function resolveConfigPlaceholders(config: TestConfig): void {
-  if (config.body) config.body = resolveEnvPlaceholders(config.body);
-  if (config.operations) {
-    for (const op of config.operations) {
-      if (op.url) op.url = resolveEnvPlaceholders(op.url);
-      if (op.body) op.body = resolveEnvPlaceholders(op.body);
-      if (op.headers) {
-        for (const [k, v] of Object.entries(op.headers)) {
-          op.headers[k] = resolveEnvPlaceholders(v);
-        }
-      }
-    }
-  }
-  if (config.headers) {
-    for (const [k, v] of Object.entries(config.headers)) {
-      config.headers[k] = resolveEnvPlaceholders(v);
-    }
-  }
-}
 import type {
   TestConfig,
   TestResult,
@@ -475,33 +454,62 @@ function traduzirErro(error: unknown): string {
     return "O teste foi cancelado pelo usuário.";
   if (mensagem.includes("Invalid URL") || mensagem.includes("URL inválida"))
     return "O endereço informado não é válido. Verifique se começa com http:// ou https:// — exemplo: https://www.meusite.com.br";
+  if (mensagem.includes("Credenciais obrigatórias ausentes"))
+    return mensagem;
 
   // Erro genérico — preserva a mensagem original como detalhe
   return `Ocorreu um erro inesperado: ${mensagem}`;
 }
 
-/**
- * Canal: test:start
- * Inicia um novo teste de estresse com a configuração recebida da interface.
- * Envia atualizações de progresso em tempo real pelo canal "test:progress".
- * Retorna o resultado completo do teste ao finalizar.
- */
-ipcMain.handle("test:start", async (_event, config: TestConfig) => {
+if (canUseElectronMainApis) {
+  /**
+   * Canal: validation:run
+   * Executa uma passada sequencial pelo fluxo atual para validar credenciais,
+   * extração dinâmica, sessão ASP e evidência funcional das abas MisterT.
+   */
+  ipcMain.handle("validation:run", async (_event, config: TestConfig) => {
+  try {
+    const { config: resolvedConfig } = resolveConfigEnvPlaceholders(
+      config,
+      envVars,
+    );
+    validateTestConfig(resolvedConfig);
+    return await runMistertValidation(config, envVars);
+  } catch (error) {
+    console.error("[CPX-Stress] Erro durante validação do fluxo MisterT:", error);
+    throw new Error(traduzirErro(error));
+  }
+  });
+
+  /**
+   * Canal: test:start
+   * Inicia um novo teste de estresse com a configuração recebida da interface.
+   * Envia atualizações de progresso em tempo real pelo canal "test:progress".
+   * Retorna o resultado completo do teste ao finalizar.
+   */
+  ipcMain.handle("test:start", async (_event, config: TestConfig) => {
   try {
     if (isTestStarting || activeEngine || activeTestPromise) {
       throw new Error("Teste já em execução");
     }
     isTestStarting = true;
 
-    // Resolver placeholders {{STRESSFLOW_*}} com valores do .env
-    resolveConfigPlaceholders(config);
+    const { config: resolvedConfig, missingKeys } = resolveConfigEnvPlaceholders(
+      config,
+      envVars,
+    );
+    if (missingKeys.length > 0) {
+      throw new Error(
+        `Credenciais obrigatórias ausentes no .env: ${missingKeys.join(", ")}`,
+      );
+    }
 
-    validateTestConfig(config);
+    validateTestConfig(resolvedConfig);
 
     activeEngine = new StressEngine();
 
     activeTestPromise = activeEngine.run(
-      config,
+      resolvedConfig,
       (progress) => {
         mainWindow?.webContents.send("test:progress", progress);
       },
@@ -544,14 +552,14 @@ ipcMain.handle("test:start", async (_event, config: TestConfig) => {
     activeTestPromise = null;
     isTestStarting = false;
   }
-});
+  });
 
-/**
- * Canal: test:cancel
- * Cancela o teste de estresse em execução.
- * Aguarda o teste finalizar completamente antes de retornar.
- */
-ipcMain.handle("test:cancel", async () => {
+  /**
+   * Canal: test:cancel
+   * Cancela o teste de estresse em execução.
+   * Aguarda o teste finalizar completamente antes de retornar.
+   */
+  ipcMain.handle("test:cancel", async () => {
   try {
     if (!activeEngine) {
       return false;
@@ -579,7 +587,7 @@ ipcMain.handle("test:cancel", async () => {
       "Não foi possível cancelar o teste. Tente fechar e reabrir o aplicativo.",
     );
   }
-});
+  });
 
 // ===========================================================================
 //  Handlers IPC — Histórico de Testes
@@ -588,25 +596,25 @@ ipcMain.handle("test:cancel", async () => {
 // o histórico de testes executados anteriormente.
 // ===========================================================================
 
-/**
- * Canal: history:list
- * Retorna a lista completa do histórico de testes.
- */
-ipcMain.handle("history:list", async () => {
+  /**
+   * Canal: history:list
+   * Retorna a lista completa do histórico de testes.
+   */
+  ipcMain.handle("history:list", async () => {
   try {
     return listTestResults();
   } catch (error) {
     console.error("[CPX-Stress] Erro ao carregar histórico:", error);
     throw new Error("Não foi possível carregar o histórico de testes.");
   }
-});
+  });
 
 /**
  * Canal: history:get
  * Busca um teste específico no histórico pelo seu ID único.
  * Retorna null se o teste não for encontrado.
  */
-ipcMain.handle("history:get", async (_event, id: string) => {
+  ipcMain.handle("history:get", async (_event, id: string) => {
   try {
     if (!id || typeof id !== "string") {
       return null;
@@ -618,13 +626,13 @@ ipcMain.handle("history:get", async (_event, id: string) => {
       "Não foi possível buscar o teste no histórico. Tente recarregar a lista.",
     );
   }
-});
+  });
 
 /**
  * Canal: history:delete
  * Remove um teste específico do histórico pelo seu ID.
  */
-ipcMain.handle("history:delete", async (_event, id: string) => {
+  ipcMain.handle("history:delete", async (_event, id: string) => {
   try {
     if (!id || typeof id !== "string") {
       throw new Error("Identificador do teste não informado.");
@@ -636,13 +644,13 @@ ipcMain.handle("history:delete", async (_event, id: string) => {
       "Não foi possível excluir o teste do histórico. Tente novamente.",
     );
   }
-});
+  });
 
 /**
  * Canal: history:clear
  * Remove todos os testes do histórico.
  */
-ipcMain.handle("history:clear", async () => {
+  ipcMain.handle("history:clear", async () => {
   try {
     clearTestResults();
     return true;
@@ -650,7 +658,7 @@ ipcMain.handle("history:clear", async () => {
     console.error("[CPX-Stress] Erro ao limpar histórico:", error);
     throw new Error("Não foi possível limpar o histórico de testes.");
   }
-});
+  });
 
 // ===========================================================================
 //  Handlers IPC — Exportação de Relatórios (PDF e JSON)
@@ -666,7 +674,7 @@ ipcMain.handle("history:clear", async () => {
  *
  * Inclui validação de segurança para impedir escrita fora da pasta de relatórios.
  */
-ipcMain.handle(
+  ipcMain.handle(
   "pdf:save",
   async (_event, pdfBase64: string, filename: string) => {
     try {
@@ -740,7 +748,7 @@ ipcMain.handle(
       );
     }
   },
-);
+  );
 
 /**
  * Canal: pdf:open
@@ -748,7 +756,7 @@ ipcMain.handle(
  *
  * Inclui validação de segurança para impedir abertura de arquivos fora da pasta de relatórios.
  */
-ipcMain.handle("pdf:open", async (_event, filePath: string) => {
+  ipcMain.handle("pdf:open", async (_event, filePath: string) => {
   try {
     if (!filePath || typeof filePath !== "string") {
       throw new Error("O caminho do arquivo não foi informado.");
@@ -780,14 +788,14 @@ ipcMain.handle("pdf:open", async (_event, filePath: string) => {
         : `Não foi possível abrir o relatório PDF: ${msg}`,
     );
   }
-});
+  });
 
 /**
  * Canal: json:export
  * Abre uma janela "Salvar como" para o usuário escolher onde salvar um arquivo JSON.
  * Retorna o caminho escolhido ou null se o usuário cancelar.
  */
-ipcMain.handle(
+  ipcMain.handle(
   "json:export",
   async (_event, data: string, defaultName: string) => {
     try {
@@ -839,7 +847,7 @@ ipcMain.handle(
       );
     }
   },
-);
+  );
 
 // ===========================================================================
 //  Handlers IPC — Utilitários
@@ -850,14 +858,14 @@ ipcMain.handle(
  * Retorna o caminho da pasta de dados do aplicativo.
  * Usado pela interface para exibir onde os dados estão armazenados.
  */
-ipcMain.handle("app:getPath", () => {
+  ipcMain.handle("app:getPath", () => {
   try {
     return getDataPath();
   } catch (error) {
     console.error("[CPX-Stress] Erro ao obter caminho de dados:", error);
     return "Caminho indisponível";
   }
-});
+  });
 
 // ===========================================================================
 //  Handlers IPC — Gerenciamento de Credenciais
@@ -872,7 +880,7 @@ ipcMain.handle("app:getPath", () => {
  * Verifica quais credenciais obrigatorias estao configuradas.
  * Retorna um mapa booleano (chave -> configurada ou nao). NUNCA retorna valores.
  */
-ipcMain.handle("credentials:status", async () => {
+  ipcMain.handle("credentials:status", async () => {
   try {
     const requiredKeys = ["STRESSFLOW_USER", "STRESSFLOW_PASS"];
     const status: Record<string, boolean> = {};
@@ -884,21 +892,21 @@ ipcMain.handle("credentials:status", async () => {
     console.error("[CPX-Stress] Erro ao verificar credenciais:", error);
     throw new Error("Nao foi possivel verificar o status das credenciais.");
   }
-});
+  });
 
 /**
  * Canal: credentials:load
  * Retorna a lista de NOMES de chaves STRESSFLOW_* configuradas no .env.
  * SEGURANCA: Retorna apenas nomes de chaves (string[]), NUNCA valores.
  */
-ipcMain.handle("credentials:load", async () => {
+  ipcMain.handle("credentials:load", async () => {
   try {
     return Object.keys(envVars).filter((key) => key.startsWith("STRESSFLOW_"));
   } catch (error) {
     console.error("[CPX-Stress] Erro ao listar chaves de credenciais:", error);
     throw new Error("Nao foi possivel listar as chaves de credenciais.");
   }
-});
+  });
 
 /**
  * Canal: credentials:save
@@ -906,7 +914,7 @@ ipcMain.handle("credentials:load", async () => {
  * Aceita apenas chaves com prefixo STRESSFLOW_ (whitelist de seguranca).
  * Entradas com valor vazio sao filtradas antes de salvar (preservam valor anterior).
  */
-ipcMain.handle(
+  ipcMain.handle(
   "credentials:save",
   async (_event, entries: Array<{ key: string; value: string }>) => {
     try {
@@ -939,7 +947,7 @@ ipcMain.handle(
       );
     }
   },
-);
+  );
 
 // ===========================================================================
 //  Handlers IPC — Gerenciamento de Presets de Teste
@@ -953,21 +961,21 @@ ipcMain.handle(
  * Canal: presets:list
  * Lista todos os presets (built-in primeiro, depois usuario por nome).
  */
-ipcMain.handle("presets:list", async () => {
+  ipcMain.handle("presets:list", async () => {
   try {
     return listPresets();
   } catch (error) {
     console.error("[CPX-Stress] Erro ao listar presets:", error);
     throw new Error("Nao foi possivel carregar os presets.");
   }
-});
+  });
 
 /**
  * Canal: presets:save
  * Salva um novo preset ou atualiza um existente.
  * Retorna o preset salvo com todos os campos.
  */
-ipcMain.handle(
+  ipcMain.handle(
   "presets:save",
   async (
     _event,
@@ -1003,13 +1011,13 @@ ipcMain.handle(
       );
     }
   },
-);
+  );
 
 /**
  * Canal: presets:rename
  * Renomeia um preset do usuario. Rejeita presets built-in.
  */
-ipcMain.handle(
+  ipcMain.handle(
   "presets:rename",
   async (_event, id: string, newName: string) => {
     try {
@@ -1037,13 +1045,13 @@ ipcMain.handle(
       );
     }
   },
-);
+  );
 
 /**
  * Canal: presets:delete
  * Deleta um preset do usuario. Rejeita presets built-in.
  */
-ipcMain.handle("presets:delete", async (_event, id: string) => {
+  ipcMain.handle("presets:delete", async (_event, id: string) => {
   try {
     if (!id || typeof id !== "string") {
       throw new Error("Identificador do preset nao informado.");
@@ -1060,7 +1068,7 @@ ipcMain.handle("presets:delete", async (_event, id: string) => {
         : `Nao foi possivel excluir o preset: ${msg}`,
     );
   }
-});
+  });
 
 // ===========================================================================
 //  Handlers IPC — Consulta de Erros Detalhados
@@ -1071,7 +1079,7 @@ ipcMain.handle("presets:delete", async (_event, id: string) => {
  * Busca erros detalhados com filtros opcionais (testId, statusCode, errorType).
  * Retorna registros paginados e o total correspondente.
  */
-ipcMain.handle(
+  ipcMain.handle(
   "errors:search",
   async (
     _event,
@@ -1096,13 +1104,13 @@ ipcMain.handle(
       throw new Error("Não foi possível buscar os erros detalhados.");
     }
   },
-);
+  );
 
 /**
  * Canal: errors:byStatusCode
  * Retorna contagem de erros agrupados por status code para um teste específico.
  */
-ipcMain.handle("errors:byStatusCode", async (_event, testId: string) => {
+  ipcMain.handle("errors:byStatusCode", async (_event, testId: string) => {
   try {
     if (!testId || typeof testId !== "string") return {};
     return getErrorsByStatusCode(testId);
@@ -1110,13 +1118,13 @@ ipcMain.handle("errors:byStatusCode", async (_event, testId: string) => {
     console.error("[CPX-Stress] Erro ao buscar erros por status code:", error);
     throw new Error("Não foi possível buscar os erros por código de status.");
   }
-});
+  });
 
 /**
  * Canal: errors:byErrorType
  * Retorna contagem de erros agrupados por tipo para um teste específico.
  */
-ipcMain.handle("errors:byErrorType", async (_event, testId: string) => {
+  ipcMain.handle("errors:byErrorType", async (_event, testId: string) => {
   try {
     if (!testId || typeof testId !== "string") return {};
     return getErrorsByType(testId);
@@ -1124,13 +1132,13 @@ ipcMain.handle("errors:byErrorType", async (_event, testId: string) => {
     console.error("[CPX-Stress] Erro ao buscar erros por tipo:", error);
     throw new Error("Não foi possível buscar os erros por tipo.");
   }
-});
+  });
 
 /**
  * Canal: errors:byOperationName
  * Retorna contagem de erros agrupados por nome de operacao para um teste especifico.
  */
-ipcMain.handle("errors:byOperationName", async (_event, testId: string) => {
+  ipcMain.handle("errors:byOperationName", async (_event, testId: string) => {
   try {
     if (!testId || typeof testId !== "string") return {};
     return getErrorsByOperationName(testId);
@@ -1138,7 +1146,7 @@ ipcMain.handle("errors:byOperationName", async (_event, testId: string) => {
     console.error("[CPX-Stress] Erro ao buscar erros por operacao:", error);
     throw new Error("Nao foi possivel buscar os erros por operacao.");
   }
-});
+  });
 
 // ===========================================================================
 //  Ciclo de Vida do Aplicativo
@@ -1151,30 +1159,31 @@ ipcMain.handle("errors:byOperationName", async (_event, testId: string) => {
  * Quando o Electron termina de inicializar, inicializa o banco de dados
  * e cria a janela principal.
  */
-app.whenReady().then(() => {
-  envVars = loadEnvFile();
-  initializeDatabase();
-  createWindow();
-});
+  app.whenReady().then(() => {
+    envVars = loadEnvFile();
+    initializeDatabase();
+    createWindow();
+  });
 
 /**
  * Quando todas as janelas são fechadas:
  * - No macOS (darwin), o app continua rodando na barra de menus (comportamento padrão).
  * - Nos demais sistemas (Windows/Linux), o app é encerrado completamente.
  */
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    closeDatabase();
-    app.quit();
-  }
-});
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") {
+      closeDatabase();
+      app.quit();
+    }
+  });
 
 /**
  * Quando o app é reativado (clique no ícone do dock no macOS),
  * cria uma nova janela caso nenhuma esteja aberta.
  */
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
-});
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+}

@@ -32,6 +32,7 @@ import type {
   ProgressData,
   TestResult,
 } from "./engine/stress-engine";
+import type { MistertValidationResult } from "../src/shared/mistert-validation";
 
 // -----------------------------------------------------------------------------
 // Canais IPC permitidos (whitelist de seguranca)
@@ -44,6 +45,7 @@ import type {
 const ALLOWED_INVOKE_CHANNELS = [
   "test:start",
   "test:cancel",
+  "validation:run",
   "history:list",
   "history:get",
   "history:delete",
@@ -140,6 +142,15 @@ const api = {
      */
     onProgress: (callback: (data: ProgressData) => void): (() => void) =>
       safeOnReceive("test:progress", callback as (data: unknown) => void),
+  },
+
+  // ---------------------------------------------------------------------------
+  // Validação pré-teste — confirma sessão, extração dinâmica e evidência de aba
+  // ---------------------------------------------------------------------------
+  validation: {
+    /** Executa uma passada sequencial pelo fluxo MisterT atual e retorna um relatório técnico/funcional. */
+    run: (config: TestConfig): Promise<MistertValidationResult> =>
+      safeInvoke("validation:run", config) as Promise<MistertValidationResult>,
   },
 
   // ---------------------------------------------------------------------------
