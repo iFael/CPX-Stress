@@ -66,7 +66,7 @@ async function main(): Promise<void> {
 
 main().catch((error) => {
   console.error(
-    "[StressFlow] Falha ao executar auditoria com mock server:",
+    "[CPX-Stress] Falha ao executar auditoria com mock server:",
     error,
   );
   process.exit(1);

@@ -77,7 +77,7 @@ function httpGet(url, redirects = 0) {
     mod
       .get(
         url,
-        { headers: { "User-Agent": "stressflow-postinstall" } },
+        { headers: { "User-Agent": "cpx-stress-postinstall" } },
         (res) => {
           if (res.statusCode === 301 || res.statusCode === 302) {
             return httpGet(res.headers.location, redirects + 1)
