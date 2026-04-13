@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-03-24T13:00:44.304Z",
-  "verdict": "APPROVED",
+  "timestamp": "2026-04-13T11:59:08.596Z",
+  "verdict": "REJECTED",
   "totals": {
-    "passed": 197,
-    "failed": 0,
+    "passed": 196,
+    "failed": 1,
     "warned": 5,
     "total": 202
   },
@@ -45,7 +45,14 @@
       "warned": 1
     }
   ],
-  "failures": [],
+  "failures": [
+    {
+      "id": "MIXED-PROTOCOL:MP-02",
+      "description": "Operação HTTPS usa o agent HTTPS",
+      "status": "FAIL",
+      "detail": ""
+    }
+  ],
   "securityFindings": [
     "FIXED: validateTargetHost() now called in engine.run()"
   ],
