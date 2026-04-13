@@ -2,16 +2,16 @@
  * SavePresetDialog — Dialog para salvar/atualizar presets
  * ========================================================
  *
- * Dialog modal menor que permite ao usuario:
- * - Salvar a configuracao atual como um novo preset (nome obrigatorio)
- * - Atualizar um preset do usuario ja ativo (sobrescrever)
+ * Dialog modal menor que permite ao usuário:
+ * - Salvar a configuração atual como um novo preset (nome obrigatório)
+ * - Atualizar um preset do usuário já ativo (sobrescrever)
  * - Salvar como novo mesmo com preset ativo (escolha "Salvar Como Novo")
  *
  * Regras de modo (D3):
  * - Se preset ativo e user-created: mostra "Atualizar {nome}" + "Salvar Como Novo"
  * - Se nenhum preset ativo ou built-in ativo: mostra apenas nome input + "Salvar Preset"
  *
- * Segue o mesmo padrao de overlay/animacao do PresetModal e WelcomeOverlay.
+ * Segue o mesmo padrão de overlay/animação do PresetModal e WelcomeOverlay.
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -88,7 +88,7 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
     }
   }, [isOpen, activePreset]);
 
-  /* ---- Fechar com animacao ---- */
+  /* ---- Fechar com animação ---- */
   const handleClose = useCallback(() => {
     setIsClosing(true);
     setTimeout(() => {
@@ -112,17 +112,17 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
     async (presetId?: string) => {
       const trimmedName = name.trim();
 
-      // Validacao: nome obrigatorio
+      // Validação: nome obrigatório
       if (!trimmedName) {
         setNameError("Informe um nome para o preset");
         return;
       }
-      // Validacao: tamanho maximo
+      // Validação: tamanho máximo
       if (trimmedName.length > MAX_PRESET_NAME_LENGTH) {
         setNameError(`Nome deve ter no máximo ${MAX_PRESET_NAME_LENGTH} caracteres`);
         return;
       }
-      // Validacao: duplicata
+      // Validação: duplicata
       const isDuplicate = presets.some((p) => {
         if (presetId && p.id === presetId) return false;
         return p.name.toLowerCase() === trimmedName.toLowerCase();
@@ -160,7 +160,7 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
         handleClose();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("Ja existe")) {
+        if (msg.includes("Já existe")) {
           setNameError(msg);
         } else {
           toast.error("Não foi possível salvar o preset");
@@ -206,16 +206,16 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
     setTimeout(() => nameInputRef.current?.focus(), 50);
   }, []);
 
-  /* ---- Nao renderizar se fechado ---- */
+  /* ---- Não renderizar se fechado ---- */
   if (!isOpen) return null;
 
-  /* ---- Heading dinamico ---- */
+  /* ---- Heading dinâmico ---- */
   const headingText = mode === "choose" || mode === "update"
     ? "Atualizar Preset"
     : "Salvar Preset";
 
   /* =================================================================
-     RENDERIZACAO
+     RENDERIZAÇÃO
      ================================================================= */
   return (
     <div
@@ -245,7 +245,7 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
           aria-hidden="true"
         />
 
-        {/* Botao fechar */}
+        {/* Botão fechar */}
         <button
           type="button"
           onClick={handleClose}
@@ -255,7 +255,7 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
           <X className="w-5 h-5" />
         </button>
 
-        {/* ---- Cabecalho ---- */}
+        {/* ---- Cabeçalho ---- */}
         <div className="px-6 pt-6">
           <div className="flex items-center gap-3 pr-8">
             <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-sf-primary/10 shrink-0">
@@ -302,7 +302,7 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
               </button>
             </div>
           ) : (
-            /* ---- Modo "save": Input de nome + botao salvar ---- */
+            /* ---- Modo "save": Input de nome + botão salvar ---- */
             <div>
               <label
                 htmlFor="preset-name-input"

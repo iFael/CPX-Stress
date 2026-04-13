@@ -1,11 +1,11 @@
 /**
  * CredentialAlert.tsx — Banner de alerta para credenciais ausentes
  *
- * Exibido na tela de configuracao de teste (TestConfig) quando as
- * credenciais obrigatorias do MisterT nao estao configuradas.
- * O botao "Configurar" navega diretamente para a tela de configuracoes.
+ * Exibido na tela de configuração de teste (TestConfig) quando as
+ * credenciais obrigatorias do MisterT não estão configuradas.
+ * O botão "Configurar" navega diretamente para a tela de configurações.
  *
- * NAO e dismissivel — persiste ate que todas as credenciais estejam configuradas.
+ * NÃO e dismissivel — persiste até que todas as credenciais estejam configuradas.
  */
 
 import { useCallback } from "react";
@@ -30,10 +30,10 @@ export function CredentialAlert() {
       />
       <div className="flex-1">
         <p className="text-sm font-semibold text-sf-warning">
-          Credenciais MisterT nao configuradas
+          Credenciais MisterT não configuradas
         </p>
         <p className="text-sm text-sf-warning/80 mt-1">
-          Configure usuario e senha para executar testes autenticados no MisterT
+          Configure usuário e senha para executar testes autenticados no MisterT
           ERP.
         </p>
       </div>

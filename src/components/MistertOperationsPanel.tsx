@@ -7,7 +7,7 @@ import {
 
 function getOperationNavigationLabel(operation: TestOperation): string {
   return operation.navigation?.accessMode === "action-driven"
-    ? "acao anterior"
+    ? "ação anterior"
     : "URL direta";
 }
 
@@ -24,7 +24,7 @@ function getOperationNote(
   if (operation.navigation?.accessMode === "action-driven") {
     return (
       operation.navigation.notes ||
-      "Depende de uma acao anterior, como submit de formulario."
+      "Depende de uma ação anterior, como submit de formulário."
     );
   }
 
@@ -71,10 +71,10 @@ export function MistertOperationsPanel({
     <div className="mt-3 p-4 bg-sf-surface border border-sf-border rounded-xl animate-slide-up space-y-4">
       <div className="space-y-2">
         <p className="text-xs text-sf-textMuted">
-          Cada usuario virtual percorre este fluxo mantendo a propria sessao ASP
+          Cada usuário virtual percorre este fluxo mantendo a própria sessão ASP
           e atualizando o `CTRL` entre as etapas.
           {isMistertPreset &&
-            " Os modulos podem ser ligados ou desligados sem alterar as etapas fixas."}
+            " Os módulos podem ser ligados ou desligados sem alterar as etapas fixas."}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <div className="px-3 py-2 rounded-lg bg-sf-bg border border-sf-border">
@@ -87,7 +87,7 @@ export function MistertOperationsPanel({
           </div>
           <div className="px-3 py-2 rounded-lg bg-sf-bg border border-sf-border">
             <p className="text-[10px] uppercase tracking-wide text-sf-textMuted">
-              Etapas por acao
+              Etapas por ação
             </p>
             <p className="text-sm font-semibold text-sf-text">
               {actionDrivenCount}
@@ -95,7 +95,7 @@ export function MistertOperationsPanel({
           </div>
           <div className="px-3 py-2 rounded-lg bg-sf-bg border border-sf-border">
             <p className="text-[10px] uppercase tracking-wide text-sf-textMuted">
-              Modulos ativos
+              Módulos ativos
             </p>
             <p className="text-sm font-semibold text-sf-text">
               {selectedModuleNames.size} / {MISTERT_MODULE_METADATA.length}
@@ -111,10 +111,10 @@ export function MistertOperationsPanel({
             onClick={allModulesSelected ? onClearAll : onSelectAll}
             className="text-xs font-medium text-sf-primary hover:text-sf-primaryHover transition-colors"
           >
-            {allModulesSelected ? "Limpar Selecao" : "Selecionar Todos"}
+            {allModulesSelected ? "Limpar Seleção" : "Selecionar Todos"}
           </button>
           <span className="text-xs text-sf-textMuted">
-            {selectedModuleNames.size} de {MISTERT_MODULE_METADATA.length} modulos
+            {selectedModuleNames.size} de {MISTERT_MODULE_METADATA.length} módulos
           </span>
         </div>
       )}
@@ -123,12 +123,12 @@ export function MistertOperationsPanel({
         {[
           {
             title: "Etapas Fixas",
-            subtitle: "Sempre executadas antes dos modulos.",
+            subtitle: "Sempre executadas antes dos módulos.",
             items: fixedOperations,
           },
           {
-            title: "Modulos Selecionados",
-            subtitle: "Executados conforme a selecao atual.",
+            title: "Módulos Selecionados",
+            subtitle: "Executados conforme a seleção atual.",
             items: selectedModuleOperations,
           },
         ]
@@ -261,7 +261,7 @@ export function MistertOperationsPanel({
                             )}
                             {isActionDriven && (
                               <span className="text-[10px] text-sf-warning bg-sf-warning/10 px-1.5 py-0.5 rounded">
-                                nao e copiavel por URL
+                                não é copiável por URL
                               </span>
                             )}
                           </div>
@@ -313,7 +313,7 @@ export function MistertOperationsPanel({
               }`}
             >
               {module.accessMode === "action-driven"
-                ? "acao anterior"
+                ? "ação anterior"
                 : "URL direta"}
             </span>
             <span className="ml-auto text-[10px] text-sf-textMuted">
@@ -328,7 +328,7 @@ export function MistertOperationsPanel({
           className="mt-1 px-3 py-2 bg-sf-warning/10 rounded-lg animate-fade-in"
         >
           <p className="text-xs text-sf-warning leading-relaxed">
-            Nenhum modulo selecionado — o teste executara apenas login e menu.
+            Nenhum módulo selecionado — o teste executará apenas login e menu.
           </p>
         </div>
       )}

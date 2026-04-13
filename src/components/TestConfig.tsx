@@ -62,7 +62,7 @@ const helpTextClass = "text-xs text-sf-textMuted mt-1";
 /* =====================================================================
    COMPONENTE PRINCIPAL — Configuração do Teste MisterT ERP
    O usuário escolhe o ambiente, ajusta usuários/duração e inicia.
-   O fluxo MisterT base e os módulos selecionáveis ja vêm configurados.
+   O fluxo MisterT base e os módulos selecionáveis já vêm configurados.
    ===================================================================== */
 
 export function TestConfig() {
@@ -98,19 +98,19 @@ export function TestConfig() {
   const [durationStr, setDurationStr] = useState(String(config.duration));
   const [rampUpStr, setRampUpStr] = useState(String(config.rampUp || 0));
 
-  // Sincronizar se o store mudar por fora (ex: reset ou aplicacao de preset)
+  // Sincronizar se o store mudar por fora (ex: reset ou aplicação de preset)
   useEffect(() => setUsersStr(String(config.virtualUsers)), [config.virtualUsers]);
   useEffect(() => setDurationStr(String(config.duration)), [config.duration]);
   useEffect(() => setRampUpStr(String(config.rampUp || 0)), [config.rampUp]);
 
-  // Carregar presets do banco na inicializacao (para SavePresetDialog validar nomes)
+  // Carregar presets do banco na inicialização (para SavePresetDialog validar nomes)
   useEffect(() => {
     window.stressflow.presets.list()
       .then((data) => setPresets(data as import("@/types").TestPreset[]))
-      .catch(() => console.warn("[CPX-Stress] Erro ao carregar presets na inicializacao"));
+      .catch(() => console.warn("[CPX-Stress] Erro ao carregar presets na inicialização"));
   }, [setPresets]);
 
-  // Mostrar alerta quando credenciais foram verificadas e alguma esta ausente
+  // Mostrar alerta quando credenciais foram verificadas e alguma está ausente
   const showCredentialAlert =
     credentialStatus !== null &&
     (!credentialStatus.STRESSFLOW_USER || !credentialStatus.STRESSFLOW_PASS);
@@ -438,7 +438,7 @@ export function TestConfig() {
           <label htmlFor="input-duration" className={labelClass}>
             <Clock className="w-4 h-4" aria-hidden="true" />
             Duração do Teste
-            <InfoTooltip text="Tempo total que o teste ficara rodando. Cada usuário repete o fluxo ate o tempo acabar." />
+            <InfoTooltip text="Tempo total que o teste ficará rodando. Cada usuário repete o fluxo até o tempo acabar." />
           </label>
           <input
             id="input-duration"
@@ -491,7 +491,7 @@ export function TestConfig() {
                 className="text-sm text-sf-textSecondary mb-2 flex items-center gap-2"
               >
                 Tempo de Subida (ramp-up)
-                <InfoTooltip text="Adiciona os usuários gradualmente ao inves de todos de uma vez. Simula crescimento real de carga." />
+                <InfoTooltip text="Adiciona os usuários gradualmente ao invés de todos de uma vez. Simula crescimento real de carga." />
               </label>
               <input
                 id="input-rampup"
@@ -565,8 +565,8 @@ export function TestConfig() {
             </p>
             <p className="text-sm text-sf-danger/80 mt-1">{error}</p>
             <p className="text-xs text-sf-textMuted mt-2">
-              Verifique se o servidor MisterT esta acessível e se as credenciais
-              no arquivo .env estao corretas.
+              Verifique se o servidor MisterT está acessível e se as credenciais
+              no arquivo .env estão corretas.
             </p>
           </div>
         </div>

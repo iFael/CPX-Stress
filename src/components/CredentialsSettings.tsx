@@ -1,14 +1,14 @@
 /**
- * CredentialsSettings.tsx — Tela de configuracao de credenciais MisterT
+ * CredentialsSettings.tsx — Tela de configuração de credenciais MisterT
  *
- * Permite ao usuario salvar usuario e senha do MisterT ERP
+ * Permite ao usuário salvar usuário e senha do MisterT ERP
  * sem editar arquivos .env manualmente. Os valores existem APENAS
- * no estado local do componente (useState) e sao limpos apos o salvamento.
+ * no estado local do componente (useState) e são limpos após o salvamento.
  *
  * SEGURANCA:
- *   - Valores de credenciais NUNCA sao armazenados no Zustand store
+ *   - Valores de credenciais NUNCA são armazenados no Zustand store
  *   - Campos sempre iniciam VAZIOS (nunca pre-preenchidos com valores salvos)
- *   - Apos salvar, os valores sao limpos da memoria local do componente
+ *   - Após salvar, os valores são limpos da memória local do componente
  *   - O IPC credentials:save envia valores apenas no transito — main process escreve no .env
  */
 
@@ -46,7 +46,7 @@ const labelClass = "flex items-center gap-2 text-sm text-sf-textSecondary mb-2";
 
 /**
  * Badge indicador de status de uma credencial individual.
- * Exibe "Configurado" (verde) ou "Nao configurado" (cinza).
+ * Exibe "Configurado" (verde) ou "Não configurado" (cinza).
  */
 function StatusBadge({
   configured,
@@ -75,7 +75,7 @@ function StatusBadge({
 }
 
 /* =====================================================================
-   COMPONENTE PRINCIPAL — Configuracoes de Credenciais MisterT
+   COMPONENTE PRINCIPAL — Configurações de Credenciais MisterT
    ===================================================================== */
 
 export function CredentialsSettings() {
@@ -117,7 +117,7 @@ export function CredentialsSettings() {
     try {
       await window.stressflow.credentials.save(entries);
 
-      // Limpar campos imediatamente apos salvamento bem-sucedido
+      // Limpar campos imediatamente após salvamento bem-sucedido
       setUser("");
       setPass("");
 
@@ -137,15 +137,15 @@ export function CredentialsSettings() {
     }
   }, [user, pass, toast, setCredentialStatus]);
 
-  /* ---- Flag derivada: botao habilitado quando ha conteudo ---- */
+  /* ---- Flag derivada: botão habilitado quando ha conteúdo ---- */
   const canSave = user.trim() !== "" || pass.trim() !== "";
 
   /* =================================================================
-     RENDERIZACAO
+     RENDERIZAÇÃO
      ================================================================= */
   return (
     <div className="max-w-2xl mx-auto animate-slide-up">
-      {/* ---- Cabecalho da pagina ---- */}
+      {/* ---- Cabeçalho da página ---- */}
       <div className="mb-6">
         <div className="flex items-center gap-2">
           <Settings className="w-5 h-5 text-sf-text" aria-hidden="true" />
@@ -155,29 +155,29 @@ export function CredentialsSettings() {
 
       {/* ---- Card de credenciais ---- */}
       <div className="bg-sf-surface border border-sf-border rounded-xl p-6">
-        {/* Titulo da secao */}
+        {/* Título da seção */}
         <div className="flex items-center gap-2 text-sm font-semibold text-sf-text mb-4">
           <KeyRound className="w-4 h-4" aria-hidden="true" />
           Credenciais MisterT
-          <InfoTooltip text="Os valores sao salvos no diretorio de dados da aplicacao e nunca sao exibidos na interface." />
+          <InfoTooltip text="Os valores são salvos no diretório de dados da aplicação e nunca são exibidos na interface." />
         </div>
 
-        {/* ---- Campo: Usuario ---- */}
+        {/* ---- Campo: Usuário ---- */}
         <div>
           <div className="flex justify-between items-center mb-2">
             <label htmlFor="input-cred-user" className={labelClass + " mb-0"}>
               <User className="w-4 h-4" aria-hidden="true" />
-              Usuario
+              Usuário
             </label>
             <StatusBadge
               configured={credentialStatus?.STRESSFLOW_USER ?? false}
-              fieldLabel="usuario"
+              fieldLabel="usuário"
             />
           </div>
           <input
             id="input-cred-user"
             type="text"
-            placeholder="Usuario do MisterT"
+            placeholder="Usuário do MisterT"
             value={user}
             onChange={(e) => setUser(e.target.value)}
             className={inputBaseClass}
@@ -222,7 +222,7 @@ export function CredentialsSettings() {
           </div>
         </div>
 
-        {/* ---- Botao Salvar ---- */}
+        {/* ---- Botão Salvar ---- */}
         <button
           type="button"
           onClick={handleSave}
