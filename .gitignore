@@ -104,3 +104,8 @@ coverage
 .cache
 .temp
 .tmp
+
+# --------------------------------------------------
+# Claude Code (configuracoes locais do agente)
+# --------------------------------------------------
+.claude/
