@@ -21,7 +21,7 @@ interface InfoTooltipProps {
 }
 
 /**
- * Posição calculada do tooltip em relacao ao icone.
+ * Posição calculada do tooltip em relação ao icone.
  * O tooltip tenta aparecer acima; se não houver espaço,
  * aparece abaixo. Também se ajusta horizontalmente para
  * não sair da tela.
@@ -38,7 +38,7 @@ interface TooltipPosition {
 // ─────────────────────────────────────────────────────────────
 
 export function InfoTooltip({ text, className = "" }: InfoTooltipProps) {
-  // Controla se o tooltip esta visível ou não
+  // Controla se o tooltip está visível ou não
   const [visible, setVisible] = useState(false);
 
   // Posição calculada dinamicamente (acima/abaixo, deslocamento lateral)
@@ -100,7 +100,7 @@ export function InfoTooltip({ text, className = "" }: InfoTooltipProps) {
   // ── Recalcula posição quando o tooltip aparece ─────────────
   useEffect(() => {
     if (!visible) return;
-    // Pequeno atraso para garantir que o tooltip ja foi renderizado
+    // Pequeno atraso para garantir que o tooltip já foi renderizado
     requestAnimationFrame(updatePosition);
   }, [visible, updatePosition]);
 

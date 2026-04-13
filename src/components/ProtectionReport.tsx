@@ -200,7 +200,7 @@ const BEHAVIOR_FRIENDLY_DESCRIPTIONS: Record<string, string> = {
  * Badge que indica o nivel de confianca da detecção.
  * Exemplo: "Alta (92%)" em verde, "Media (65%)" em amarelo.
  *
- * Confianca = quao certo o sistema esta de que aquela proteção realmente existe.
+ * Confianca = quao certo o sistema está de que aquela proteção realmente existe.
  */
 function ConfidenceBadge({ level, value }: { level: string; value: number }) {
   const labels: Record<string, string> = {
@@ -439,7 +439,7 @@ function RateLimitCard({ info }: { info: RateLimitInfo }) {
 
 /**
  * Barra visual que indica o nivel de risco.
- * Vai de verde (sem risco) ate vermelho (critico), preenchendo proporcionalmente.
+ * Vai de verde (sem risco) até vermelho (critico), preenchendo proporcionalmente.
  */
 function RiskBar({ riskLevel }: { riskLevel: string }) {
   const pct = RISK_BAR_PERCENT[riskLevel] ?? 0;
@@ -465,11 +465,11 @@ function RiskBar({ riskLevel }: { riskLevel: string }) {
 }
 
 /* ============================================================================
- * COMPONENTE PRINCIPAL — Secao completa do relatório de proteção
+ * COMPONENTE PRINCIPAL — Seção completa do relatório de proteção
  * ========================================================================= */
 
 /**
- * Secao principal do relatório de proteção.
+ * Seção principal do relatório de proteção.
  *
  * Estrutura:
  * 1. Card de visao geral do risco (com barra visual)

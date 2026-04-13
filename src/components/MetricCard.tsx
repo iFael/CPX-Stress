@@ -5,7 +5,7 @@
  * rótulo, icone, tendencia e area opcional de mini-gráfico (sparkline).
  *
  * Projetado para o tema escuro do CPX-Stress, utilizando a paleta sf-*.
- * As descrições e rótulos estao em português para manter consistencia
+ * As descrições e rótulos estão em português para manter consistencia
  * com o restante da aplicação.
  *
  * -- Exemplos de uso --
@@ -61,8 +61,8 @@ export type MetricCardStatus =
 /**
  * Direcao da tendencia do valor.
  *
- * - up      = valor esta subindo
- * - down    = valor esta descendo
+ * - up      = valor está subindo
+ * - down    = valor está descendo
  * - neutral = valor estável
  */
 export type MetricCardTrend = "up" | "down" | "neutral";
@@ -261,7 +261,7 @@ function Sparkline({
 
 /**
  * Tooltip simples que aparece ao passar o mouse sobre o cartao.
- * Diferente do InfoTooltip global, este e posicionado em relacao
+ * Diferente do InfoTooltip global, este e posicionado em relação
  * ao cartao inteiro e exibe a descrição da métrica.
  */
 function CardTooltip({

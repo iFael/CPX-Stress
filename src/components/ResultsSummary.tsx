@@ -60,7 +60,7 @@ function verificarProtecaoAtiva(result: TestResult): InfoProtecao {
 
   if (!padraoDeProtecao && !limitacaoDetectada) return { detectada: false };
 
-  // Tenta identificar qual provedor de proteção esta atuando (ex: Cloudflare, Akamai)
+  // Tenta identificar qual provedor de proteção está atuando (ex: Cloudflare, Akamai)
   const provedor =
     relatorio.detections.length > 0 &&
     relatorio.detections[0].provider !== "unknown"

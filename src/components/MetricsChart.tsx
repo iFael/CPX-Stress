@@ -146,7 +146,7 @@ function CustomTooltip({ active, payload, label, unit }: CustomTooltipProps) {
 
   return (
     <div className="bg-sf-surface border border-sf-border rounded-[10px] text-xs text-sf-text py-2.5 px-3.5 shadow-[0_4px_24px_rgba(0,0,0,0.4)] max-w-[260px]">
-      {/* Cabeçalho: mostra em qual segundo do teste o usuário esta olhando */}
+      {/* Cabeçalho: mostra em qual segundo do teste o usuário está olhando */}
       <p className="text-sf-textSecondary mb-1.5 text-[11px] font-medium tracking-[0.02em]">
         Segundo {label}s do teste
       </p>
@@ -250,7 +250,7 @@ function CustomLegend({ payload }: CustomLegendProps) {
  * />
  */
 // Otimizacao: React.memo impede re-renders desnecessarios quando as props não mudaram.
-// Em TestResults, expandir/colapsar secoes causaria re-render dos 3 gráficos sem memo.
+// Em TestResults, expandir/colapsar seções causaria re-render dos 3 gráficos sem memo.
 // O useMemo em displayTimeline (no TestResults) garante referência estável para `data`,
 // permitindo que o memo funcione corretamente e pule re-renders de gráficos estaticos.
 export const MetricsChart = memo(function MetricsChart(
@@ -302,7 +302,7 @@ export const MetricsChart = memo(function MetricsChart(
 
   const isMultiLine = Boolean(props.lines);
 
-  /** Controla se animações estao ativas (desabilitar para gráficos ao vivo) */
+  /** Controla se animações estão ativas (desabilitar para gráficos ao vivo) */
   const shouldAnimate = animated !== false;
 
   return (
@@ -374,7 +374,7 @@ export const MetricsChart = memo(function MetricsChart(
               data={data}
               margin={{ top: 4, right: 8, bottom: 4, left: 0 }}
             >
-              {/* Gradiente de preenchimento - vai da cor principal ate transparente */}
+              {/* Gradiente de preenchimento - vai da cor principal até transparente */}
               <defs>
                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                   <stop
