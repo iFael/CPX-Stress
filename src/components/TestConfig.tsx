@@ -16,6 +16,7 @@ import {
 import { useTestStore } from "@/stores/test-store";
 import { InfoTooltip } from "@/components/InfoTooltip";
 import { CredentialAlert } from "@/components/CredentialAlert";
+import { MistertOperationsPanel } from "@/components/MistertOperationsPanel";
 import { PresetModal } from "@/components/PresetModal";
 import { SavePresetDialog } from "@/components/SavePresetDialog";
 import type { MistertValidationResult, ProgressData } from "@/types";
@@ -135,12 +136,6 @@ export function TestConfig() {
   const hasValidationFailures =
     validationResult !== null && !validationResult.canRunStressTest;
   const isBusy = isValidating || isStarting;
-  const actionDrivenCount = (config.operations ?? []).filter(
-    (op) => op.navigation?.accessMode === "action-driven",
-  ).length;
-  const urlDrivenCount = (config.operations ?? []).filter(
-    (op) => op.navigation?.accessMode !== "action-driven",
-  ).length;
 
   useEffect(() => {
     setValidationResult(null);
@@ -530,168 +525,16 @@ export function TestConfig() {
         </button>
 
         {showOperations && (
-          <div className="mt-3 p-4 bg-sf-surface border border-sf-border rounded-xl animate-slide-up space-y-2">
-            <p className="text-xs text-sf-textMuted mb-3">
-              Cada usuário virtual executa estas operações em sequência,
-              propagando cookies de sessão ASP e extraindo tokens CTRL
-              dinamicamente.
-              {isMistertPreset && " Use os checkboxes para incluir ou excluir módulos do teste."}
-            </p>
-            <p className="text-xs text-sf-textMuted/80 mb-3">
-              {urlDrivenCount} etapa(s) podem ser reproduzidas por URL dentro da
-              mesma sessão; {actionDrivenCount} dependem de ação anterior,
-              como submit de formulário.
-            </p>
-
-            {/* Toggle Selecionar Todos / Limpar — visível apenas para preset MisterT */}
-            {isMistertPreset && (
-              <div className="flex items-center justify-between mb-1">
-                <button
-                  type="button"
-                  onClick={allModulesSelected ? handleClearAll : handleSelectAll}
-                  className="text-xs font-medium text-sf-primary hover:text-sf-primaryHover transition-colors"
-                >
-                  {allModulesSelected ? "Limpar Seleção" : "Selecionar Todos"}
-                </button>
-                <span className="text-xs text-sf-textMuted">
-                  {selectedModuleNames.size} de {MISTERT_MODULE_METADATA.length} módulos
-                </span>
-              </div>
-            )}
-
-            {/* Lista de operações — módulos com checkbox, infra ops fixas */}
-            {(config.operations || []).map((op, idx) => {
-              const isModule = MISTERT_MODULE_NAMES.has(op.name);
-              const isActionDriven =
-                op.navigation?.accessMode === "action-driven";
-              const submitControlName =
-                op.navigation?.sourceAction?.submitControlName;
-              const submitControlValue =
-                op.navigation?.sourceAction?.submitControlValue;
-              return (
-                <div
-                  key={idx}
-                  className="flex items-center gap-3 px-3 py-2 bg-sf-bg border border-sf-border rounded-lg text-sm"
-                >
-                  {/* Checkbox para módulos MisterT, número para infra ops */}
-                  {isMistertPreset && isModule ? (
-                    <label className="relative flex items-center justify-center shrink-0 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedModuleNames.has(op.name)}
-                        onChange={(e) => handleModuleToggle(op.name, e.target.checked)}
-                        className="peer sr-only"
-                        aria-label={`Incluir ${op.name}`}
-                      />
-                      <div className="w-[18px] h-[18px] rounded-md border border-sf-border bg-sf-surface peer-checked:bg-sf-primary peer-checked:border-sf-primary peer-focus-visible:ring-2 peer-focus-visible:ring-sf-primary/50 peer-focus-visible:ring-offset-1 peer-focus-visible:ring-offset-sf-bg transition-all duration-200">
-                        {selectedModuleNames.has(op.name) && (
-                          <svg
-                            className="w-full h-full text-white p-0.5"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                            aria-hidden="true"
-                          >
-                            <path
-                              d="M2.5 6L5 8.5L9.5 3.5"
-                              stroke="currentColor"
-                              strokeWidth="1.75"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        )}
-                      </div>
-                    </label>
-                  ) : (
-                    <span className="text-xs text-sf-textMuted w-5 text-right shrink-0">
-                      {idx + 1}.
-                    </span>
-                  )}
-                  <span
-                    className={`text-xs font-mono px-1.5 py-0.5 rounded shrink-0 ${
-                      op.method === "POST"
-                        ? "bg-sf-warning/10 text-sf-warning"
-                        : "bg-sf-accent/10 text-sf-accent"
-                    }`}
-                  >
-                    {op.method}
-                  </span>
-                  <span className="text-sf-text font-medium truncate">
-                    {op.name}
-                  </span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded ${
-                      isActionDriven
-                        ? "bg-sf-warning/10 text-sf-warning"
-                        : "bg-sf-primary/10 text-sf-primary"
-                    }`}
-                  >
-                    {isActionDriven ? "requer ação anterior" : "URL direta"}
-                  </span>
-                  {!isModule && isMistertPreset && (
-                    <span className="text-[10px] text-sf-textMuted bg-sf-surface px-1.5 py-0.5 rounded">
-                      fixo
-                    </span>
-                  )}
-                  {op.extract && (
-                    <span className="text-[10px] text-sf-accent/70 bg-sf-accent/5 px-1.5 py-0.5 rounded">
-                      extrai CTRL
-                    </span>
-                  )}
-                  {submitControlName && (
-                    <span className="text-[10px] text-sf-textMuted bg-sf-surface px-1.5 py-0.5 rounded">
-                      {op.navigation?.sourceAction?.method} {submitControlName}
-                      {submitControlValue ? `=${submitControlValue}` : ""}
-                    </span>
-                  )}
-                  {op.navigation?.notes && (
-                    <span className="ml-auto text-[10px] text-sf-textMuted truncate max-w-[18rem]">
-                      {op.navigation.notes}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-
-            {/* Mostrar módulos desmarcados como disponíveis para reativar */}
-            {isMistertPreset && MISTERT_MODULE_METADATA
-              .filter((m) => !selectedModuleNames.has(m.name))
-              .map((module) => (
-                <div
-                  key={`disabled-${module.name}`}
-                  className="flex items-center gap-3 px-3 py-2 bg-sf-bg/50 border border-sf-border/50 rounded-lg text-sm opacity-50"
-                >
-                  <label className="relative flex items-center justify-center shrink-0 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={false}
-                      onChange={() => handleModuleToggle(module.name, true)}
-                      className="peer sr-only"
-                      aria-label={`Incluir ${module.name}`}
-                    />
-                    <div className="w-[18px] h-[18px] rounded-md border border-sf-border bg-sf-surface peer-focus-visible:ring-2 peer-focus-visible:ring-sf-primary/50 peer-focus-visible:ring-offset-1 peer-focus-visible:ring-offset-sf-bg transition-all duration-200" />
-                  </label>
-                  <span className="text-xs font-mono px-1.5 py-0.5 rounded shrink-0 bg-sf-textMuted/10 text-sf-textMuted">
-                    GET
-                  </span>
-                  <span className="text-sf-textMuted font-medium truncate line-through">
-                    {module.name}
-                  </span>
-                  <span className="ml-auto text-[10px] text-sf-textMuted">
-                    removido
-                  </span>
-                </div>
-              ))}
-
-            {/* Aviso quando nenhum módulo está selecionado */}
-            {noModulesSelected && (
-              <div role="status" className="mt-1 px-3 py-2 bg-sf-warning/10 rounded-lg animate-fade-in">
-                <p className="text-xs text-sf-warning leading-relaxed">
-                  Nenhum módulo selecionado — o teste executará apenas login e menu.
-                </p>
-              </div>
-            )}
-          </div>
+          <MistertOperationsPanel
+            operations={config.operations || []}
+            isMistertPreset={isMistertPreset}
+            selectedModuleNames={selectedModuleNames}
+            allModulesSelected={allModulesSelected}
+            noModulesSelected={noModulesSelected}
+            onClearAll={handleClearAll}
+            onSelectAll={handleSelectAll}
+            onToggleModule={handleModuleToggle}
+          />
         )}
       </div>
 
