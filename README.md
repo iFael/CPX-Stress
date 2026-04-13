@@ -32,7 +32,7 @@
 
 ## Indice
 
-- [O que e o StressFlow?](#o-que-e-o-stressflow)
+- [O que e o CPX-Stress?](#o-que-e-o-cpx-stress)
 - [Screenshots](#screenshots)
 - [Funcionalidades](#funcionalidades)
 - [Instalacao](#instalacao)
@@ -45,11 +45,11 @@
 
 ---
 
-## O que e o StressFlow?
+## O que e o CPX-Stress?
 
-O **StressFlow** e um aplicativo desktop que testa se o seu site, API ou servidor aguenta receber muitos acessos ao mesmo tempo. Ele simula centenas ou milhares de visitantes virtuais acessando o seu endereco web simultaneamente e mostra, em tempo real, como o servidor se comporta sob pressao.
+O **CPX-Stress** e um aplicativo desktop que testa se o seu site, API ou servidor aguenta receber muitos acessos ao mesmo tempo. Ele simula centenas ou milhares de visitantes virtuais acessando o seu endereco web simultaneamente e mostra, em tempo real, como o servidor se comporta sob pressao.
 
-Em termos simples: imagine que voce tem uma loja virtual e quer saber se ela vai travar na Black Friday. O StressFlow simula esse cenario para voce antes que aconteca de verdade.
+Em termos simples: imagine que voce tem uma loja virtual e quer saber se ela vai travar na Black Friday. O CPX-Stress simula esse cenario para voce antes que aconteca de verdade.
 
 **Para quem e?**
 
@@ -79,7 +79,7 @@ Em termos simples: imagine que voce tem uma loja virtual e quer saber se ela vai
 
 ### Teste de Estresse Simples e Intuitivo
 
-Basta colar a URL do site, escolher a intensidade e clicar em "Iniciar Teste". O StressFlow cuida de todo o resto. Perfis pre-configurados facilitam a escolha:
+Basta colar a URL do site, escolher a intensidade e clicar em "Iniciar Teste". O CPX-Stress cuida de todo o resto. Perfis pre-configurados facilitam a escolha:
 
 | Perfil   | Usuarios Simultaneos | Duracao | Ideal para                            |
 | -------- | -------------------- | ------- | ------------------------------------- |
@@ -99,10 +99,10 @@ Enquanto o teste roda, voce acompanha segundo a segundo:
 
 ### Confiabilidade da Medicao
 
-O StressFlow agora separa duas leituras diferentes:
+O CPX-Stress agora separa duas leituras diferentes:
 
 - **Saude do alvo** -- como o servidor reagiu a carga aplicada
-- **Confiabilidade da medicao** -- se o proprio StressFlow permaneceu estavel durante o teste
+- **Confiabilidade da medicao** -- se o proprio CPX-Stress permaneceu estavel durante o teste
 
 Isso e importante porque, em cargas extremas, o gerador de carga tambem pode saturar. Quando isso acontece, a interface mostra avisos como:
 
@@ -112,11 +112,11 @@ Isso e importante porque, em cargas extremas, o gerador de carga tambem pode sat
 
 ### Score de Saude do Site
 
-Ao final do teste, o StressFlow calcula uma nota de 0 a 100 que resume a performance do servidor. A nota considera taxa de erros, tempo de resposta, throughput e estabilidade. Facil de entender: verde e bom, vermelho e critico.
+Ao final do teste, o CPX-Stress calcula uma nota de 0 a 100 que resume a performance do servidor. A nota considera taxa de erros, tempo de resposta, throughput e estabilidade. Facil de entender: verde e bom, vermelho e critico.
 
 ### Deteccao Automatica de Protecoes
 
-O StressFlow identifica automaticamente se o site possui sistemas de protecao que podem interferir nos resultados:
+O CPX-Stress identifica automaticamente se o site possui sistemas de protecao que podem interferir nos resultados:
 
 - **WAF** (Firewall de aplicacao web) -- Cloudflare, AWS WAF, Imperva, etc.
 - **CDN** -- CloudFront, Fastly, Akamai, etc.
@@ -143,7 +143,7 @@ Todos os testes sao salvos automaticamente. Voce pode:
 
 ### Configuracoes Avancadas
 
-Para usuarios mais tecnicos, o StressFlow oferece:
+Para usuarios mais tecnicos, o CPX-Stress oferece:
 
 - Selecao de metodo HTTP (GET, POST, PUT, DELETE)
 - Corpo da requisicao customizado (JSON)
@@ -168,8 +168,8 @@ Para usuarios mais tecnicos, o StressFlow oferece:
 1. **Clone o repositorio:**
 
 ```bash
-git clone https://github.com/seu-usuario/stressflow.git
-cd stressflow
+git clone https://github.com/iFael/CPX-Stress.git
+cd cpx-stress
 ```
 
 2. **Instale as dependencias:**
@@ -184,7 +184,7 @@ npm install
 npm run dev
 ```
 
-O StressFlow sera aberto automaticamente como um aplicativo desktop. Qualquer alteracao no codigo fonte sera refletida em tempo real gracas ao hot-reload do Vite.
+O CPX-Stress sera aberto automaticamente como um aplicativo desktop. Qualquer alteracao no codigo fonte sera refletida em tempo real gracas ao hot-reload do Vite.
 
 ---
 
@@ -192,7 +192,7 @@ O StressFlow sera aberto automaticamente como um aplicativo desktop. Qualquer al
 
 ### 1. Informe o endereco do site
 
-Ao abrir o StressFlow, voce vera a tela de configuracao. Cole a URL completa do site que deseja testar no campo principal. A URL precisa comecar com `https://` ou `http://`.
+Ao abrir o CPX-Stress, voce vera a tela de configuracao. Cole a URL completa do site que deseja testar no campo principal. A URL precisa comecar com `https://` ou `http://`.
 
 ```
 Exemplo: https://www.meusite.com.br
@@ -207,7 +207,7 @@ Selecione um dos perfis pre-configurados (Leve, Moderado, Pesado ou Extremo) ou 
 
 ### 3. Inicie o teste
 
-Clique no botao **"Iniciar Teste"**. O StressFlow comecara a enviar requisicoes para a URL informada e mostrara o progresso em tempo real.
+Clique no botao **"Iniciar Teste"**. O CPX-Stress comecara a enviar requisicoes para a URL informada e mostrara o progresso em tempo real.
 
 ### 4. Acompanhe o progresso
 
@@ -215,7 +215,7 @@ Durante a execucao, voce vera graficos sendo atualizados a cada segundo com as m
 
 ### 5. Analise os resultados
 
-Quando o teste terminar, o StressFlow exibira:
+Quando o teste terminar, o CPX-Stress exibira:
 
 - **Score de Saude** -- nota geral de 0 a 100
 - **Metricas principais** -- RPS, latencia media, taxa de erros
@@ -233,7 +233,7 @@ Use os botoes **"Exportar PDF"** ou **"JSON"** para salvar os resultados. O PDF 
 
 Acesse o menu **"Historico"** na barra lateral para ver todos os testes realizados anteriormente. Voce pode buscar, filtrar e reabrir qualquer resultado salvo.
 
-> **Importante:** Use o StressFlow apenas em sites que voce tem autorizacao para testar. O envio de muitas requisicoes simultaneas pode ser considerado um ataque se feito sem permissao.
+> **Importante:** Use o CPX-Stress apenas em sites que voce tem autorizacao para testar. O envio de muitas requisicoes simultaneas pode ser considerado um ataque se feito sem permissao.
 
 ---
 
@@ -270,12 +270,12 @@ Este comando executa o build e em seguida usa o [electron-builder](https://www.e
 | `npm run audit:extreme` | Sobe o mock server e executa auditoria de carga extrema do gerador          |
 | `npm run verify`        | Executa lint, format check, typecheck, build e auditorias principais        |
 
-### Capacidade do alvo x capacidade do StressFlow
+### Capacidade do alvo x capacidade do CPX-Stress
 
 Ao interpretar um teste, diferencie:
 
 - **Capacidade do alvo** -- o quanto o site/API suportou
-- **Capacidade do StressFlow** -- o quanto a maquina local conseguiu gerar carga sem distorcer a medicao
+- **Capacidade do CPX-Stress** -- o quanto a maquina local conseguiu gerar carga sem distorcer a medicao
 
 Em especial:
 
@@ -305,7 +305,7 @@ Em especial:
 ## Estrutura do Projeto
 
 ```
-stressflow/
+cpx-stress/
 ├── electron/                      # Processo principal do Electron (backend)
 │   ├── main.ts                    # Ponto de entrada: janela, IPC, historico, exportacao
 │   ├── preload.ts                 # Bridge segura entre Electron e React
@@ -352,7 +352,7 @@ stressflow/
 
 ### Arquitetura
 
-O StressFlow segue a arquitetura padrao do Electron com dois processos isolados:
+O CPX-Stress segue a arquitetura padrao do Electron com dois processos isolados:
 
 - **Main Process** (`electron/`) -- Tem acesso total ao sistema operacional. Executa os testes de estresse, salva dados em disco, gera PDFs e gerencia a janela do aplicativo. A comunicacao com o frontend acontece via canais IPC (Inter-Process Communication).
 
@@ -364,7 +364,7 @@ A ponte entre os dois processos e feita pelo `preload.ts`, que expoe apenas as f
 
 ## Contribuindo
 
-Contribuicoes sao muito bem-vindas! Se voce quer ajudar a melhorar o StressFlow, siga os passos abaixo.
+Contribuicoes sao muito bem-vindas! Se voce quer ajudar a melhorar o CPX-Stress, siga os passos abaixo.
 
 ### Como contribuir
 
@@ -420,7 +420,7 @@ Este projeto esta licenciado sob a **Licenca MIT** -- veja o arquivo [LICENSE](L
 ```
 MIT License
 
-Copyright (c) 2026 StressFlow
+Copyright (c) 2026 CPX-Stress
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -444,7 +444,7 @@ SOFTWARE.
 ---
 
 <p align="center">
-  Feito com dedicacao pela equipe <strong>StressFlow</strong>
+  Feito com dedicacao pela equipe <strong>CPX-Stress</strong>
   <br />
   <sub>Se este projeto te ajudou, considere dar uma estrela no repositorio.</sub>
 </p>

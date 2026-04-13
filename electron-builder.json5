@@ -1,7 +1,7 @@
 /**
- * Electron Builder Configuration for StressFlow
+ * Electron Builder Configuration for CPX-Stress
  *
- * StressFlow - Professional Stress Testing Tool
+ * CPX-Stress - Professional Stress Testing Tool
  * This file configures how the application is packaged and distributed.
  *
  * JSON5 Reference: https://json5.org/
@@ -20,10 +20,10 @@
   "appId": "com.stressflow.app",
 
   // Human-readable product name shown in installers and OS menus
-  "productName": "StressFlow",
+  "productName": "CPX-Stress",
 
   // Short copyright notice embedded in the executable metadata
-  "copyright": "Copyright (c) 2025 StressFlow",
+  "copyright": "Copyright (c) 2026 CPX-Stress",
 
   // ---------------------------------------------------------------------------
   // Build Directories
@@ -112,7 +112,7 @@
     "requestedExecutionLevel": "asInvoker",
 
     // Embed version info into the EXE for display in Windows Explorer properties
-    "legalTrademarks": "StressFlow"
+    "legalTrademarks": "CPX-Stress"
   },
 
   // ---------------------------------------------------------------------------
@@ -138,7 +138,7 @@
     "createStartMenuShortcut": true,
 
     // Name shown in the Start Menu folder
-    "shortcutName": "StressFlow",
+    "shortcutName": "CPX-Stress",
 
     // Allow the user to select which components to install
     // (useful if you later add optional plugins or documentation)
@@ -156,7 +156,7 @@
     "deleteAppDataOnUninstall": false,
 
     // The uninstaller display name shown in Windows "Add/Remove Programs"
-    "uninstallDisplayName": "StressFlow"
+    "uninstallDisplayName": "CPX-Stress"
   },
 
   // ---------------------------------------------------------------------------
@@ -198,7 +198,7 @@
 
     // Desktop file name used in launchers
     "desktop": {
-      "Name": "StressFlow",
+      "Name": "CPX-Stress",
       "Comment": "Professional Stress Testing Tool",
       "Terminal": "false"
     }

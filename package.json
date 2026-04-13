@@ -1,7 +1,7 @@
 {
-  "name": "stressflow",
+  "name": "cpx-stress",
   "version": "1.0.0",
-  "description": "StressFlow - Ferramenta profissional de teste de estresse para APIs e servidores web. / Professional stress testing tool for APIs and web servers.",
+  "description": "CPX-Stress - Ferramenta profissional de teste de estresse para APIs e servidores web. / Professional stress testing tool for APIs and web servers.",
   "main": "dist-electron/main.js",
   "private": true,
   "author": {
@@ -10,11 +10,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/rafael-damasio/StressFlow.git"
+    "url": "https://github.com/iFael/CPX-Stress.git"
   },
-  "homepage": "https://github.com/rafael-damasio/StressFlow#readme",
+  "homepage": "https://github.com/iFael/CPX-Stress#readme",
   "bugs": {
-    "url": "https://github.com/rafael-damasio/StressFlow/issues"
+    "url": "https://github.com/iFael/CPX-Stress/issues"
   },
   "keywords": [
     "stress-test",
