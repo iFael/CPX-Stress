@@ -229,7 +229,7 @@ function getHealthInfo(result: TestResult): HealthInfo {
 //
 // Quando o sistema de proteção do site (WAF, rate-limiter) bloqueia as
 // requisições em um certo momento, os dados após o bloqueio ficam distorcidos.
-// Esta função calcula a nota de saúde usando apenas os dados ANTES do bloqueio,
+// Está função calcula a nota de saúde usando apenas os dados ANTES do bloqueio,
 // dando uma visão mais precisa do desempenho real do servidor.
 // =============================================================================
 

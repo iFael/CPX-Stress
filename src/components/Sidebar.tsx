@@ -76,8 +76,8 @@ const NAV_ITEMS: NavItem[] = [
 // ---------------------------------------------------------------------------
 
 /**
- * Indicador pulsante exibido enquanto um teste esta em execução.
- * Informa visualmente que o sistema esta trabalhando.
+ * Indicador pulsante exibido enquanto um teste está em execução.
+ * Informa visualmente que o sistema está trabalhando.
  */
 function RunningIndicator() {
   return (
@@ -155,7 +155,7 @@ export function Sidebar() {
   const setCurrentResult = useTestStore((s) => s.setCurrentResult);
   const history = useTestStore((s) => s.history);
 
-  // --- Acoes de navegação ---
+  // --- Ações de navegação ---
 
   /**
    * Navega para a tela de novo teste.
@@ -270,7 +270,7 @@ export function Sidebar() {
               {/* Texto e descrição do item */}
               <span className="flex flex-col items-start leading-tight">
                 <span>{item.label}</span>
-                {/* Descrição curta visível apenas quando o item esta ativo */}
+                {/* Descrição curta visível apenas quando o item está ativo */}
                 {isActive && (
                   <span className="text-[10px] opacity-70 font-normal">
                     {item.description}

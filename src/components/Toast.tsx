@@ -11,7 +11,7 @@
  *      const { toast } = useToast()
  *      toast.success('Teste concluido com sucesso!')
  *      toast.error('Falha ao conectar com o servidor.')
- *      toast.warning('O servidor esta respondendo lentamente.')
+ *      toast.warning('O servidor está respondendo lentamente.')
  *      toast.info('Dica: você pode exportar os resultados em PDF.')
  */
 
@@ -41,7 +41,7 @@ interface ToastItem {
   variant: ToastVariant;
   /** Mensagem exibida ao usuário */
   message: string;
-  /** Controle de animação: true quando o toast esta saindo */
+  /** Controle de animação: true quando o toast está saindo */
   exiting: boolean;
 }
 

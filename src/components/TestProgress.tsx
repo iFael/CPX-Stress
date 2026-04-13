@@ -48,7 +48,7 @@ function formatTimeRemaining(seconds: number): string {
 
 /**
  * Retorna um "semaforo" de saude baseado na taxa de erro e latência atuais.
- * Isso ajuda o usuário a entender rapidamente se o servidor esta aguentando.
+ * Isso ajuda o usuário a entender rapidamente se o servidor está aguentando.
  */
 interface LiveHealthStatus {
   label: string;
@@ -69,7 +69,7 @@ function getLiveHealthStatus(
       color: "text-sf-danger",
       bgColor: "bg-sf-danger/10",
       borderColor: "border-sf-danger/30",
-      description: "O servidor esta com dificuldades serias para responder.",
+      description: "O servidor está com dificuldades serias para responder.",
     };
   }
 
@@ -80,7 +80,7 @@ function getLiveHealthStatus(
       color: "text-sf-warning",
       bgColor: "bg-sf-warning/10",
       borderColor: "border-sf-warning/30",
-      description: "O servidor esta respondendo, mas com lentidao ou falhas.",
+      description: "O servidor está respondendo, mas com lentidao ou falhas.",
     };
   }
 
@@ -90,7 +90,7 @@ function getLiveHealthStatus(
     color: "text-sf-success",
     bgColor: "bg-sf-success/10",
     borderColor: "border-sf-success/30",
-    description: "O servidor esta respondendo bem a carga aplicada.",
+    description: "O servidor está respondendo bem a carga aplicada.",
   };
 }
 
@@ -213,7 +213,7 @@ export function TestProgress() {
           <span className="text-sf-textSecondary flex items-center gap-1.5">
             <Clock className="w-4 h-4" aria-hidden="true" />
             Progresso
-            <InfoTooltip text="Indica quanto do tempo total do teste ja foi executado. O teste dispara requisições continuamente ate o tempo acabar." />
+            <InfoTooltip text="Indica quanto do tempo total do teste já foi executado. O teste dispara requisições continuamente até o tempo acabar." />
           </span>
           <div className="flex items-center gap-3">
             {/* Tempo restante estimado */}
@@ -263,7 +263,7 @@ export function TestProgress() {
       </div>
 
       {/* ===== Indicador de saude em tempo real ===== */}
-      {/* Mostra ao usuário se o servidor esta aguentando a carga ou se ja esta degradando */}
+      {/* Mostra ao usuário se o servidor está aguentando a carga ou se já está degradando */}
       {liveHealth && (
         <div
           className={`flex items-center gap-3 mb-6 p-3 rounded-xl border ${liveHealth.bgColor} ${liveHealth.borderColor}`}
@@ -329,12 +329,12 @@ export function TestProgress() {
             }
           />
 
-          {/* Total de requisições enviadas ate agora */}
+          {/* Total de requisições enviadas até agora */}
           <LiveMetricCard
             icon={<Users className="w-4 h-4" />}
             label="Requisições"
             sublabel="Total enviado"
-            tooltip="Quantidade total de requisições que ja foram enviadas ao servidor desde o início do teste."
+            tooltip="Quantidade total de requisições que já foram enviadas ao servidor desde o início do teste."
             value={progress.cumulative.totalRequests.toLocaleString("pt-BR")}
             color="text-sf-text"
           />

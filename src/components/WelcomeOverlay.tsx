@@ -68,7 +68,7 @@ const TIPS = [
 /* -------------------------------------------------------------------------- */
 
 export function WelcomeOverlay() {
-  /** Controla se o overlay esta visível */
+  /** Controla se o overlay está visível */
   const [isVisible, setIsVisible] = useState(false);
 
   /** Controla a animação de saída antes de desmontar */
