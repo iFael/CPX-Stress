@@ -1,6 +1,6 @@
 /**
  * =============================================================================
- *  StressFlow - Preload Bridge (Ponte entre Frontend e Backend)
+ *  CPX-Stress - Preload Bridge (Ponte entre Frontend e Backend)
  * =============================================================================
  *
  *  O QUE FAZ ESTE ARQUIVO?

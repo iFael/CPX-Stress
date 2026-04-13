@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- *  StressFlow — Processo Principal do Electron (Main Process)
+ *  CPX-Stress — Processo Principal do Electron (Main Process)
  * ============================================================================
  *
  *  Este arquivo é o "cérebro" do aplicativo desktop. Ele é responsável por:
@@ -23,6 +23,26 @@ import { app, BrowserWindow, ipcMain, dialog, shell, session, nativeImage } from
 import path from "node:path";
 import fs from "node:fs";
 import { StressEngine, validateTestConfig } from "./engine/stress-engine";
+
+const APP_DISPLAY_NAME = "CPX-Stress";
+const APP_WINDOW_BACKGROUND = "#000000";
+const LEGACY_USER_DATA_DIRNAME = "stressflow";
+const LEGACY_DATA_DIRNAME = "stressflow-data";
+const DEFAULT_JSON_EXPORT_NAME = "cpx-stress-export.json";
+
+/**
+ * Mantém o diretório legado do Electron para preservar .env, histórico,
+ * presets e banco SQLite já existentes após o rebrand.
+ */
+function configureLegacyUserDataPath(): void {
+  const legacyUserDataPath = path.join(
+    app.getPath("appData"),
+    LEGACY_USER_DATA_DIRNAME,
+  );
+  app.setPath("userData", legacyUserDataPath);
+}
+
+configureLegacyUserDataPath();
 
 /**
  * Carrega variáveis de ambiente de um arquivo .env na raiz do app.
@@ -199,14 +219,14 @@ import {
 // ---------------------------------------------------------------------------
 process.on("uncaughtException", (error) => {
   console.error(
-    "[StressFlow] Erro não capturado no processo principal:",
+    "[CPX-Stress] Erro não capturado no processo principal:",
     error,
   );
 });
 
 process.on("unhandledRejection", (reason) => {
   console.error(
-    "[StressFlow] Promessa rejeitada sem tratamento no processo principal:",
+    "[CPX-Stress] Promessa rejeitada sem tratamento no processo principal:",
     reason,
   );
 });
@@ -243,7 +263,7 @@ const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 // ===========================================================================
 //  Gerenciamento de Arquivos e Diretórios
 // ===========================================================================
-// O StressFlow salva dados em uma pasta dentro do diretório do usuário.
+// O CPX-Stress mantém dados no diretório legado do aplicativo para compatibilidade.
 // No Windows: %APPDATA%/stressflow/stressflow-data
 // No macOS:   ~/Library/Application Support/stressflow/stressflow-data
 // No Linux:   ~/.config/stressflow/stressflow-data
@@ -252,16 +272,16 @@ const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 /**
  * Retorna o caminho da pasta principal de dados do aplicativo.
  * Cria a pasta automaticamente caso ela ainda não exista.
- */
+  */
 function getDataPath(): string {
   try {
-    const dataPath = path.join(app.getPath("userData"), "stressflow-data");
+    const dataPath = path.join(app.getPath("userData"), LEGACY_DATA_DIRNAME);
     if (!fs.existsSync(dataPath)) {
       fs.mkdirSync(dataPath, { recursive: true });
     }
     return dataPath;
   } catch (error) {
-    console.error("[StressFlow] Erro ao acessar pasta de dados:", error);
+    console.error("[CPX-Stress] Erro ao acessar pasta de dados:", error);
     throw new Error(
       "Não foi possível acessar a pasta de dados do aplicativo. Verifique as permissões do sistema.",
     );
@@ -280,7 +300,7 @@ function getReportsPath(): string {
     }
     return reportsPath;
   } catch (error) {
-    console.error("[StressFlow] Erro ao acessar pasta de relatórios:", error);
+    console.error("[CPX-Stress] Erro ao acessar pasta de relatórios:", error);
     throw new Error(
       "Não foi possível acessar a pasta de relatórios. Verifique as permissões do sistema.",
     );
@@ -290,7 +310,7 @@ function getReportsPath(): string {
 // ===========================================================================
 //  Banco de Dados SQLite
 // ===========================================================================
-// O StressFlow utiliza SQLite para armazenar resultados de testes e erros
+// O CPX-Stress utiliza SQLite para armazenar resultados de testes e erros
 // detalhados. O banco é inicializado automaticamente na primeira execução.
 // ===========================================================================
 
@@ -309,9 +329,9 @@ function initializeDatabase(): void {
     migrateFromJsonHistory(dataPath);
     ensureBuiltinPresetVersion(); // Atualiza preset built-in se versao mudou
     dbInitialized = true;
-    console.log("[StressFlow] Banco de dados SQLite inicializado com sucesso.");
+    console.log("[CPX-Stress] Banco de dados SQLite inicializado com sucesso.");
   } catch (error) {
-    console.error("[StressFlow] Erro ao inicializar banco de dados:", error);
+    console.error("[CPX-Stress] Erro ao inicializar banco de dados:", error);
     throw new Error(
       "Não foi possível inicializar o banco de dados. Verifique as permissões do sistema.",
     );
@@ -363,9 +383,9 @@ function createWindow(): void {
     height: 900,
     minWidth: 1100,
     minHeight: 700,
-    title: "CPX - MisterT Stress",
+    title: APP_DISPLAY_NAME,
     ...(appIcon && !appIcon.isEmpty() ? { icon: appIcon } : {}),
-    backgroundColor: "#0f1117",
+    backgroundColor: APP_WINDOW_BACKGROUND,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       // Segurança: isolamento de contexto impede que a interface acesse APIs do Node.js
@@ -502,7 +522,7 @@ ipcMain.handle("test:start", async (_event, config: TestConfig) => {
           );
         } catch (err) {
           console.error(
-            "[StressFlow] Erro ao salvar lote de erros no banco:",
+            "[CPX-Stress] Erro ao salvar lote de erros no banco:",
             err,
           );
         }
@@ -516,7 +536,7 @@ ipcMain.handle("test:start", async (_event, config: TestConfig) => {
 
     return result;
   } catch (error) {
-    console.error("[StressFlow] Erro durante execução do teste:", error);
+    console.error("[CPX-Stress] Erro durante execução do teste:", error);
     throw new Error(traduzirErro(error));
   } finally {
     // Sempre limpa o estado, independente de sucesso ou erro
@@ -552,7 +572,7 @@ ipcMain.handle("test:cancel", async () => {
     activeTestPromise = null;
     return true;
   } catch (error) {
-    console.error("[StressFlow] Erro ao cancelar teste:", error);
+    console.error("[CPX-Stress] Erro ao cancelar teste:", error);
     activeEngine = null;
     activeTestPromise = null;
     throw new Error(
@@ -576,7 +596,7 @@ ipcMain.handle("history:list", async () => {
   try {
     return listTestResults();
   } catch (error) {
-    console.error("[StressFlow] Erro ao carregar histórico:", error);
+    console.error("[CPX-Stress] Erro ao carregar histórico:", error);
     throw new Error("Não foi possível carregar o histórico de testes.");
   }
 });
@@ -593,7 +613,7 @@ ipcMain.handle("history:get", async (_event, id: string) => {
     }
     return getTestResult(id);
   } catch (error) {
-    console.error("[StressFlow] Erro ao buscar teste no histórico:", error);
+    console.error("[CPX-Stress] Erro ao buscar teste no histórico:", error);
     throw new Error(
       "Não foi possível buscar o teste no histórico. Tente recarregar a lista.",
     );
@@ -611,7 +631,7 @@ ipcMain.handle("history:delete", async (_event, id: string) => {
     }
     return deleteTestResult(id);
   } catch (error) {
-    console.error("[StressFlow] Erro ao excluir teste do histórico:", error);
+    console.error("[CPX-Stress] Erro ao excluir teste do histórico:", error);
     throw new Error(
       "Não foi possível excluir o teste do histórico. Tente novamente.",
     );
@@ -627,7 +647,7 @@ ipcMain.handle("history:clear", async () => {
     clearTestResults();
     return true;
   } catch (error) {
-    console.error("[StressFlow] Erro ao limpar histórico:", error);
+    console.error("[CPX-Stress] Erro ao limpar histórico:", error);
     throw new Error("Não foi possível limpar o histórico de testes.");
   }
 });
@@ -698,7 +718,7 @@ ipcMain.handle(
       fs.writeFileSync(fullPath, buffer);
       return fullPath;
     } catch (error) {
-      console.error("[StressFlow] Erro ao salvar PDF:", error);
+      console.error("[CPX-Stress] Erro ao salvar PDF:", error);
       const msg = error instanceof Error ? error.message : String(error);
       if (msg.includes("ENOSPC")) {
         throw new Error(
@@ -752,7 +772,7 @@ ipcMain.handle("pdf:open", async (_event, filePath: string) => {
       throw new Error(`Não foi possível abrir o arquivo: ${errorMsg}`);
     }
   } catch (error) {
-    console.error("[StressFlow] Erro ao abrir PDF:", error);
+    console.error("[CPX-Stress] Erro ao abrir PDF:", error);
     const msg = error instanceof Error ? error.message : String(error);
     throw new Error(
       msg.startsWith("O ") || msg.startsWith("Não ")
@@ -784,7 +804,7 @@ ipcMain.handle(
       const safeName =
         typeof defaultName === "string" && defaultName.trim() !== ""
           ? path.basename(defaultName)
-          : "stressflow-export.json";
+          : DEFAULT_JSON_EXPORT_NAME;
 
       const result = await dialog.showSaveDialog(mainWindow, {
         defaultPath: safeName,
@@ -798,7 +818,7 @@ ipcMain.handle(
       fs.writeFileSync(result.filePath, data, "utf-8");
       return result.filePath;
     } catch (error) {
-      console.error("[StressFlow] Erro ao exportar JSON:", error);
+      console.error("[CPX-Stress] Erro ao exportar JSON:", error);
       const msg = error instanceof Error ? error.message : String(error);
       if (msg.includes("ENOSPC")) {
         throw new Error(
@@ -834,7 +854,7 @@ ipcMain.handle("app:getPath", () => {
   try {
     return getDataPath();
   } catch (error) {
-    console.error("[StressFlow] Erro ao obter caminho de dados:", error);
+    console.error("[CPX-Stress] Erro ao obter caminho de dados:", error);
     return "Caminho indisponível";
   }
 });
@@ -861,7 +881,7 @@ ipcMain.handle("credentials:status", async () => {
     }
     return status;
   } catch (error) {
-    console.error("[StressFlow] Erro ao verificar credenciais:", error);
+    console.error("[CPX-Stress] Erro ao verificar credenciais:", error);
     throw new Error("Nao foi possivel verificar o status das credenciais.");
   }
 });
@@ -875,7 +895,7 @@ ipcMain.handle("credentials:load", async () => {
   try {
     return Object.keys(envVars).filter((key) => key.startsWith("STRESSFLOW_"));
   } catch (error) {
-    console.error("[StressFlow] Erro ao listar chaves de credenciais:", error);
+    console.error("[CPX-Stress] Erro ao listar chaves de credenciais:", error);
     throw new Error("Nao foi possivel listar as chaves de credenciais.");
   }
 });
@@ -905,7 +925,7 @@ ipcMain.handle(
 
       return saveEnvFile(nonEmpty);
     } catch (error) {
-      console.error("[StressFlow] Erro ao salvar credenciais:", error);
+      console.error("[CPX-Stress] Erro ao salvar credenciais:", error);
       const msg = error instanceof Error ? error.message : String(error);
       if (msg.includes("EACCES") || msg.includes("EPERM")) {
         throw new Error(
@@ -937,7 +957,7 @@ ipcMain.handle("presets:list", async () => {
   try {
     return listPresets();
   } catch (error) {
-    console.error("[StressFlow] Erro ao listar presets:", error);
+    console.error("[CPX-Stress] Erro ao listar presets:", error);
     throw new Error("Nao foi possivel carregar os presets.");
   }
 });
@@ -965,7 +985,7 @@ ipcMain.handle(
       }
       return savePreset(data);
     } catch (error) {
-      console.error("[StressFlow] Erro ao salvar preset:", error);
+      console.error("[CPX-Stress] Erro ao salvar preset:", error);
       const msg = error instanceof Error ? error.message : String(error);
       // Tratar UNIQUE constraint do SQLite para nome duplicado
       if (msg.includes("UNIQUE constraint failed") || msg.includes("test_presets.name")) {
@@ -1001,7 +1021,7 @@ ipcMain.handle(
       }
       renamePreset(id, newName);
     } catch (error) {
-      console.error("[StressFlow] Erro ao renomear preset:", error);
+      console.error("[CPX-Stress] Erro ao renomear preset:", error);
       const msg = error instanceof Error ? error.message : String(error);
       if (msg.includes("UNIQUE constraint failed") || msg.includes("test_presets.name")) {
         throw new Error("Ja existe um preset com este nome.");
@@ -1030,7 +1050,7 @@ ipcMain.handle("presets:delete", async (_event, id: string) => {
     }
     deletePreset(id);
   } catch (error) {
-    console.error("[StressFlow] Erro ao excluir preset:", error);
+    console.error("[CPX-Stress] Erro ao excluir preset:", error);
     const msg = error instanceof Error ? error.message : String(error);
     throw new Error(
       msg.startsWith("Preset nao") ||
@@ -1072,7 +1092,7 @@ ipcMain.handle(
       }
       return searchErrors(params);
     } catch (error) {
-      console.error("[StressFlow] Erro ao buscar erros:", error);
+      console.error("[CPX-Stress] Erro ao buscar erros:", error);
       throw new Error("Não foi possível buscar os erros detalhados.");
     }
   },
@@ -1087,7 +1107,7 @@ ipcMain.handle("errors:byStatusCode", async (_event, testId: string) => {
     if (!testId || typeof testId !== "string") return {};
     return getErrorsByStatusCode(testId);
   } catch (error) {
-    console.error("[StressFlow] Erro ao buscar erros por status code:", error);
+    console.error("[CPX-Stress] Erro ao buscar erros por status code:", error);
     throw new Error("Não foi possível buscar os erros por código de status.");
   }
 });
@@ -1101,7 +1121,7 @@ ipcMain.handle("errors:byErrorType", async (_event, testId: string) => {
     if (!testId || typeof testId !== "string") return {};
     return getErrorsByType(testId);
   } catch (error) {
-    console.error("[StressFlow] Erro ao buscar erros por tipo:", error);
+    console.error("[CPX-Stress] Erro ao buscar erros por tipo:", error);
     throw new Error("Não foi possível buscar os erros por tipo.");
   }
 });
@@ -1115,7 +1135,7 @@ ipcMain.handle("errors:byOperationName", async (_event, testId: string) => {
     if (!testId || typeof testId !== "string") return {};
     return getErrorsByOperationName(testId);
   } catch (error) {
-    console.error("[StressFlow] Erro ao buscar erros por operacao:", error);
+    console.error("[CPX-Stress] Erro ao buscar erros por operacao:", error);
     throw new Error("Nao foi possivel buscar os erros por operacao.");
   }
 });

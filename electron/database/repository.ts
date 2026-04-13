@@ -1,5 +1,5 @@
 /**
- * Repository — Camada de acesso a dados para o StressFlow.
+ * Repository — Camada de acesso a dados para o CPX-Stress.
  *
  * Encapsula todas as operações de banco de dados (CRUD + queries).
  * Usa prepared statements para seguranca (prevencao de SQL injection)
@@ -20,7 +20,7 @@ function safeJsonParse<T>(json: string | null | undefined, fallback: T): T {
   try {
     return JSON.parse(json) as T;
   } catch {
-    console.warn("[StressFlow] JSON corrompido no banco de dados, usando fallback.");
+    console.warn("[CPX-Stress] JSON corrompido no banco de dados, usando fallback.");
     return fallback;
   }
 }

@@ -1273,7 +1273,7 @@ export class StressEngine {
 
       const mod = opts.isHttps ? https : http;
       const mergedHeaders: Record<string, string> = {
-        "User-Agent": "CPX-MisterT-Stress/1.0",
+        "User-Agent": "CPX-Stress/1.0",
         Accept: "*/*",
         ...opts.headers,
       };
@@ -1842,7 +1842,7 @@ export class StressEngine {
           );
 
           worker.on("error", (err) => {
-            console.error("[StressFlow] Worker error:", err.message);
+            console.error("[CPX-Stress] Worker error:", err.message);
             resolve();
           });
 

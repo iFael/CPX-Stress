@@ -1,5 +1,5 @@
 /**
- * Database — Persistência SQLite para o StressFlow.
+ * Database — Persistência SQLite para o CPX-Stress.
  *
  * Utiliza better-sqlite3 para armazenamento estruturado de:
  *   - Resultados de testes (metadados + métricas)
@@ -43,7 +43,7 @@ export function initDatabase(dataPath: string): Database.Database {
 export function getDatabase(): Database.Database {
   if (!db) {
     throw new Error(
-      "[StressFlow DB] Banco de dados não foi inicializado. Chame initDatabase() primeiro.",
+      "[CPX-Stress DB] Banco de dados não foi inicializado. Chame initDatabase() primeiro.",
     );
   }
   return db;
@@ -319,7 +319,7 @@ export function ensureBuiltinPresetVersion(): void {
       .run(BUILTIN_CONFIG_JSON, CURRENT_BUILTIN_VERSION, BUILTIN_PRESET_ID);
 
     console.log(
-      `[StressFlow DB] Preset built-in atualizado para versao ${CURRENT_BUILTIN_VERSION}.`
+      `[CPX-Stress DB] Preset built-in atualizado para versao ${CURRENT_BUILTIN_VERSION}.`
     );
   }
 }
@@ -346,7 +346,7 @@ export function migrateFromJsonHistory(dataPath: string): void {
     if (!Array.isArray(history)) return;
 
     console.log(
-      `[StressFlow DB] Migrando ${history.length} testes do history.json para SQLite...`,
+      `[CPX-Stress DB] Migrando ${history.length} testes do history.json para SQLite...`,
     );
 
     const insertStmt = database.prepare(`
@@ -400,9 +400,9 @@ export function migrateFromJsonHistory(dataPath: string): void {
     const backupPath = path.join(dataPath, "history.json.migrated");
     fs.renameSync(jsonPath, backupPath);
     console.log(
-      `[StressFlow DB] Migração concluida. Arquivo legado renomeado para history.json.migrated`,
+      `[CPX-Stress DB] Migração concluida. Arquivo legado renomeado para history.json.migrated`,
     );
   } catch (error) {
-    console.error("[StressFlow DB] Erro ao migrar history.json:", error);
+    console.error("[CPX-Stress DB] Erro ao migrar history.json:", error);
   }
 }
