@@ -1,16 +1,16 @@
 /**
- * CrossTestAnalysis.tsx - Pagina de analise comparativa de erros entre testes
+ * CrossTestAnalysis.tsx - Página de análise comparativa de erros entre testes
  *
- * Permite ao usuario selecionar 2-5 testes do historico e comparar a
- * distribuicao de erros por operacao. Exibe uma tabela comparativa com
- * indicadores de tendencia (degradacao/melhoria) e um grafico de barras
- * agrupadas (Recharts) para visualizacao rapida de padroes.
+ * Permite ao usuário selecionar 2-5 testes do histórico e comparar a
+ * distribuição de erros por operação. Exibe uma tabela comparativa com
+ * indicadores de tendencia (degradação/melhoria) e um gráfico de barras
+ * agrupadas (Recharts) para visualização rapida de padrões.
  *
  * Dados: reutiliza `window.stressflow.errors.byOperationName(testId)` e
- * `useTestStore((s) => s.history)` — nenhum IPC novo necessario.
+ * `useTestStore((s) => s.history)` — nenhum IPC novo necessário.
  *
- * Estado: totalmente local (useState/useMemo/useCallback) — nao polui
- * o Zustand store com dados efemeros de comparacao.
+ * Estado: totalmente local (useState/useMemo/useCallback) — não polui
+ * o Zustand store com dados efemeros de comparação.
  */
 
 import { useState, useMemo, useCallback } from "react";
@@ -43,7 +43,7 @@ import type { TestResult } from "@/types";
 /*  Constantes                                                         */
 /* ------------------------------------------------------------------ */
 
-/** Paleta de cores para as barras do grafico (uma cor por teste selecionado) */
+/** Paleta de cores para as barras do gráfico (uma cor por teste selecionado) */
 const CHART_COLORS = [
   "#6366f1", // sf-primary (indigo) — Test 1
   "#22d3ee", // sf-accent (cyan) — Test 2
@@ -52,7 +52,7 @@ const CHART_COLORS = [
   "#3b82f6", // sf-info (blue) — Test 5
 ] as const;
 
-/** Cores do tema para eixos e grade do grafico */
+/** Cores do tema para eixos e grade do gráfico */
 const THEME = {
   surface: "#1a1d27",
   border: "#2a2d3a",
@@ -60,17 +60,17 @@ const THEME = {
   axisLabel: "#64748b",
 } as const;
 
-/** Minimo de testes necessarios para habilitar comparacao */
+/** Mínimo de testes necessarios para habilitar comparação */
 const MIN_SELECTED_TESTS = 2;
 
-/** Maximo de testes que podem ser selecionados simultaneamente */
+/** Máximo de testes que podem ser selecionados simultaneamente */
 const MAX_SELECTED_TESTS = 5;
 
 /* ------------------------------------------------------------------ */
 /*  Tipos internos                                                     */
 /* ------------------------------------------------------------------ */
 
-/** Dados de comparacao carregados via IPC para cada teste selecionado */
+/** Dados de comparação carregados via IPC para cada teste selecionado */
 interface ComparisonEntry {
   testId: string;
   label: string;
@@ -79,11 +79,11 @@ interface ComparisonEntry {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Funcoes auxiliares                                                  */
+/*  Funções auxiliares                                                  */
 /* ------------------------------------------------------------------ */
 
 /**
- * Gera um rotulo curto para o teste exibido nos cabecalhos da tabela e legenda.
+ * Gera um rótulo curto para o teste exibido nos cabecalhos da tabela e legenda.
  * Formato: "dd/MM HHh — N VUs"
  */
 function buildTestLabel(test: TestResult): string {
@@ -96,12 +96,12 @@ function buildTestLabel(test: TestResult): string {
 }
 
 /**
- * Transforma os dados de comparacao em formato flat para o Recharts BarChart.
- * Cada linha representa uma operacao; cada propriedade e a contagem de erros
- * para um teste especifico.
+ * Transforma os dados de comparação em formato flat para o Recharts BarChart.
+ * Cada linha representa uma operação; cada propriedade e a contagem de erros
+ * para um teste específico.
  *
- * Ordena por total de erros descendente (operacao com mais erros no topo).
- * Mapeia "default" para "Requisicao Unica" (pitfall #2).
+ * Ordena por total de erros descendente (operação com mais erros no topo).
+ * Mapeia "default" para "Requisição Unica" (pitfall #2).
  */
 function buildChartData(
   testResults: ComparisonEntry[],
@@ -113,7 +113,7 @@ function buildChartData(
 
   return Array.from(allOps)
     .map((op) => {
-      const displayName = op === "default" ? "Requisicao Unica" : op;
+      const displayName = op === "default" ? "Requisição Unica" : op;
       const row: Record<string, unknown> = { operation: displayName };
       let total = 0;
       for (const t of testResults) {
@@ -127,7 +127,7 @@ function buildChartData(
 }
 
 /**
- * Computa a tendencia (degradacao/melhoria) entre dois valores consecutivos.
+ * Computa a tendencia (degradação/melhoria) entre dois valores consecutivos.
  * Quando previous === 0 e current > 0, retorna "novo" em vez de Infinity%.
  */
 function computeTrend(
@@ -155,7 +155,7 @@ function computeTrend(
 }
 
 /* ------------------------------------------------------------------ */
-/*  Componentes internos do grafico                                    */
+/*  Componentes internos do gráfico                                    */
 /* ------------------------------------------------------------------ */
 
 /** Props do tooltip customizado do Recharts */
@@ -171,8 +171,8 @@ interface ComparisonTooltipProps {
 }
 
 /**
- * Tooltip personalizado para o grafico de barras comparativo.
- * Segue exatamente o padrao do MetricsChart.tsx CustomTooltip.
+ * Tooltip personalizado para o gráfico de barras comparativo.
+ * Segue exatamente o padrão do MetricsChart.tsx CustomTooltip.
  */
 function ComparisonTooltip({ active, payload, label }: ComparisonTooltipProps) {
   if (!active || !payload || payload.length === 0) return null;
@@ -207,8 +207,8 @@ interface ComparisonLegendProps {
 }
 
 /**
- * Legenda compacta abaixo do grafico.
- * Segue exatamente o padrao do MetricsChart.tsx CustomLegend.
+ * Legenda compacta abaixo do gráfico.
+ * Segue exatamente o padrão do MetricsChart.tsx CustomLegend.
  */
 function ComparisonLegend({ payload }: ComparisonLegendProps) {
   if (!payload || payload.length === 0) return null;
@@ -236,7 +236,7 @@ function ComparisonLegend({ payload }: ComparisonLegendProps) {
 /* ------------------------------------------------------------------ */
 
 export function CrossTestAnalysis() {
-  // --- Estado local (efemero — nao vai para o Zustand) ---
+  // --- Estado local (efemero — não vai para o Zustand) ---
   const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [comparisonData, setComparisonData] = useState<
@@ -263,7 +263,7 @@ export function CrossTestAnalysis() {
     return sorted;
   }, [history, search]);
 
-  // --- Toggle de selecao de testes ---
+  // --- Toggle de seleção de testes ---
   const toggleTestSelection = useCallback(
     (testId: string) => {
       setSelectedTestIds((prev) => {
@@ -273,14 +273,14 @@ export function CrossTestAnalysis() {
         if (prev.length >= MAX_SELECTED_TESTS) return prev;
         return [...prev, testId];
       });
-      // Reset comparison data quando a selecao muda (forca re-fetch)
+      // Reset comparison data quando a seleção muda (força re-fetch)
       setComparisonData(null);
       setError(null);
     },
     [],
   );
 
-  // --- Carregamento dos dados de comparacao ---
+  // --- Carregamento dos dados de comparação ---
   const handleCompare = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -306,14 +306,14 @@ export function CrossTestAnalysis() {
       setComparisonData(results);
     } catch {
       setError(
-        "Falha ao carregar dados de erros. Verifique se os testes selecionados ainda existem no historico e tente novamente.",
+        "Falha ao carregar dados de erros. Verifique se os testes selecionados ainda existem no histórico e tente novamente.",
       );
     } finally {
       setLoading(false);
     }
   }, [selectedTestIds, history]);
 
-  // --- Dados derivados para tabela e grafico ---
+  // --- Dados derivados para tabela e gráfico ---
   const chartData = useMemo(() => {
     if (!comparisonData) return [];
     return buildChartData(comparisonData);
@@ -332,25 +332,25 @@ export function CrossTestAnalysis() {
   const canCompare = selectedTestIds.length >= MIN_SELECTED_TESTS;
   const isMaxSelected = selectedTestIds.length >= MAX_SELECTED_TESTS;
 
-  // --- Renderizacao ---
+  // --- Renderização ---
   return (
     <div
       role="region"
-      aria-label="Analise cross-test"
+      aria-label="Análise cross-test"
       className="animate-slide-up space-y-8"
     >
-      {/* ---- Cabecalho da pagina ---- */}
+      {/* ---- Cabeçalho da página ---- */}
       <div>
         <h2 className="text-xl font-bold text-sf-text">
-          Analise Cross-Test
+          Análise Cross-Test
         </h2>
         <p className="text-sm text-sf-textSecondary mt-1">
-          Compare a distribuicao de erros entre testes para identificar
-          degradacao
+          Compare a distribuição de erros entre testes para identificar
+          degradação e regressões.
         </p>
       </div>
 
-      {/* ---- Empty state: nenhum teste no historico ---- */}
+      {/* ---- Empty state: nenhum teste no histórico ---- */}
       {history.length === 0 ? (
         <div className="bg-sf-surface border border-sf-border rounded-xl p-8 text-center">
           <AlertCircle
@@ -358,11 +358,11 @@ export function CrossTestAnalysis() {
             aria-hidden="true"
           />
           <h3 className="text-sm font-bold text-sf-text">
-            Nenhum teste no historico
+            Nenhum teste no histórico
           </h3>
           <p className="text-sm text-sf-textSecondary mt-1 max-w-md mx-auto">
             Execute ao menos dois testes de estresse para poder comparar a
-            distribuicao de erros entre eles.
+            distribuição de erros entre eles.
           </p>
         </div>
       ) : (
@@ -486,7 +486,7 @@ export function CrossTestAnalysis() {
               )}
             </div>
 
-            {/* Rodape: contador + botao CTA */}
+            {/* Rodape: contador + botão CTA */}
             <div className="flex items-center justify-between pt-2 border-t border-sf-border">
               <div>
                 <p
@@ -499,7 +499,7 @@ export function CrossTestAnalysis() {
                 </p>
                 {isMaxSelected && (
                   <p className="text-xs text-sf-textMuted mt-0.5">
-                    Maximo de 5 testes para comparacao
+                    Máximo de 5 testes para comparação
                   </p>
                 )}
               </div>
@@ -532,7 +532,7 @@ export function CrossTestAnalysis() {
             </div>
           </div>
 
-          {/* ---- Secao de comparacao (renderizada apos clicar em Comparar) ---- */}
+          {/* ---- Seção de comparação (renderizada após clicar em Comparar) ---- */}
 
           {/* Estado de carregamento */}
           {loading && !comparisonData && (
@@ -569,22 +569,22 @@ export function CrossTestAnalysis() {
                 Nenhum erro encontrado
               </h3>
               <p className="text-sm text-sf-textSecondary mt-1 max-w-md mx-auto">
-                Os testes selecionados nao registraram erros. Isso indica que o
-                servidor respondeu corretamente a todas as requisicoes.
+                Os testes selecionados não registraram erros. Isso indica que o
+                servidor respondeu corretamente a todas as requisições.
               </p>
             </div>
           )}
 
-          {/* ---- Tabela comparativa + grafico ---- */}
+          {/* ---- Tabela comparativa + gráfico ---- */}
           {comparisonData &&
             !loading &&
             !allZeroErrors &&
             chartData.length > 0 && (
               <div className="space-y-6 animate-fade-in">
-                {/* Tabela de comparacao */}
+                {/* Tabela de comparação */}
                 <div className="bg-sf-surface border border-sf-border rounded-xl overflow-hidden">
                   <h3 className="text-sm font-bold text-sf-textSecondary px-4 pt-4 pb-2">
-                    Comparacao de Erros por Operacao
+                    Comparação de Erros por Operação
                   </h3>
 
                   <div className="overflow-x-auto">
@@ -595,7 +595,7 @@ export function CrossTestAnalysis() {
                             scope="col"
                             className="text-left px-4 py-2.5"
                           >
-                            Operacao
+                            Operação
                           </th>
                           {comparisonData.map((test) => (
                             <th
@@ -684,8 +684,8 @@ export function CrossTestAnalysis() {
                                           </span>
                                           <span className="sr-only">
                                             {trend.label === "novo"
-                                              ? "Erro novo em relacao ao teste anterior"
-                                              : `Aumento de ${trend.delta}% em relacao ao teste anterior`}
+                                              ? "Erro novo em relação ao teste anterior"
+                                              : `Aumento de ${trend.delta}% em relação ao teste anterior`}
                                           </span>
                                         </>
                                       )}
@@ -702,8 +702,8 @@ export function CrossTestAnalysis() {
                                             {trend.label}
                                           </span>
                                           <span className="sr-only">
-                                            Reducao de {trend.delta}% em
-                                            relacao ao teste anterior
+                                            Redução de {trend.delta}% em
+                                            relação ao teste anterior
                                           </span>
                                         </>
                                       )}
@@ -718,13 +718,13 @@ export function CrossTestAnalysis() {
                   </div>
                 </div>
 
-                {/* Grafico de barras agrupadas */}
+                {/* Gráfico de barras agrupadas */}
                 <div
                   className="bg-sf-surface border border-sf-border rounded-xl p-4"
-                  aria-label={`Grafico de barras comparando erros por operacao entre ${comparisonData.length} testes`}
+                  aria-label={`Gráfico de barras comparando erros por operação entre ${comparisonData.length} testes`}
                 >
                   <h3 className="text-sm font-bold text-sf-textSecondary mb-4">
-                    Erros por Operacao
+                    Erros por Operação
                   </h3>
 
                   <ResponsiveContainer width="100%" height={280}>

@@ -37,7 +37,7 @@ function statusCodeLabel(code: number): string {
   if (code === 429) return "429 Rate Limited";
   if (code === 500) return "500 Erro Interno";
   if (code === 502) return "502 Bad Gateway";
-  if (code === 503) return "503 Indisponivel";
+  if (code === 503) return "503 Indisponível";
   return String(code);
 }
 

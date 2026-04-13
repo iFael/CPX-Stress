@@ -44,7 +44,7 @@ interface ErrorBoundaryState {
   error: Error | null;
   /** Informações adicionais do React sobre onde o erro ocorreu */
   errorInfo: ErrorInfo | null;
-  /** Controla se a secao de detalhes técnicos esta visível */
+  /** Controla se a seção de detalhes técnicos está visível */
   showDetails: boolean;
 }
 
@@ -166,12 +166,12 @@ export class ErrorBoundary extends Component<
             <p className="text-sm text-center leading-relaxed mb-6 text-sf-textSecondary">
               Ocorreu um erro inesperado na aplicação.
               <br />
-              Não se preocupe — seus dados de testes anteriores estao salvos.
+              Não se preocupe — seus dados de testes anteriores estão salvos.
               <br />
               Tente recarregar a página ou voltar ao estado inicial.
             </p>
 
-            {/* Botões de acao */}
+            {/* Botões de ação */}
             <div className="flex gap-3 mb-6">
               {/* Botão: Tentar Novamente (reseta o boundary) */}
               <button
@@ -201,7 +201,7 @@ export class ErrorBoundary extends Component<
               </button>
             </div>
 
-            {/* Secao expansivel: detalhes técnicos para desenvolvedores */}
+            {/* Seção expansivel: detalhes técnicos para desenvolvedores */}
             <div className="rounded-xl border bg-sf-bg border-sf-border">
               <button
                 type="button"

@@ -3,14 +3,14 @@
  * ========================================
  *
  * Exibe um overlay modal com grid de cards de presets.
- * O usuario pode carregar presets (built-in ou user-created),
- * renomear e deletar presets do usuario.
+ * O usuário pode carregar presets (built-in ou user-created),
+ * renomear e deletar presets do usuário.
  *
- * O preset built-in "MisterT Completo" nao pode ser editado ou deletado.
+ * O preset built-in "MisterT Completo" não pode ser editado ou deletado.
  * Ao carregar um preset, a URL base e substituida pela do ambiente
  * atualmente selecionado no TestConfig (decisao D5).
  *
- * Segue o mesmo padrao visual e de animacao do WelcomeOverlay.
+ * Segue o mesmo padrão visual e de animação do WelcomeOverlay.
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -46,7 +46,7 @@ interface PresetModalProps {
    CONSTANTES
    ===================================================================== */
 
-/** Limite de caracteres para nome de preset (validacao) */
+/** Limite de caracteres para nome de preset (validação) */
 const MAX_PRESET_NAME_LENGTH = 100;
 
 /* =====================================================================
@@ -138,7 +138,7 @@ export function PresetModal({ isOpen, onClose, currentBaseUrl }: PresetModalProp
     }
   }, [isOpen, loadPresets]);
 
-  /* ---- Fechar com animacao de saida ---- */
+  /* ---- Fechar com animação de saída ---- */
   const handleClose = useCallback(() => {
     setIsClosing(true);
     setTimeout(() => {
@@ -184,7 +184,7 @@ export function PresetModal({ isOpen, onClose, currentBaseUrl }: PresetModalProp
     setRenameId(preset.id);
     setRenameValue(preset.name);
     setRenameError("");
-    // Focar no input apos render
+    // Focar no input após render
     setTimeout(() => renameInputRef.current?.focus(), 50);
   }, []);
 
@@ -234,7 +234,7 @@ export function PresetModal({ isOpen, onClose, currentBaseUrl }: PresetModalProp
     setRenameError("");
   }, []);
 
-  /* ---- Confirmar exclusao ---- */
+  /* ---- Confirmar exclusão ---- */
   const handleConfirmDelete = useCallback(
     async (preset: TestPreset) => {
       setIsDeleting(true);
@@ -258,16 +258,16 @@ export function PresetModal({ isOpen, onClose, currentBaseUrl }: PresetModalProp
     [presets, activePreset, storeSetPresets, clearActivePreset, toast],
   );
 
-  /* ---- Nao renderizar se fechado ---- */
+  /* ---- Não renderizar se fechado ---- */
   if (!isOpen) return null;
 
-  /* ---- Separar presets built-in e usuario ---- */
+  /* ---- Separar presets built-in e usuário ---- */
   const builtinPresets = presets.filter((p) => p.isBuiltin);
   const userPresets = presets.filter((p) => !p.isBuiltin);
   const hasOnlyBuiltin = userPresets.length === 0;
 
   /* =================================================================
-     RENDERIZACAO
+     RENDERIZAÇÃO
      ================================================================= */
   return (
     <div
@@ -297,7 +297,7 @@ export function PresetModal({ isOpen, onClose, currentBaseUrl }: PresetModalProp
           aria-hidden="true"
         />
 
-        {/* Botao de fechar (X) */}
+        {/* Botão de fechar (X) */}
         <button
           type="button"
           onClick={handleClose}
@@ -307,7 +307,7 @@ export function PresetModal({ isOpen, onClose, currentBaseUrl }: PresetModalProp
           <X className="w-5 h-5" />
         </button>
 
-        {/* ---- Cabecalho ---- */}
+        {/* ---- Cabeçalho ---- */}
         <div className="px-8 pt-8 pb-0">
           <div className="flex items-start gap-3 pr-8">
             <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-sf-primary/10 shrink-0">
@@ -457,7 +457,7 @@ function PresetCard({
         </span>
       )}
 
-      {/* Conteudo do card */}
+      {/* Conteúdo do card */}
       {isRenaming ? (
         /* ---- Modo de renomeacao inline ---- */
         <div className="mt-1">
@@ -501,7 +501,7 @@ function PresetCard({
           </div>
         </div>
       ) : isDeleteConfirming ? (
-        /* ---- Confirmacao de exclusao inline ---- */
+        /* ---- Confirmação de exclusão inline ---- */
         <>
           <div className="text-sm font-semibold text-sf-text mt-1 mb-2">
             {preset.name}
@@ -548,7 +548,7 @@ function PresetCard({
             {opsCount} operações | {vus} VUs | {duration}s
           </div>
 
-          {/* Acoes */}
+          {/* Ações */}
           <div className="mt-3 flex items-center gap-2">
             <button
               type="button"
@@ -564,7 +564,7 @@ function PresetCard({
               Carregar Preset
             </button>
 
-            {/* Botoes de edicao (apenas para user presets) */}
+            {/* Botões de edicao (apenas para user presets) */}
             {!preset.isBuiltin && (
               <>
                 <button

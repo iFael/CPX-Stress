@@ -1,14 +1,14 @@
 /**
  * HistoryPanel.tsx
  *
- * Painel de histórico de testes -- exibe todos os testes ja realizados,
+ * Painel de histórico de testes -- exibe todos os testes já realizados,
  * permitindo buscar, filtrar, ordenar e revisitar resultados anteriores.
  *
  * Funcionalidades:
  *  - Busca por URL ou método HTTP
  *  - Filtro por status (concluido, cancelado, erro)
  *  - Ordenacao por data, RPS, taxa de erros ou nota de saude
- *  - Agrupamento visual por período (hoje, ontem, esta semana, anteriores)
+ *  - Agrupamento visual por período (hoje, ontem, está semana, anteriores)
  *  - Exclusão individual com confirmação e limpeza total do histórico
  *  - Acessibilidade completa via teclado e leitores de tela
  */
@@ -125,7 +125,7 @@ interface DateGroup {
 }
 
 /**
- * Agrupa os testes por período (Hoje, Ontem, Esta semana, Anteriores)
+ * Agrupa os testes por período (Hoje, Ontem, Está semana, Anteriores)
  * para facilitar a navegação visual na lista.
  */
 function groupByDate(results: TestResult[]): DateGroup[] {
@@ -155,7 +155,7 @@ function groupByDate(results: TestResult[]): DateGroup[] {
   if (groups.yesterday.length > 0)
     output.push({ label: "Ontem", items: groups.yesterday });
   if (groups.thisWeek.length > 0)
-    output.push({ label: "Esta semana", items: groups.thisWeek });
+    output.push({ label: "Está semana", items: groups.thisWeek });
   if (groups.older.length > 0)
     output.push({ label: "Anteriores", items: groups.older });
   return output;
@@ -292,7 +292,7 @@ export function HistoryPanel() {
   const hasActiveFilters = statusFilter !== "all" || search.length > 0;
 
   /* -----------------------------------------------------------------------
-     Handlers -- acoes do usuário
+     Handlers -- ações do usuário
      ----------------------------------------------------------------------- */
 
   /** Abre os detalhes de um teste específico */
@@ -664,7 +664,7 @@ export function HistoryPanel() {
 
 /* =========================================================================
    Subcomponente -- Item individual do histórico
-   Exibe resumo do teste com acoes de visualizar e excluir.
+   Exibe resumo do teste com ações de visualizar e excluir.
    ========================================================================= */
 
 interface HistoryItemProps {
@@ -788,7 +788,7 @@ const HistoryItem = memo(function HistoryItem({
           </div>
         </div>
 
-        {/* ---- Botões de acao (ver detalhes / excluir) ---- */}
+        {/* ---- Botões de ação (ver detalhes / excluir) ---- */}
         <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
           {/* Botão: ver detalhes do teste */}
           <button
