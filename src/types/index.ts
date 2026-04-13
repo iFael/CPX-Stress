@@ -58,6 +58,13 @@ export interface TestOperation {
   /** Nome descritivo da operação (ex: "Login", "Consulta Estoque"). */
   name: string;
 
+  /**
+   * Grupo lógico de módulo ao qual a operação pertence.
+   * Quando múltiplas operações compõem um único módulo funcional,
+   * elas compartilham o mesmo moduleGroup para execução encadeada.
+   */
+  moduleGroup?: string;
+
   /** URL completa do endpoint (ex: "https://dev-mistert.compex.com.br/login.asp"). */
   url: string;
 

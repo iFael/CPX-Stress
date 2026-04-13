@@ -5,19 +5,63 @@ export const MISTERT_DEFAULT_BASE_URL =
   "https://dev-mistert.compex.com.br";
 
 /**
- * Metadados dos 7 módulos de negócio selecionáveis do MisterT ERP.
+ * Metadados dos módulos de negócio selecionáveis do MisterT ERP.
  *
  * Usado pelo seletor de módulos na UI para mapear checkboxes para operações.
  * Os nomes DEVEM ser idênticos ao template principal de operações.
  */
 export const MISTERT_MODULE_METADATA = [
-  { name: "CPX-Fretes", code: "R=89" },
-  { name: "CPX-Rastreio", code: "R=90" },
-  { name: "Estoque", code: "R=122" },
-  { name: "Ordens E/S", code: "R=232" },
-  { name: "Produção", code: "R=169" },
-  { name: "Envio de GNREs", code: "R=18" },
-  { name: "Financeiro", code: "R=250" },
+  {
+    name: "CPX-Fretes",
+    code: "R=89",
+    accessMode: "url-driven",
+    operationNames: ["CPX-Fretes"],
+  },
+  {
+    name: "CPX-Rastreio",
+    code: "R=90",
+    accessMode: "url-driven",
+    operationNames: ["CPX-Rastreio"],
+  },
+  {
+    name: "Estoque",
+    code: "R=122",
+    accessMode: "url-driven",
+    operationNames: ["Estoque"],
+  },
+  {
+    name: "Ordens E/S",
+    code: "R=232",
+    accessMode: "url-driven",
+    operationNames: ["Ordens E/S"],
+  },
+  {
+    name: "Produção",
+    code: "R=169",
+    accessMode: "url-driven",
+    operationNames: ["Produção"],
+  },
+  {
+    name: "Envio de GNREs",
+    code: "R=18",
+    accessMode: "url-driven",
+    operationNames: ["Envio de GNREs"],
+  },
+  {
+    name: "Financeiro",
+    code: "R=250",
+    accessMode: "url-driven",
+    operationNames: ["Financeiro"],
+  },
+  {
+    name: "Sessões Especiais",
+    code: "R=864 -> POST R=2",
+    accessMode: "action-driven",
+    operationNames: [
+      "Sessões Especiais",
+      "Sessões Especiais - Inserir Novo Registro",
+    ],
+  },
 ] as const;
 
 /**
@@ -89,6 +133,7 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   },
   {
     name: "CPX-Fretes",
+    moduleGroup: "CPX-Fretes",
     url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=89",
     method: "GET",
     captureSession: true,
@@ -105,6 +150,7 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   },
   {
     name: "CPX-Rastreio",
+    moduleGroup: "CPX-Rastreio",
     url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=90",
     method: "GET",
     captureSession: true,
@@ -121,6 +167,7 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   },
   {
     name: "Estoque",
+    moduleGroup: "Estoque",
     url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=122",
     method: "GET",
     captureSession: true,
@@ -137,6 +184,7 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   },
   {
     name: "Ordens E/S",
+    moduleGroup: "Ordens E/S",
     url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=232",
     method: "GET",
     captureSession: true,
@@ -153,6 +201,7 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   },
   {
     name: "Produção",
+    moduleGroup: "Produção",
     url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=169",
     method: "GET",
     captureSession: true,
@@ -169,6 +218,7 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   },
   {
     name: "Envio de GNREs",
+    moduleGroup: "Envio de GNREs",
     url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=18",
     method: "GET",
     captureSession: true,
@@ -185,6 +235,7 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   },
   {
     name: "Financeiro",
+    moduleGroup: "Financeiro",
     url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=250",
     method: "GET",
     captureSession: true,
@@ -195,6 +246,56 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
     },
     validation: {
       expectedAnyText: ["Financeiro"],
+      rejectLoginLikeContent: true,
+      rejectOnAnyText: ["Este erro nunca deve ocorrer"],
+    },
+  },
+  {
+    name: "Sessões Especiais",
+    moduleGroup: "Sessões Especiais",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=864",
+    method: "GET",
+    captureSession: true,
+    extract: {
+      CTRL: "action=[\"'][^\"']*CTRL=(\\d+)&R=2",
+    },
+    navigation: {
+      accessMode: "url-driven",
+      notes:
+        "Página de índice/lista acessível por GET. Ela emite um novo CTRL interno para as ações do formulário.",
+    },
+    validation: {
+      expectedAnyText: ["Pesquisar", "Insere Novo Registro"],
+      rejectLoginLikeContent: true,
+      rejectOnAnyText: ["Este erro nunca deve ocorrer"],
+    },
+  },
+  {
+    name: "Sessões Especiais - Inserir Novo Registro",
+    moduleGroup: "Sessões Especiais",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=2",
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "IN5=Insere+Novo+Registro",
+    captureSession: true,
+    extract: { CTRL: "CTRL=(\\d+)" },
+    navigation: {
+      accessMode: "action-driven",
+      sourceAction: {
+        kind: "form-submit",
+        method: "POST",
+        submitControlName: "IN5",
+        submitControlValue: "Insere Novo Registro",
+        fields: {
+          IN5: "Insere Novo Registro",
+        },
+        description: "Submete o botão de ação que abre a tela de edição.",
+      },
+      notes:
+        "A URL final não é portátil; precisa do POST do formulário da tela de Sessões Especiais.",
+    },
+    validation: {
+      expectedAnyText: ["Sessões Especiais", "Descrição", "Usuário"],
       rejectLoginLikeContent: true,
       rejectOnAnyText: ["Este erro nunca deve ocorrer"],
     },
@@ -249,6 +350,7 @@ export const MISTERT_SPECIAL_SESSIONS_TEMPLATE: readonly TestOperation[] = [
   },
   {
     name: "Sessões Especiais",
+    moduleGroup: "Sessões Especiais",
     url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=864",
     method: "GET",
     captureSession: true,
@@ -268,6 +370,7 @@ export const MISTERT_SPECIAL_SESSIONS_TEMPLATE: readonly TestOperation[] = [
   },
   {
     name: "Sessões Especiais - Inserir Novo Registro",
+    moduleGroup: "Sessões Especiais",
     url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=2",
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },

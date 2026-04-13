@@ -3,6 +3,7 @@ import type { TestOperation } from "@/types";
 export function cloneMistertOperation(operation: TestOperation): TestOperation {
   return {
     ...operation,
+    moduleGroup: operation.moduleGroup,
     headers: operation.headers ? { ...operation.headers } : undefined,
     extract: operation.extract ? { ...operation.extract } : undefined,
     validation: operation.validation
