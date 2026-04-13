@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * StressFlow — Teste de Carga Extrema (Fase 2)
+ * CPX-Stress — Teste de Carga Extrema (Fase 2)
  * ============================================================================
  *
  * Testa o engine com carga progressiva: 500, 1000, 3000, 5000 VUs
@@ -339,7 +339,7 @@ async function runScenario(scenario: StressScenario) {
 
 async function main() {
   console.log("\n" + "█".repeat(80));
-  console.log("  StressFlow — Teste de Carga Extrema (Fase 2)");
+  console.log("  CPX-Stress — Teste de Carga Extrema (Fase 2)");
   console.log("  Carga progressiva: 500 → 1000 → 3000 → 5000 VUs");
   console.log("█".repeat(80));
 

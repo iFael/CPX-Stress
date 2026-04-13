@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * StressFlow — Harness de Teste Programático do Engine
+ * CPX-Stress — Harness de Teste Programático do Engine
  * ============================================================================
  *
  * Invoca o StressEngine diretamente contra o mock server local e valida
@@ -925,7 +925,7 @@ async function runScenario(
 
 async function main() {
   console.log("\n" + "█".repeat(80));
-  console.log("  StressFlow — Engine Test Harness");
+  console.log("  CPX-Stress — Engine Test Harness");
   console.log("  Auditoria Programática de Precisão de Métricas");
   console.log("█".repeat(80));
 

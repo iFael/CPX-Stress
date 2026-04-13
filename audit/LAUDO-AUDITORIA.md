@@ -1,7 +1,7 @@
-# StressFlow — Laudo de Auditoria de Precisão de Métricas
+# CPX-Stress — Laudo de Auditoria de Precisão de Métricas
 
 **Data:** 2025-03-10  
-**Versão auditada:** StressFlow 1.0.0  
+**Versão auditada:** CPX-Stress 1.0.0  
 **Método:** Teste programático direto do engine + análise estática de código  
 **Ambiente:** Windows, Node.js, mock server local (latência controlada)  
 **Total de checks:** 235 (188 Fase 1 + 47 Fase 2)
@@ -10,7 +10,7 @@
 
 ## 🏁 VEREDICTO GERAL: ❌ REPROVADO (com ressalvas)
 
-O StressFlow apresenta **métricas matematicamente corretas** nos cálculos individuais, porém contém:
+O CPX-Stress apresenta **métricas matematicamente corretas** nos cálculos individuais, porém contém:
 
 - **1 bug funcional** na timeline (perda de dados do último segundo)
 - **1 vulnerabilidade de segurança crítica** (proteção SSRF é código morto)
@@ -185,7 +185,7 @@ if (secRequests > 0 || secErrors > 0) {
 - Acima de 1000 VUs, a variabilidade entre execuções é muito alta (CV de 64%)
 - A 3000 VUs, o RPS é extremamente errático (CV de 83%) — o motor sofre com contention de event loop
 - A 5000 VUs estabiliza novamente (provavelmente porque os VUs ficam bloqueados esperando)
-- **Isso não é um bug do StressFlow** — é o limite real do Node.js single-threaded sob carga extrema contra localhost
+- **Isso não é um bug do CPX-Stress** — é o limite real do Node.js single-threaded sob carga extrema contra localhost
 
 ---
 

@@ -1,5 +1,5 @@
 /**
- * Mock Server para testes controlados do StressFlow.
+ * Mock Server para testes controlados do CPX-Stress.
  *
  * Endpoints:
  *   GET /ok            → 200, payload fixo de 1KB, latência ~0ms

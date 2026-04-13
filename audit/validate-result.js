@@ -1,9 +1,9 @@
 /**
  * ============================================================================
- * StressFlow — Script de Validação Automatizada de Resultados
+ * CPX-Stress — Script de Validação Automatizada de Resultados
  * ============================================================================
  *
- * Valida um arquivo JSON exportado pelo StressFlow contra todos os invariantes
+ * Valida um arquivo JSON exportado pelo CPX-Stress contra todos os invariantes
  * definidos no plano de auditoria de precisão.
  *
  * Uso:
@@ -98,7 +98,7 @@ function check(id, description, passed, detail = "") {
 
 function validate(result) {
   console.log("\n" + "=".repeat(80));
-  console.log(" VALIDAÇÃO DE RESULTADO — StressFlow Audit");
+  console.log(" VALIDAÇÃO DE RESULTADO — CPX-Stress Audit");
   console.log("=".repeat(80));
   console.log(`  URL: ${result.url}`);
   console.log(
