@@ -14,7 +14,7 @@ import compexLogo from "@/assets/compex-logo.gif";
    WelcomeOverlay — Tela de boas-vindas para novos usuários
 
    Exibe um overlay/modal elegante na primeira vez que o usuário abre o
-   CPX — MisterT Stress. Apresenta o proposito da ferramenta e dicas rapidas de uso.
+   CPX-Stress. Apresenta o proposito da ferramenta e dicas rapidas de uso.
 
    Comportamento:
    - Verifica a flag "hasSeenWelcome" no localStorage.
@@ -186,7 +186,7 @@ export function WelcomeOverlay() {
             >
               Bem-vindo ao{" "}
               <span className="bg-gradient-to-r from-sf-primary to-sf-accent bg-clip-text text-transparent">
-                CPX — MisterT Stress
+                CPX-Stress
               </span>
             </h2>
 

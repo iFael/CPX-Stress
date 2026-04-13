@@ -1,5 +1,5 @@
 /**
- * Toast.tsx - Sistema de notificações (toast) do StressFlow
+ * Toast.tsx - Sistema de notificações (toast) do CPX-Stress
  *
  * Implementacao leve e sem dependencias externas para exibir
  * notificações temporarias ao usuário (sucesso, erro, aviso, info).
@@ -288,7 +288,7 @@ export function useToast(): ToastContextValue {
   const context = useContext(ToastContext);
   if (!context) {
     throw new Error(
-      "[StressFlow] useToast() deve ser usado dentro de <ToastProvider>. " +
+      "[CPX-Stress] useToast() deve ser usado dentro de <ToastProvider>. " +
         "Verifique se o componente esta envolvido pelo provider.",
     );
   }
