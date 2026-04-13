@@ -1,9 +1,9 @@
 import type { TestOperation } from "@/types";
-import { MISTERT_MODULE_METADATA } from "@/constants/test-presets";
-
-const MISTERT_MODULE_NAMES = new Set<string>(
-  MISTERT_MODULE_METADATA.map((module) => module.name),
-);
+import {
+  getMistertModuleByOperationName,
+  isMistertModuleOperationName,
+  MISTERT_MODULE_METADATA,
+} from "@/constants/test-presets";
 
 function getOperationNavigationLabel(operation: TestOperation): string {
   return operation.navigation?.accessMode === "action-driven"
@@ -61,10 +61,10 @@ export function MistertOperationsPanel({
   ).length;
   const urlDrivenCount = operations.length - actionDrivenCount;
   const fixedOperations = operations.filter(
-    (operation) => !MISTERT_MODULE_NAMES.has(operation.name),
+    (operation) => !isMistertModuleOperationName(operation.name),
   );
   const selectedModuleOperations = operations.filter((operation) =>
-    MISTERT_MODULE_NAMES.has(operation.name)
+    isMistertModuleOperationName(operation.name)
   );
 
   return (
@@ -151,7 +151,8 @@ export function MistertOperationsPanel({
 
               <div className="space-y-2">
                 {section.items.map((operation) => {
-                  const isModule = MISTERT_MODULE_NAMES.has(operation.name);
+                  const module = getMistertModuleByOperationName(operation.name);
+                  const isModule = !!module;
                   const isFixed = !isModule;
                   const isActionDriven =
                     operation.navigation?.accessMode === "action-driven";
@@ -166,6 +167,11 @@ export function MistertOperationsPanel({
                   const position = operations.findIndex(
                     (candidate) => candidate.name === operation.name,
                   );
+                  const showModuleToggle =
+                    isMistertPreset &&
+                    !!module &&
+                    module.operationNames[0] === operation.name;
+                  const isModuleContinuation = !!module && !showModuleToggle;
 
                   return (
                     <div
@@ -173,18 +179,18 @@ export function MistertOperationsPanel({
                       className="px-3 py-3 bg-sf-bg border border-sf-border rounded-lg"
                     >
                       <div className="flex items-start gap-3">
-                        {isMistertPreset && isModule ? (
+                        {showModuleToggle ? (
                           <label className="relative flex items-center justify-center shrink-0 cursor-pointer mt-0.5">
                             <input
                               type="checkbox"
-                              checked={selectedModuleNames.has(operation.name)}
+                              checked={selectedModuleNames.has(module.name)}
                               onChange={(e) =>
-                                onToggleModule(operation.name, e.target.checked)}
+                                onToggleModule(module.name, e.target.checked)}
                               className="peer sr-only"
-                              aria-label={`Incluir ${operation.name}`}
+                              aria-label={`Incluir ${module.name}`}
                             />
                             <div className="w-[18px] h-[18px] rounded-md border border-sf-border bg-sf-surface peer-checked:bg-sf-primary peer-checked:border-sf-primary peer-focus-visible:ring-2 peer-focus-visible:ring-sf-primary/50 peer-focus-visible:ring-offset-1 peer-focus-visible:ring-offset-sf-bg transition-all duration-200">
-                              {selectedModuleNames.has(operation.name) && (
+                              {selectedModuleNames.has(module.name) && (
                                 <svg
                                   className="w-full h-full text-white p-0.5"
                                   viewBox="0 0 12 12"
@@ -202,6 +208,10 @@ export function MistertOperationsPanel({
                               )}
                             </div>
                           </label>
+                        ) : isModuleContinuation ? (
+                          <span className="text-xs text-sf-textMuted w-5 text-right shrink-0 pt-1">
+                            &gt;
+                          </span>
                         ) : (
                           <span className="text-xs text-sf-textMuted w-5 text-right shrink-0 pt-1">
                             {position + 1}.
@@ -295,8 +305,16 @@ export function MistertOperationsPanel({
             <span className="text-sf-textMuted font-medium truncate line-through">
               {module.name}
             </span>
-            <span className="text-[10px] text-sf-primary/80 bg-sf-primary/5 px-1.5 py-0.5 rounded">
-              URL direta
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded ${
+                module.accessMode === "action-driven"
+                  ? "text-sf-warning bg-sf-warning/10"
+                  : "text-sf-primary/80 bg-sf-primary/5"
+              }`}
+            >
+              {module.accessMode === "action-driven"
+                ? "acao anterior"
+                : "URL direta"}
             </span>
             <span className="ml-auto text-[10px] text-sf-textMuted">
               removido

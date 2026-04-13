@@ -21,6 +21,8 @@ import { PresetModal } from "@/components/PresetModal";
 import { SavePresetDialog } from "@/components/SavePresetDialog";
 import type { MistertValidationResult, ProgressData } from "@/types";
 import {
+  getMistertModuleByName,
+  isMistertModuleOperationName,
   MISTERT_DEFAULT_BASE_URL,
   buildMistertOperations,
   MISTERT_MODULE_METADATA,
@@ -44,9 +46,6 @@ const MISTERT_ENVIRONMENTS = [
   { label: "Produção", url: "https://mistert.compex.com.br", disabled: true },
 ] as const;
 
-/** Set de nomes de módulos MisterT para lookup O(1) na detecção e filtragem. */
-const MISTERT_MODULE_NAMES = new Set<string>(MISTERT_MODULE_METADATA.map((m) => m.name));
-
 /* =====================================================================
    ESTILOS REUTILIZAVEIS
    Classes Tailwind agrupadas para manter consistencia e evitar repeticao.
@@ -63,7 +62,7 @@ const helpTextClass = "text-xs text-sf-textMuted mt-1";
 /* =====================================================================
    COMPONENTE PRINCIPAL — Configuração do Teste MisterT ERP
    O usuário escolhe o ambiente, ajusta usuários/duração e inicia.
-   O fluxo de 10 operações (login + módulos) ja vem configurado.
+   O fluxo MisterT base e os módulos selecionáveis ja vêm configurados.
    ===================================================================== */
 
 export function TestConfig() {
@@ -124,12 +123,14 @@ export function TestConfig() {
 
   // Detecção de preset MisterT e estado de seleção dos módulos
   const isMistertPreset =
-    (config.operations ?? []).some((op) => MISTERT_MODULE_NAMES.has(op.name)) ||
+    (config.operations ?? []).some((op) => isMistertModuleOperationName(op.name)) ||
     config.operations?.[0]?.name === "Página de Login";
   const selectedModuleNames = new Set(
-    (config.operations ?? [])
-      .map((op) => op.name)
-      .filter((n) => MISTERT_MODULE_NAMES.has(n))
+    MISTERT_MODULE_METADATA.filter((module) =>
+      module.operationNames.every((operationName) =>
+        (config.operations ?? []).some((operation) => operation.name === operationName)
+      )
+    ).map((module) => module.name)
   );
   const allModulesSelected = selectedModuleNames.size === MISTERT_MODULE_METADATA.length;
   const noModulesSelected = isMistertPreset && selectedModuleNames.size === 0;
@@ -175,13 +176,20 @@ export function TestConfig() {
           ? [...selectedModuleNames, moduleName]
           : [...selectedModuleNames].filter((n) => n !== moduleName)
       );
-      const moduleOps = allOps.slice(3).filter((op) => newSelectedNames.has(op.name));
+      const selectedOperationNames = new Set<string>(
+        [...newSelectedNames].flatMap((name) =>
+          getMistertModuleByName(name)?.operationNames ?? [],
+        ),
+      );
+      const moduleOps = allOps
+        .slice(3)
+        .filter((op) => selectedOperationNames.has(op.name));
       updateModuleSelection([...infraOps, ...moduleOps]);
     },
     [currentBaseUrl, selectedModuleNames, updateModuleSelection],
   );
 
-  /** Seleciona todos os 7 módulos (restaura o template completo). */
+  /** Seleciona todos os módulos disponíveis (restaura o template completo). */
   const handleSelectAll = useCallback(() => {
     updateModuleSelection(buildMistertOperations(currentBaseUrl));
   }, [currentBaseUrl, updateModuleSelection]);
