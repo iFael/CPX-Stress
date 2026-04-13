@@ -22,7 +22,7 @@ export interface OperationSourceAction {
   /** Campos relevantes do formulário anterior que fazem parte da navegação. */
   fields?: Record<string, string>;
 
-  /** Explicação curta da ação que leva a esta página. */
+  /** Explicação curta da ação que leva a está página. */
   description?: string;
 }
 

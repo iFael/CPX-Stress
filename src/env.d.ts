@@ -18,7 +18,7 @@
  *
  *  IMPORTANTE:
  *  -----------
- *  A tipagem completa de `window.stressflow` esta definida em `src/types/index.ts`
+ *  A tipagem completa de `window.stressflow` está definida em `src/types/index.ts`
  *  usando `declare global`. Este arquivo complementa aquela declaração com os
  *  tipos de ambiente específicos do Vite e dos módulos de assets.
  *
@@ -28,7 +28,7 @@
 // -----------------------------------------------------------------------------
 // Referência aos tipos built-in do Vite
 // -----------------------------------------------------------------------------
-// Esta diretiva carrega as declaracoes de tipo padrão do Vite, que incluem:
+// Está diretiva carrega as declaracoes de tipo padrão do Vite, que incluem:
 // - Tipos para import.meta.env (variáveis de ambiente basicas)
 // - Tipos para import.meta.hot (Hot Module Replacement)
 // - Tipos para módulos de assets comuns (.css, .svg, .png, etc.)
@@ -53,15 +53,15 @@
  * Estende a interface base do Vite para incluir variáveis especificas do projeto.
  */
 interface ImportMetaEnv {
-  /** Indica se a aplicação esta rodando em modo de desenvolvimento */
+  /** Indica se a aplicação está rodando em modo de desenvolvimento */
   readonly DEV: boolean;
-  /** Indica se a aplicação esta rodando em modo de produção */
+  /** Indica se a aplicação está rodando em modo de produção */
   readonly PROD: boolean;
   /** O modo atual do Vite (ex: 'development', 'production') */
   readonly MODE: string;
   /** A URL base configurada no vite.config.ts */
   readonly BASE_URL: string;
-  /** Indica se a aplicação esta sendo servida em modo SSR (Server-Side Rendering) */
+  /** Indica se a aplicação está sendo servida em modo SSR (Server-Side Rendering) */
   readonly SSR: boolean;
 
   // -------------------------------------------------------------------------
@@ -86,7 +86,7 @@ interface ImportMeta {
 // Declaracoes de módulos de assets
 // -----------------------------------------------------------------------------
 // Estas declaracoes permitem importar arquivos de assets diretamente no
-// TypeScript sem erros de compilacao. O Vite ja fornece algumas dessas
+// TypeScript sem erros de compilacao. O Vite já fornece algumas dessas
 // declaracoes via `vite/client`, mas podemos estender para tipos adicionais
 // específicos do projeto.
 // -----------------------------------------------------------------------------

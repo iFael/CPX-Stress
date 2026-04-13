@@ -35,8 +35,8 @@ import type { AppView, TestStatus } from "@/types";
 export default function App() {
   /*
    * Estado global da aplicação (gerenciado pelo Zustand).
-   * - view:       qual página esta sendo exibida (teste, histórico ou resultados)
-   * - status:     em que etapa o teste esta (parado, rodando, concluido, etc.)
+   * - view:       qual página está sendo exibida (teste, histórico ou resultados)
+   * - status:     em que etapa o teste está (parado, rodando, concluido, etc.)
    * - setHistory: função para salvar a lista de testes anteriores no estado
    * - setError:   função para registrar mensagens de erro
    */
@@ -54,8 +54,8 @@ export default function App() {
 
   /**
    * Controle de carregamento inicial.
-   * Enquanto o histórico esta sendo carregado do disco, exibimos
-   * um indicador sutil para que o usuário saiba que o app esta pronto.
+   * Enquanto o histórico está sendo carregado do disco, exibimos
+   * um indicador sutil para que o usuário saiba que o app está pronto.
    */
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
@@ -94,7 +94,7 @@ export default function App() {
       const status = await window.stressflow.credentials.status();
       setCredentialStatus(status);
     } catch (err) {
-      console.warn("[CPX-Stress] Nao foi possivel verificar credenciais:", err);
+      console.warn("[CPX-Stress] Não foi possível verificar credenciais:", err);
     }
   }, [setCredentialStatus]);
 
@@ -170,7 +170,7 @@ const MainContent = memo(function MainContent({
     );
   }
 
-  /* ---- Pagina: Configuracoes de credenciais e ambiente ---- */
+  /* ---- Página: Configurações de credenciais e ambiente ---- */
   if (view === "settings") {
     return <CredentialsSettings />;
   }
@@ -185,7 +185,7 @@ const MainContent = memo(function MainContent({
     return <TestResults />;
   }
 
-  /* ---- Pagina: Analise comparativa de erros entre testes ---- */
+  /* ---- Página: Análise comparativa de erros entre testes ---- */
   if (view === "analysis") {
     return <CrossTestAnalysis />;
   }
@@ -193,7 +193,7 @@ const MainContent = memo(function MainContent({
   /* ---- Página: Fluxo principal do teste (configurar -> executar -> resultado) ---- */
 
   /*
-   * Quando o teste esta parado ("idle") ou deu erro,
+   * Quando o teste está parado ("idle") ou deu erro,
    * mostramos o formulario de configuração para o usuário
    * poder (re)configurar e iniciar um novo teste.
    */
@@ -202,7 +202,7 @@ const MainContent = memo(function MainContent({
   }
 
   /*
-   * Quando o teste esta em execução, mostramos a tela de progresso
+   * Quando o teste está em execução, mostramos a tela de progresso
    * com métricas atualizadas em tempo real (RPS, latência, erros, etc.).
    */
   if (status === "running") {

@@ -154,7 +154,7 @@ export interface OperationMetrics {
   /** Nome da operação. */
   name: string;
 
-  /** Total de requisições enviadas para esta operação. */
+  /** Total de requisições enviadas para está operação. */
   totalRequests: number;
 
   /** Total de erros nesta operação. */
@@ -180,7 +180,7 @@ export interface OperationMetrics {
   /** Contagem de status codes desta operação. */
   statusCodes: Record<string, number>;
 
-  /** Métricas de consistencia de sessão (quando captureSession esta ativo). */
+  /** Métricas de consistencia de sessão (quando captureSession está ativo). */
   sessionMetrics?: {
     /** Requisições bem-sucedidas em fluxo autenticado. */
     authenticatedRequests: number;
@@ -331,7 +331,7 @@ export interface SecondMetrics {
    * - 403: Acesso negado
    * - 429: Muitas requisições (rate limit)
    * - 500: Erro interno do servidor
-   * - 503: Servidor indisponivel
+   * - 503: Servidor indisponível
    */
   statusCodes: Record<string, number>;
 
@@ -360,7 +360,7 @@ export interface ProgressData {
 
   /**
    * Métricas acumuladas desde o início do teste.
-   * Diferente das métricas por segundo, estas somam tudo ate o momento.
+   * Diferente das métricas por segundo, estas somam tudo até o momento.
    */
   cumulative: {
     /** Total de requisições feitas desde o início do teste. */
@@ -629,7 +629,7 @@ export interface ProtectionIndicator {
  * Uma detecção completa de proteção.
  *
  * Agrega todas as pistas (indicadores) que levaram a conclusão de que
- * determinada proteção esta ativa no servidor.
+ * determinada proteção está ativa no servidor.
  */
 export interface ProtectionDetection {
   /** Tipo de proteção identificada (WAF, CDN, rate limiter, etc.). */
@@ -640,14 +640,14 @@ export interface ProtectionDetection {
 
   /**
    * Nivel de confianca numerico da detecção (0 a 100).
-   * Quanto maior, mais certeza temos de que a proteção esta presente.
+   * Quanto maior, mais certeza temos de que a proteção está presente.
    */
   confidence: number;
 
   /** Nivel de confianca categorizado (alto, medio ou baixo). */
   confidenceLevel: ConfidenceLevel;
 
-  /** Lista de indicadores (pistas) que sustentam esta detecção. */
+  /** Lista de indicadores (pistas) que sustentam está detecção. */
   indicators: ProtectionIndicator[];
 
   /** Descrição resumida da proteção detectada em linguagem acessível. */
@@ -739,7 +739,7 @@ export type OverallRiskLevel = "none" | "low" | "medium" | "high" | "critical";
  *
  * E o documento final que resume todas as protecoes encontradas,
  * padrões de comportamento e o nivel de risco geral. Aparece como
- * uma secao especial nos resultados do teste.
+ * uma seção especial nos resultados do teste.
  */
 export interface ProtectionReport {
   /** Lista de todas as protecoes detectadas durante o teste. */
@@ -772,50 +772,50 @@ export interface ProtectionReport {
 
 /**
  * Status das credenciais obrigatorias do MisterT.
- * Cada chave indica se a credencial esta configurada (true) ou ausente (false).
- * Os valores reais NUNCA sao expostos ao renderer — apenas booleanos.
+ * Cada chave indica se a credencial está configurada (true) ou ausente (false).
+ * Os valores reais NUNCA são expostos ao renderer — apenas booleanos.
  */
 export interface CredentialStatus {
-  /** Credencial de usuario do MisterT esta configurada. */
+  /** Credencial de usuário do MisterT está configurada. */
   STRESSFLOW_USER: boolean;
-  /** Credencial de senha do MisterT esta configurada. */
+  /** Credencial de senha do MisterT está configurada. */
   STRESSFLOW_PASS: boolean;
 }
 
 // ============================================================================
 // 7. PRESET SYSTEM
 // ----------------------------------------------------------------------------
-// Presets sao configuracoes de teste salvas para reutilizacao.
-// O preset built-in "MisterT Completo" vem pre-configurado com as 10 operacoes
-// padrao do ERP. Usuarios podem salvar, carregar, renomear e deletar presets.
+// Presets são configurações de teste salvas para reutilizacao.
+// O preset built-in "MisterT Completo" vem pre-configurado com as 10 operações
+// padrão do ERP. Usuários podem salvar, carregar, renomear e deletar presets.
 // ============================================================================
 
-/** Informacoes resumidas do preset ativo (carregado no formulario). */
+/** Informações resumidas do preset ativo (carregado no formulario). */
 export interface ActivePresetInfo {
-  /** Identificador unico do preset. */
+  /** Identificador único do preset. */
   id: string;
-  /** Nome exibido ao usuario. */
+  /** Nome exibido ao usuário. */
   name: string;
-  /** Se este preset e built-in (nao editavel/deletavel). */
+  /** Se este preset e built-in (não editavel/deletavel). */
   isBuiltin: boolean;
 }
 
 /**
  * Preset de teste salvo no banco de dados.
- * Contém a configuracao completa (TestConfig) serializada.
+ * Contém a configuração completa (TestConfig) serializada.
  */
 export interface TestPreset {
-  /** Identificador unico do preset (UUID). */
+  /** Identificador único do preset (UUID). */
   id: string;
-  /** Nome exibido ao usuario. */
+  /** Nome exibido ao usuário. */
   name: string;
-  /** Configuracao de teste completa (deserializada do config_json do banco). */
+  /** Configuração de teste completa (deserializada do config_json do banco). */
   config: TestConfig;
-  /** Se este preset e built-in (nao editavel/deletavel pelo usuario). */
+  /** Se este preset e built-in (não editavel/deletavel pelo usuário). */
   isBuiltin: boolean;
   /** Data de criacao (ISO 8601). */
   createdAt: string;
-  /** Data da ultima atualizacao (ISO 8601). */
+  /** Data da ultima atualização (ISO 8601). */
   updatedAt: string;
 }
 
@@ -827,7 +827,7 @@ export interface TestPreset {
  * - 'results': Visualização detalhada dos resultados de um teste
  * - 'settings': Configurações de credenciais e ambiente
  * - 'presets': Gerenciamento de presets de teste
- * - 'analysis': Analise comparativa de erros entre testes
+ * - 'analysis': Análise comparativa de erros entre testes
  */
 export type AppView = "test" | "history" | "results" | "settings" | "presets" | "analysis";
 
@@ -935,7 +935,7 @@ declare global {
        * Módulo utilitario da aplicação.
        */
       app: {
-        /** Retorna o caminho do diretorio de dados da aplicação no sistema. */
+        /** Retorna o caminho do diretório de dados da aplicação no sistema. */
         getPath: () => Promise<string>;
       };
 
@@ -963,37 +963,37 @@ declare global {
         /** Retorna contagem de erros agrupados por tipo para um teste. */
         byErrorType: (testId: string) => Promise<Record<string, number>>;
 
-        /** Retorna contagem de erros agrupados por nome de operacao para um teste. */
+        /** Retorna contagem de erros agrupados por nome de operação para um teste. */
         byOperationName: (testId: string) => Promise<Record<string, number>>;
       };
 
       /**
        * Módulo de gerenciamento de credenciais MisterT.
        * Permite verificar status, listar chaves e salvar credenciais.
-       * SEGURANCA: Nenhuma funcao retorna valores de credenciais — apenas booleanos ou nomes de chaves.
+       * SEGURANCA: Nenhuma função retorna valores de credenciais — apenas booleanos ou nomes de chaves.
        */
       credentials: {
-        /** Verifica quais credenciais obrigatorias estao configuradas. Retorna booleanos, nunca valores. */
+        /** Verifica quais credenciais obrigatorias estão configuradas. Retorna booleanos, nunca valores. */
         status: () => Promise<CredentialStatus>;
         /** Lista nomes de chaves STRESSFLOW_* configuradas no .env. Nunca retorna valores. */
         load: () => Promise<string[]>;
-        /** Salva credenciais no .env do main process. Campos vazios sao ignorados (nao sobrescrevem). */
+        /** Salva credenciais no .env do main process. Campos vazios são ignorados (não sobrescrevem). */
         save: (entries: Array<{ key: string; value: string }>) => Promise<{ saved: number; path: string }>;
       };
 
       /**
-       * Modulo de gerenciamento de presets de teste.
+       * Módulo de gerenciamento de presets de teste.
        * Permite listar, salvar, renomear e deletar presets.
-       * O preset built-in "MisterT Completo" nao pode ser renomeado ou deletado.
+       * O preset built-in "MisterT Completo" não pode ser renomeado ou deletado.
        */
       presets: {
-        /** Lista todos os presets (built-in + usuario). Built-in aparece primeiro. */
+        /** Lista todos os presets (built-in + usuário). Built-in aparece primeiro. */
         list: () => Promise<TestPreset[]>;
         /** Salva um novo preset ou atualiza um existente. Retorna o preset salvo. */
         save: (data: { id?: string; name: string; configJson: string }) => Promise<TestPreset>;
-        /** Renomeia um preset do usuario. Presets built-in sao rejeitados. */
+        /** Renomeia um preset do usuário. Presets built-in são rejeitados. */
         rename: (id: string, newName: string) => Promise<void>;
-        /** Deleta um preset do usuario. Presets built-in sao rejeitados. */
+        /** Deleta um preset do usuário. Presets built-in são rejeitados. */
         delete: (id: string) => Promise<void>;
       };
     };

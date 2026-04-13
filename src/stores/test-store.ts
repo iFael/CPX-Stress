@@ -6,11 +6,11 @@
  * ---------------------
  * Este arquivo e o "cerebro" da aplicação CPX-Stress. Ele guarda todos os
  * dados importantes que a interface precisa exibir ao usuário, como:
- *   - Qual tela esta sendo exibida (navegação)
+ *   - Qual tela está sendo exibida (navegação)
  *   - A configuração do teste de estresse (parâmetros)
- *   - Se o teste esta rodando ou parado (execução)
+ *   - Se o teste está rodando ou parado (execução)
  *   - O progresso do teste em tempo real (métricas ao vivo)
- *   - Os resultados dos testes ja realizados (histórico)
+ *   - Os resultados dos testes já realizados (histórico)
  *   - Mensagens de erro (comunicação de problemas)
  *
  * COMO FUNCIONA?
@@ -18,7 +18,7 @@
  * Usamos uma biblioteca chamada Zustand (palavra alema para "estado").
  * Ela funciona como um "quadro de avisos" central:
  *   - Qualquer parte da interface pode LER os dados daqui
- *   - Qualquer parte da interface pode ALTERAR os dados usando as acoes
+ *   - Qualquer parte da interface pode ALTERAR os dados usando as ações
  *   - Quando algo muda, as telas que usam aquele dado se atualizam sozinhas
  *
  * COMO USAR NOS COMPONENTES?
@@ -26,7 +26,7 @@
  *   // Lendo um dado:
  *   const config = useTestStore((s) => s.config)
  *
- *   // Chamando uma acao:
+ *   // Chamando uma ação:
  *   const setStatus = useTestStore((s) => s.setStatus)
  *   setStatus('running')
  *
@@ -36,9 +36,9 @@
  *   re-renderizacoes desnecessarias a cada mudanca no store.
  *
  * ORGANIZACAO DESTE ARQUIVO:
- *   1. Tipos internos   - formato dos dados e acoes disponiveis
+ *   1. Tipos internos   - formato dos dados e ações disponiveis
  *   2. Valores iniciais - estado padrão ao abrir a aplicação
- *   3. Criacao do store - implementacao das acoes
+ *   3. Criacao do store - implementacao das ações
  */
 
 import { create } from "zustand";
@@ -71,7 +71,7 @@ import {
  * que exibir na tela.
  */
 interface TestState {
-  // -- Navegação: controla qual tela o usuário esta vendo ------------------
+  // -- Navegação: controla qual tela o usuário está vendo ------------------
 
   /** Tela ativa: 'test' (formulario), 'history' (histórico) ou 'results'. */
   view: AppView;
@@ -81,7 +81,7 @@ interface TestState {
   /** Parâmetros do teste (URL, usuários virtuais, duração, método HTTP). */
   config: TestConfig;
 
-  // -- Execução: indica o que esta acontecendo agora ----------------------
+  // -- Execução: indica o que está acontecendo agora ----------------------
 
   /**
    * Status atual do teste:
@@ -110,7 +110,7 @@ interface TestState {
   /** Resultado completo do último teste (null se nenhum teste foi feito). */
   currentResult: TestResult | null;
 
-  // -- Histórico: todos os testes ja realizados ----------------------------
+  // -- Histórico: todos os testes já realizados ----------------------------
 
   /** Lista de resultados salvos, ordenados do mais recente ao mais antigo. */
   history: TestResult[];
@@ -120,33 +120,33 @@ interface TestState {
   /** Mensagem de erro exibida ao usuário (null = nenhum erro ativo). */
   error: string | null;
 
-  // -- Credenciais: status de configuracao das credenciais MisterT --------
+  // -- Credenciais: status de configuração das credenciais MisterT --------
 
   /**
-   * Status das credenciais obrigatorias (null = ainda nao verificado no startup).
-   * Contém apenas booleanos indicando se cada credencial esta configurada.
-   * Os valores reais NUNCA sao armazenados no store.
+   * Status das credenciais obrigatorias (null = ainda não verificado no startup).
+   * Contém apenas booleanos indicando se cada credencial está configurada.
+   * Os valores reais NUNCA são armazenados no store.
    */
   credentialStatus: CredentialStatus | null;
 
-  // -- Presets: configuracoes de teste salvas para reutilizacao ---------------
+  // -- Presets: configurações de teste salvas para reutilizacao ---------------
 
   /**
    * Preset atualmente carregado no formulario (null = nenhum).
-   * Limpo automaticamente quando o usuario altera a configuracao manualmente.
+   * Limpo automaticamente quando o usuário altera a configuração manualmente.
    */
   activePreset: ActivePresetInfo | null;
 
-  /** Lista de presets carregados do banco (built-in + usuario). */
+  /** Lista de presets carregados do banco (built-in + usuário). */
   presets: TestPreset[];
 }
 
 /**
- * Acoes disponiveis para alterar o estado.
+ * Ações disponiveis para alterar o estado.
  *
  * Estas são as "operações" que os componentes podem executar para
  * modificar os dados do store. Nenhum componente altera os dados
- * diretamente; ele sempre chama uma destas acoes.
+ * diretamente; ele sempre chama uma destas ações.
  */
 interface TestActions {
   // -- Navegação -----------------------------------------------------------
@@ -205,7 +205,7 @@ interface TestActions {
   // -- Presets ---------------------------------------------------------------
 
   /**
-   * Aplica um preset: define a configuracao e marca como preset ativo.
+   * Aplica um preset: define a configuração e marca como preset ativo.
    * Usa set() atomico para evitar flash de estado inconsistente.
    */
   applyPreset: (config: TestConfig, presetInfo: ActivePresetInfo) => void;
@@ -213,7 +213,7 @@ interface TestActions {
   /** Substitui a lista de presets carregados do banco. */
   setPresets: (presets: TestPreset[]) => void;
 
-  /** Limpa o preset ativo (chamado quando o usuario altera a config manualmente). */
+  /** Limpa o preset ativo (chamado quando o usuário altera a config manualmente). */
   clearActivePreset: () => void;
 
   /**
@@ -228,9 +228,9 @@ interface TestActions {
 }
 
 /**
- * Contrato completo do store: dados + acoes.
+ * Contrato completo do store: dados + ações.
  *
- * Esta interface combina os dados (TestState) com as acoes (TestActions),
+ * Está interface combina os dados (TestState) com as ações (TestActions),
  * formando o formato completo do estado global da aplicação.
  */
 type TestStore = TestState & TestActions;
@@ -250,7 +250,7 @@ type TestStore = TestState & TestActions;
  *
  * NOTA: Este objeto e congelado (Object.freeze) para evitar que qualquer
  * parte do código o altere acidentalmente. Para mudar a configuração
- * durante o uso, utilize a acao `updateConfig` do store.
+ * durante o uso, utilize a ação `updateConfig` do store.
  */
 const CONFIG_PADRAO: Readonly<TestConfig> = Object.freeze({
   url: MISTERT_DEFAULT_BASE_URL + "/MisterT.asp?MF=Y",
@@ -290,7 +290,7 @@ const ESTADO_INICIAL: TestState = {
  * Hook principal do estado global do CPX-Stress.
  *
  * Este e o ponto de acesso único para todo o estado da aplicação.
- * Use-o nos componentes React para ler dados e executar acoes.
+ * Use-o nos componentes React para ler dados e executar ações.
  *
  * @example
  * // Lendo a configuração atual:
@@ -302,7 +302,7 @@ const ESTADO_INICIAL: TestState = {
  * setStatus('running')
  *
  * @example
- * // Lendo multiplos valores (use selecoes separadas para melhor performance):
+ * // Lendo multiplos valores (use seleções separadas para melhor performance):
  * const status = useTestStore((s) => s.status)
  * const progress = useTestStore((s) => s.progress)
  */
@@ -314,13 +314,13 @@ export const useTestStore = create<TestStore>((set) => ({
   ...ESTADO_INICIAL,
 
   // =========================================================================
-  // Acoes de navegação
+  // Ações de navegação
   // =========================================================================
 
   setView: (view) => set({ view }),
 
   // =========================================================================
-  // Acoes de configuração do teste
+  // Ações de configuração do teste
   // =========================================================================
 
   updateConfig: (partial) =>
@@ -330,13 +330,13 @@ export const useTestStore = create<TestStore>((set) => ({
     })),
 
   // =========================================================================
-  // Acoes de status de execução
+  // Ações de status de execução
   // =========================================================================
 
   setStatus: (status) => set({ status }),
 
   // =========================================================================
-  // Acoes de progresso em tempo real
+  // Ações de progresso em tempo real
   // =========================================================================
 
   // Otimizacao: usar concat ao inves de spread para append em arrays grandes.
@@ -356,13 +356,13 @@ export const useTestStore = create<TestStore>((set) => ({
     }),
 
   // =========================================================================
-  // Acoes de resultado atual
+  // Ações de resultado atual
   // =========================================================================
 
   setCurrentResult: (result) => set({ currentResult: result }),
 
   // =========================================================================
-  // Acoes de histórico de testes
+  // Ações de histórico de testes
   // =========================================================================
 
   setHistory: (history) => set({ history }),
@@ -373,19 +373,19 @@ export const useTestStore = create<TestStore>((set) => ({
     })),
 
   // =========================================================================
-  // Acoes de tratamento de erros
+  // Ações de tratamento de erros
   // =========================================================================
 
   setError: (error) => set({ error }),
 
   // =========================================================================
-  // Acoes de credenciais
+  // Ações de credenciais
   // =========================================================================
 
   setCredentialStatus: (status) => set({ credentialStatus: status }),
 
   // =========================================================================
-  // Acoes de presets
+  // Ações de presets
   // =========================================================================
 
   applyPreset: (config, presetInfo) =>
