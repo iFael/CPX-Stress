@@ -56,8 +56,19 @@ WORD_MAP: dict[str, str] = {
     "interacao": "interação",
     "interacoes": "interações",
     "confirmacao": "confirmação",
+    "acao": "ação",
+    "acoes": "ações",
     "operacao": "operação",
     "operacoes": "operações",
+    "comparacao": "comparação",
+    "comparacoes": "comparações",
+    "degradacao": "degradação",
+    "relacao": "relação",
+    "relacoes": "relações",
+    "selecao": "seleção",
+    "selecoes": "seleções",
+    "secao": "seção",
+    "secoes": "seções",
     "conexao": "conexão",
     "conexoes": "conexões",
     "funcao": "função",
@@ -159,9 +170,11 @@ WORD_MAP: dict[str, str] = {
     "visivel": "visível",
     "invisivel": "invisível",
     "disponivel": "disponível",
+    "indisponivel": "indisponível",
     "responsavel": "responsável",
     "acessivel": "acessível",
     "compativel": "compatível",
+    "copiavel": "copiável",
     "possivel": "possível",
     "impossivel": "impossível",
     "legivel": "legível",
@@ -252,7 +265,14 @@ WORD_MAP: dict[str, str] = {
 
     # Verbos / particípios
     "tambem": "também",
+    # "apos" precisa de tratamento especial para não quebrar entidades HTML
+    # como &apos; em JSX/HTML.
     "apos": "após",
+    "ate": "até",
+    "esta": "está",
+    "estao": "estão",
+    "ja": "já",
+    "ficara": "ficará",
     "porem": "porém",
     "voce": "você",
     "contem": "contém",
@@ -279,6 +299,8 @@ WORD_MAP: dict[str, str] = {
     "cabecalho": "cabeçalho",
     "preco": "preço",
     "precos": "preços",
+    "diretorio": "diretório",
+    "diretorios": "diretórios",
     "orcamento": "orçamento",
     "orcamentos": "orçamentos",
     "servico": "serviço",
@@ -369,7 +391,12 @@ def build_replacements() -> dict[str, tuple[re.Pattern, str]]:
         if wrong == correct:
             continue  # pula entradas onde já está correto
 
-        if wrong in CONTEXT_SENSITIVE:
+        if wrong == "apos":
+            pattern = re.compile(
+                r"(?<![&a-zA-ZÀ-ÿ])" + re.escape(wrong) + r"(?![a-zA-ZÀ-ÿ;])",
+                re.IGNORECASE,
+            )
+        elif wrong in CONTEXT_SENSITIVE:
             # Exige word boundary + contexto de espaços/pontuação ao redor
             pattern = re.compile(
                 r"(?<![a-zA-ZÀ-ÿ])" + re.escape(wrong) + r"(?![a-zA-ZÀ-ÿ])",

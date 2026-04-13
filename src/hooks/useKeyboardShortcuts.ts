@@ -1,7 +1,7 @@
 /**
  * useKeyboardShortcuts.ts - Atalhos de teclado globais do CPX-Stress
  *
- * Registra listeners de teclado para acoes comuns da aplicação.
+ * Registra listeners de teclado para ações comuns da aplicação.
  * O hook deve ser chamado uma unica vez no componente raiz (App.tsx).
  *
  * Atalhos disponiveis:
@@ -32,7 +32,7 @@ export function useKeyboardShortcuts() {
       const { key, ctrlKey, metaKey } = event;
       const mod = ctrlKey || metaKey;
 
-      // Verifica se o foco esta em um campo de texto (input, textarea ou
+      // Verifica se o foco está em um campo de texto (input, textarea ou
       // contentEditable). Nesse caso, atalhos de navegação (Ctrl+N, Ctrl+H,
       // Ctrl+E) devem ser ignorados para não interferir com a digitacao.
       // Ctrl+Enter (submeter) e Escape (cancelar) continuam funcionando
@@ -44,8 +44,8 @@ export function useKeyboardShortcuts() {
         target?.isContentEditable === true;
 
       // --- Enter: Iniciar teste ---
-      // Funciona apenas quando o usuário esta na tela de configuração
-      // e o teste não esta rodando. Ignorado se estiver digitando em input.
+      // Funciona apenas quando o usuário está na tela de configuração
+      // e o teste não está rodando. Ignorado se estiver digitando em input.
       if (key === "Enter" && !mod) {
         if (isTyping) return;
         if (view === "test" && (status === "idle" || status === "error")) {
@@ -70,7 +70,7 @@ export function useKeyboardShortcuts() {
       // --- Ctrl+N: Novo teste ---
       // Navega para a tela de configuração e reseta o estado
       // (exceto se houver um teste em andamento).
-      // Ignorado quando o usuário esta digitando em um campo de texto.
+      // Ignorado quando o usuário está digitando em um campo de texto.
       if (mod && key.toLowerCase() === "n") {
         if (isTyping) return;
         event.preventDefault();
@@ -84,9 +84,9 @@ export function useKeyboardShortcuts() {
       }
 
       // --- Ctrl+H: Alternar histórico ---
-      // Se ja esta no histórico, volta para a tela de teste.
+      // Se já está no histórico, volta para a tela de teste.
       // Caso contrario, abre o histórico.
-      // Ignorado quando o usuário esta digitando em um campo de texto.
+      // Ignorado quando o usuário está digitando em um campo de texto.
       if (mod && key.toLowerCase() === "h") {
         if (isTyping) return;
         event.preventDefault();
@@ -96,7 +96,7 @@ export function useKeyboardShortcuts() {
 
       // --- Ctrl+E: Exportar resultados em PDF ---
       // Funciona apenas quando ha resultados visiveis na tela.
-      // Ignorado quando o usuário esta digitando em um campo de texto.
+      // Ignorado quando o usuário está digitando em um campo de texto.
       if (mod && key.toLowerCase() === "e") {
         if (isTyping) return;
         const hasResults =

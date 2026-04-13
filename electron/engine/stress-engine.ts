@@ -1334,7 +1334,7 @@ export class StressEngine {
     }
 
     // Determinar pathname da página de login para detecção de expiração de sessão
-    // Quando um módulo retorna redirect para esta pathname, a sessão expirou
+    // Quando um módulo retorna redirect para está pathname, a sessão expirou
     const loginUrl = authOps.length > 0 ? new URL(authOps[0].url) : null;
 
     // Loop principal — apenas operações de módulo (sem re-autenticação desnecessária)
