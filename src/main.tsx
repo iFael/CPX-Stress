@@ -1,5 +1,5 @@
 /**
- * main.tsx - Ponto de entrada da aplicação StressFlow
+ * main.tsx - Ponto de entrada da aplicação CPX-Stress
  *
  * Este arquivo e responsável por:
  *   1. Registrar tratadores globais de erros não capturados (JS e Promises)
@@ -25,7 +25,7 @@ import "./index.css";
  * Util para registrar falhas que ocorrem fora do ciclo de renderização do React.
  */
 window.onerror = (mensagem, origem, linha, coluna, erro) => {
-  console.error("[StressFlow] Erro global não tratado:", {
+  console.error("[CPX-Stress] Erro global não tratado:", {
     mensagem,
     origem,
     linha,
@@ -40,7 +40,7 @@ window.onerror = (mensagem, origem, linha, coluna, erro) => {
  */
 window.onunhandledrejection = (evento: PromiseRejectionEvent) => {
   console.error(
-    "[StressFlow] Promise rejeitada sem tratamento:",
+    "[CPX-Stress] Promise rejeitada sem tratamento:",
     evento.reason,
   );
 };
@@ -58,7 +58,7 @@ const elementoRaiz = document.getElementById("root");
 
 if (!elementoRaiz) {
   throw new Error(
-    "[StressFlow] Elemento #root não encontrado no HTML. Verifique o arquivo index.html.",
+    "[CPX-Stress] Elemento #root não encontrado no HTML. Verifique o arquivo index.html.",
   );
 }
 

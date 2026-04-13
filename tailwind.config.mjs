@@ -66,6 +66,10 @@ export default {
           /* -- Fundos da aplicacao -- */
           bg:           '#0f1117',   // Fundo principal (mais escuro)
           bgSubtle:     '#131520',   // Fundo com leve variacao (areas secundarias)
+          shellBg:      '#000000',   // Fundo do shell externo da aplicacao
+          shellSurface: '#070707',   // Header/sidebar opacos do shell
+          shellSurfaceHover: '#111111', // Hover do shell externo
+          shellBorder:  '#1a1a1a',   // Bordas discretas do shell
 
           /* -- Superficies elevadas (cards, modais, paineis) -- */
           surface:       '#1a1d27',  // Superficie padrao

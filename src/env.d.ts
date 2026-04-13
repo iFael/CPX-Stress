@@ -1,6 +1,6 @@
 /**
  * =============================================================================
- *  StressFlow - Declaracoes de Ambiente (Environment Declarations)
+ *  CPX-Stress - Declaracoes de Ambiente (Environment Declarations)
  * =============================================================================
  *
  *  O QUE FAZ ESTE ARQUIVO?
