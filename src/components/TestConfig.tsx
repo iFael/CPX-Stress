@@ -18,7 +18,7 @@ import { InfoTooltip } from "@/components/InfoTooltip";
 import { CredentialAlert } from "@/components/CredentialAlert";
 import { PresetModal } from "@/components/PresetModal";
 import { SavePresetDialog } from "@/components/SavePresetDialog";
-import type { ProgressData } from "@/types";
+import type { MistertValidationResult, ProgressData } from "@/types";
 import {
   MISTERT_DEFAULT_BASE_URL,
   buildMistertOperations,
@@ -85,9 +85,12 @@ export function TestConfig() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showOperations, setShowOperations] = useState(false);
   const [urlError, setUrlError] = useState("");
+  const [isValidating, setIsValidating] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [validationResult, setValidationResult] =
+    useState<MistertValidationResult | null>(null);
 
   // Campos numéricos: estado local em string para permitir edição livre;
   // sincroniza com a store apenas no blur (clampeado).
@@ -119,9 +122,9 @@ export function TestConfig() {
       .replace(/\/+$/, "") || MISTERT_DEFAULT_BASE_URL;
 
   // Detecção de preset MisterT e estado de seleção dos módulos
-  const isMistertPreset = (config.operations ?? []).some((op) =>
-    MISTERT_MODULE_NAMES.has(op.name)
-  );
+  const isMistertPreset =
+    (config.operations ?? []).some((op) => MISTERT_MODULE_NAMES.has(op.name)) ||
+    config.operations?.[0]?.name === "Página de Login";
   const selectedModuleNames = new Set(
     (config.operations ?? [])
       .map((op) => op.name)
@@ -129,6 +132,26 @@ export function TestConfig() {
   );
   const allModulesSelected = selectedModuleNames.size === MISTERT_MODULE_METADATA.length;
   const noModulesSelected = isMistertPreset && selectedModuleNames.size === 0;
+  const hasValidationFailures =
+    validationResult !== null && !validationResult.canRunStressTest;
+  const isBusy = isValidating || isStarting;
+  const actionDrivenCount = (config.operations ?? []).filter(
+    (op) => op.navigation?.accessMode === "action-driven",
+  ).length;
+  const urlDrivenCount = (config.operations ?? []).filter(
+    (op) => op.navigation?.accessMode !== "action-driven",
+  ).length;
+
+  useEffect(() => {
+    setValidationResult(null);
+  }, [
+    currentBaseUrl,
+    config.operations,
+    config.virtualUsers,
+    config.duration,
+    config.rampUp,
+    credentialStatus,
+  ]);
 
   /**
    * Atualiza o ambiente MisterT: troca a URL base de todas as operações.
@@ -178,16 +201,43 @@ export function TestConfig() {
      handleStart — Valida e inicia o teste de estresse MisterT.
      --------------------------------------------------------------- */
   const handleStart = useCallback(async () => {
-    // Garantir que temos operações MisterT configuradas
-    if (!config.operations || config.operations.length === 0) {
-      const ops = buildMistertOperations(currentBaseUrl);
-      updateConfig({ url: ops[0].url, operations: ops });
-    }
+    const effectiveConfig =
+      config.operations && config.operations.length > 0
+        ? config
+        : (() => {
+            const ops = buildMistertOperations(currentBaseUrl);
+            updateConfig({ url: ops[0].url, operations: ops });
+            return { ...config, url: ops[0].url, operations: ops };
+          })();
 
     setUrlError("");
     setError(null);
-    setIsStarting(true);
+    setValidationResult(null);
     clearProgress();
+    setStatus("idle");
+
+    try {
+      setIsValidating(true);
+      const validation = await window.stressflow.validation.run(effectiveConfig);
+      setValidationResult(validation);
+
+      if (!validation.canRunStressTest) {
+        setStatus("idle");
+        return;
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Ocorreu um erro inesperado ao validar o fluxo. Tente novamente.",
+      );
+      setStatus("error");
+      return;
+    } finally {
+      setIsValidating(false);
+    }
+
+    setIsStarting(true);
     setStatus("running");
 
     const unsubscribe = window.stressflow.test.onProgress((data) => {
@@ -195,7 +245,7 @@ export function TestConfig() {
     });
 
     try {
-      const result = await window.stressflow.test.start(config);
+      const result = await window.stressflow.test.start(effectiveConfig);
       setCurrentResult(result);
       addToHistory(result);
       setStatus(result.status === "cancelled" ? "cancelled" : "completed");
@@ -487,6 +537,11 @@ export function TestConfig() {
               dinamicamente.
               {isMistertPreset && " Use os checkboxes para incluir ou excluir módulos do teste."}
             </p>
+            <p className="text-xs text-sf-textMuted/80 mb-3">
+              {urlDrivenCount} etapa(s) podem ser reproduzidas por URL dentro da
+              mesma sessão; {actionDrivenCount} dependem de ação anterior,
+              como submit de formulário.
+            </p>
 
             {/* Toggle Selecionar Todos / Limpar — visível apenas para preset MisterT */}
             {isMistertPreset && (
@@ -507,6 +562,12 @@ export function TestConfig() {
             {/* Lista de operações — módulos com checkbox, infra ops fixas */}
             {(config.operations || []).map((op, idx) => {
               const isModule = MISTERT_MODULE_NAMES.has(op.name);
+              const isActionDriven =
+                op.navigation?.accessMode === "action-driven";
+              const submitControlName =
+                op.navigation?.sourceAction?.submitControlName;
+              const submitControlValue =
+                op.navigation?.sourceAction?.submitControlValue;
               return (
                 <div
                   key={idx}
@@ -558,14 +619,34 @@ export function TestConfig() {
                   <span className="text-sf-text font-medium truncate">
                     {op.name}
                   </span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded ${
+                      isActionDriven
+                        ? "bg-sf-warning/10 text-sf-warning"
+                        : "bg-sf-primary/10 text-sf-primary"
+                    }`}
+                  >
+                    {isActionDriven ? "requer ação anterior" : "URL direta"}
+                  </span>
                   {!isModule && isMistertPreset && (
-                    <span className="ml-auto text-[10px] text-sf-textMuted bg-sf-surface px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] text-sf-textMuted bg-sf-surface px-1.5 py-0.5 rounded">
                       fixo
                     </span>
                   )}
                   {op.extract && (
-                    <span className={`${!isModule && isMistertPreset ? "ml-1" : "ml-auto"} text-[10px] text-sf-accent/70 bg-sf-accent/5 px-1.5 py-0.5 rounded`}>
+                    <span className="text-[10px] text-sf-accent/70 bg-sf-accent/5 px-1.5 py-0.5 rounded">
                       extrai CTRL
+                    </span>
+                  )}
+                  {submitControlName && (
+                    <span className="text-[10px] text-sf-textMuted bg-sf-surface px-1.5 py-0.5 rounded">
+                      {op.navigation?.sourceAction?.method} {submitControlName}
+                      {submitControlValue ? `=${submitControlValue}` : ""}
+                    </span>
+                  )}
+                  {op.navigation?.notes && (
+                    <span className="ml-auto text-[10px] text-sf-textMuted truncate max-w-[18rem]">
+                      {op.navigation.notes}
                     </span>
                   )}
                 </div>
@@ -640,6 +721,113 @@ export function TestConfig() {
         </div>
       )}
 
+      {/* ---- DIAGNÓSTICO DE VALIDAÇÃO ---- */}
+      {hasValidationFailures && validationResult && (
+        <div
+          role="alert"
+          className="mb-4 p-4 bg-sf-warning/10 border border-sf-warning/30 rounded-xl flex items-start gap-3"
+        >
+          <AlertCircle
+            className="w-5 h-5 text-sf-warning shrink-0 mt-0.5"
+            aria-hidden="true"
+          />
+          <div className="w-full space-y-3">
+            <div>
+              <p className="text-sm font-medium text-sf-warning">
+                A validação do fluxo MisterT falhou
+              </p>
+              <p className="text-sm text-sf-textSecondary mt-1">
+                Técnico: {validationResult.summary.technicalPassed}/
+                {validationResult.summary.totalOperations} etapas. Funcional:{" "}
+                {validationResult.summary.functionalPassed}/
+                {validationResult.summary.totalOperations} etapas.
+              </p>
+              {validationResult.missingEnvKeys.length > 0 && (
+                <p className="text-xs text-sf-warning mt-2">
+                  Credenciais ausentes no .env:{" "}
+                  {validationResult.missingEnvKeys.join(", ")}
+                </p>
+              )}
+              <p className="text-xs text-sf-textMuted mt-2">
+                Ajuste credenciais, ambiente ou módulos e tente novamente. O
+                teste de estresse permanece bloqueado enquanto alguma etapa
+                falhar.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {validationResult.operations.map((operation) => {
+                const hasTechnicalFailure = operation.technicalStatus === "fail";
+                const hasFunctionalFailure = operation.functionalStatus === "fail";
+
+                return (
+                  <div
+                    key={`${operation.name}-${operation.requestedUrl}`}
+                    className="rounded-xl border border-sf-border bg-sf-surface px-3 py-3"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`text-xs font-mono px-1.5 py-0.5 rounded ${
+                          operation.method === "POST"
+                            ? "bg-sf-warning/10 text-sf-warning"
+                            : "bg-sf-accent/10 text-sf-accent"
+                        }`}
+                      >
+                        {operation.method}
+                      </span>
+                      <span className="text-sm font-medium text-sf-text">
+                        {operation.name}
+                      </span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded ${
+                          hasTechnicalFailure
+                            ? "bg-sf-danger/10 text-sf-danger"
+                            : "bg-sf-success/10 text-sf-success"
+                        }`}
+                      >
+                        Técnico {hasTechnicalFailure ? "falhou" : "ok"}
+                      </span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded ${
+                          hasFunctionalFailure
+                            ? "bg-sf-danger/10 text-sf-danger"
+                            : "bg-sf-success/10 text-sf-success"
+                        }`}
+                      >
+                        Funcional {hasFunctionalFailure ? "falhou" : "ok"}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-sf-textMuted mt-2 break-all">
+                      Status {operation.statusCode || 0} · URL final{" "}
+                      {operation.finalUrl}
+                    </p>
+
+                    {operation.technicalReasons.length > 0 && (
+                      <p className="text-xs text-sf-danger mt-2">
+                        Técnico: {operation.technicalReasons.join(" ")}
+                      </p>
+                    )}
+
+                    {operation.functionalReasons.length > 0 && (
+                      <p className="text-xs text-sf-danger mt-1">
+                        Funcional: {operation.functionalReasons.join(" ")}
+                      </p>
+                    )}
+
+                    {operation.bodySnippet && (
+                      <p className="text-xs text-sf-textMuted mt-2">
+                        Trecho retornado: {operation.bodySnippet}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ---- URL ERROR ---- */}
       {urlError && (
         <div
@@ -655,20 +843,22 @@ export function TestConfig() {
       <button
         type="button"
         onClick={handleStart}
-        disabled={isStarting}
+        disabled={isBusy}
         className="w-full max-w-xs mx-auto py-2.5 bg-sf-accent hover:bg-sf-accentMuted text-sf-bg font-semibold rounded-xl text-sm transition-all transform hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 shadow-lg shadow-sf-accent/20 focus:outline-none focus:ring-2 focus:ring-sf-accent/50 focus:ring-offset-2 focus:ring-offset-sf-bg disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
         aria-label={
-          isStarting
-            ? "Executando..."
+          isValidating
+            ? "Validando..."
+            : isStarting
+              ? "Executando..."
             : `Executar teste MisterT com ${config.virtualUsers.toLocaleString("pt-BR")} usuários por ${config.duration}s`
         }
       >
-        {isStarting ? (
+        {isBusy ? (
           <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
         ) : (
           <Play className="w-4 h-4" aria-hidden="true" />
         )}
-        {isStarting ? "Executando..." : "Executar"}
+        {isValidating ? "Validando..." : isStarting ? "Executando..." : "Executar"}
       </button>
 
       {/* ---- INFO ---- */}

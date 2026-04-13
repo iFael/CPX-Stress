@@ -14,6 +14,10 @@ import type {
   MeasurementReliability,
   MeasurementReliabilitySignals,
 } from "../../src/shared/test-analysis";
+import type {
+  OperationNavigationHints,
+  OperationValidationHints,
+} from "../../src/shared/mistert-validation";
 
 export interface TestOperation {
   name: string;
@@ -29,6 +33,8 @@ export interface TestOperation {
    * é substituído pelo valor extraído na operação anterior.
    */
   extract?: Record<string, string>;
+  validation?: OperationValidationHints;
+  navigation?: OperationNavigationHints;
 }
 
 export interface TestConfig {
@@ -217,7 +223,7 @@ function isBlockedIP(ip: string): boolean {
 }
 
 // Correção de segurança: resolve o hostname e verifica se aponta para endereço privado/interno
-async function validateTargetHost(hostname: string): Promise<void> {
+export async function validateTargetHost(hostname: string): Promise<void> {
   // Guard: permite rede interna corporativa quando opt-in explícito via .env
   const allowInternal = process.env.STRESSFLOW_ALLOW_INTERNAL === 'true';
   if (allowInternal) return;
@@ -359,6 +365,116 @@ function validateOperation(operation: TestOperation, index: number): void {
 
   validateBody(operation.body, `Corpo da operação ${index + 1}`);
   validateHeaders(operation.headers, `Headers da operação ${index + 1}`);
+
+  if (operation.validation !== undefined && operation.validation !== null) {
+    if (typeof operation.validation !== "object") {
+      throw new Error(
+        `validation da operação ${index + 1} deve ser um objeto`,
+      );
+    }
+
+    const { expectedAnyText, rejectLoginLikeContent } = operation.validation;
+
+    if (
+      expectedAnyText !== undefined &&
+      (!Array.isArray(expectedAnyText) ||
+        expectedAnyText.some(
+          (value) => typeof value !== "string" || value.trim() === "",
+        ))
+    ) {
+      throw new Error(
+        `validation.expectedAnyText da operação ${index + 1} deve conter apenas strings não vazias`,
+      );
+    }
+
+    if (
+      rejectLoginLikeContent !== undefined &&
+      typeof rejectLoginLikeContent !== "boolean"
+    ) {
+      throw new Error(
+        `validation.rejectLoginLikeContent da operação ${index + 1} deve ser boolean`,
+      );
+    }
+  }
+
+  if (operation.navigation !== undefined && operation.navigation !== null) {
+    if (typeof operation.navigation !== "object") {
+      throw new Error(
+        `navigation da operação ${index + 1} deve ser um objeto`,
+      );
+    }
+
+    const { accessMode, sourceAction, notes } = operation.navigation;
+
+    if (accessMode !== "url-driven" && accessMode !== "action-driven") {
+      throw new Error(
+        `navigation.accessMode da operação ${index + 1} deve ser "url-driven" ou "action-driven"`,
+      );
+    }
+
+    if (notes !== undefined && typeof notes !== "string") {
+      throw new Error(
+        `navigation.notes da operação ${index + 1} deve ser string`,
+      );
+    }
+
+    if (sourceAction !== undefined && sourceAction !== null) {
+      if (typeof sourceAction !== "object") {
+        throw new Error(
+          `navigation.sourceAction da operação ${index + 1} deve ser um objeto`,
+        );
+      }
+
+      if (
+        sourceAction.kind !== "direct-url" &&
+        sourceAction.kind !== "form-submit"
+      ) {
+        throw new Error(
+          `navigation.sourceAction.kind da operação ${index + 1} deve ser "direct-url" ou "form-submit"`,
+        );
+      }
+
+      if (!ALLOWED_METHODS.includes(sourceAction.method)) {
+        throw new Error(
+          `navigation.sourceAction.method da operação ${index + 1} é inválido`,
+        );
+      }
+
+      if (
+        sourceAction.submitControlName !== undefined &&
+        typeof sourceAction.submitControlName !== "string"
+      ) {
+        throw new Error(
+          `navigation.sourceAction.submitControlName da operação ${index + 1} deve ser string`,
+        );
+      }
+
+      if (
+        sourceAction.submitControlValue !== undefined &&
+        typeof sourceAction.submitControlValue !== "string"
+      ) {
+        throw new Error(
+          `navigation.sourceAction.submitControlValue da operação ${index + 1} deve ser string`,
+        );
+      }
+
+      if (
+        sourceAction.description !== undefined &&
+        typeof sourceAction.description !== "string"
+      ) {
+        throw new Error(
+          `navigation.sourceAction.description da operação ${index + 1} deve ser string`,
+        );
+      }
+
+      if (sourceAction.fields !== undefined && sourceAction.fields !== null) {
+        validateHeaders(
+          sourceAction.fields,
+          `navigation.sourceAction.fields da operação ${index + 1}`,
+        );
+      }
+    }
+  }
 }
 
 // Correção de segurança: valida campos do TestConfig recebido via IPC
@@ -741,6 +857,7 @@ export class StressEngine {
       operationName: string,
       captureSession: boolean,
       sample?: ResponseSample,
+      sessionInvalid: boolean = false,
     ) => {
       // Reservoir sampling: manter no máximo RESERVOIR_MAX amostras
       latencySampleCount++;
@@ -777,7 +894,10 @@ export class StressEngine {
         opMet.statusCodes[code] = (opMet.statusCodes[code] || 0) + 1;
 
         if (captureSession) {
-          if (statusCode === 401 || statusCode === 403) {
+          if (sessionInvalid) {
+            opMet.session.sessionFailures++;
+            opMet.session.sessionExpiredErrors++;
+          } else if (statusCode === 401 || statusCode === 403) {
             opMet.session.sessionFailures++;
             opMet.session.sessionExpiredErrors++;
           } else if (statusCode < 400) {
@@ -1060,6 +1180,7 @@ export class StressEngine {
         operationName: string,
         captureSession: boolean,
         sample?: ResponseSample,
+        sessionInvalid?: boolean,
       ) => void;
       onError: (errorMsg: string, operationName: string) => void;
     },
@@ -1086,8 +1207,8 @@ export class StressEngine {
     const extractedVars = new Map<string, string>();
 
     // Helper: executa uma única operação (reutilizado nos modos sequencial e aleatório)
-    const executeOp = async (op: TestOperation): Promise<URL | undefined> => {
-      if (Date.now() >= opts.endTime || opts.signal.aborted) return;
+    const executeOp = async (op: TestOperation): Promise<{ finalUrl?: URL; sessionInvalid: boolean }> => {
+      if (Date.now() >= opts.endTime || opts.signal.aborted) return { finalUrl: undefined, sessionInvalid: false };
 
       const resolvedUrl = this.resolveExtractVars(op.url, extractedVars);
       const resolvedBody = op.body
@@ -1101,6 +1222,7 @@ export class StressEngine {
       const opIsHttps = opUrl.protocol === "https:";
       const start = performance.now();
       const hasExtract = op.extract && Object.keys(op.extract).length > 0;
+      const hasRejectTexts = !!op.validation?.rejectOnAnyText?.length;
 
       this.vuRequestCount++;
       const captureSample = this.vuRequestCount % 50 === 1;
@@ -1117,7 +1239,7 @@ export class StressEngine {
             body: resolvedBody,
             cookieJar,
             captureSession: op.captureSession !== false,
-            collectBody: !!hasExtract,
+            collectBody: hasExtract || hasRejectTexts,
           },
           captureSample,
         );
@@ -1136,6 +1258,17 @@ export class StressEngine {
           }
         }
 
+        // Detectar página de erro de sessão via conteúdo (ex: "Este erro nunca deve ocorrer")
+        let sessionInvalid = false;
+        if (hasRejectTexts && result.bodyText) {
+          for (const text of op.validation!.rejectOnAnyText!) {
+            if (result.bodyText.includes(text)) {
+              sessionInvalid = true;
+              break;
+            }
+          }
+        }
+
         const latency = performance.now() - start;
         opts.onResponse(
           latency,
@@ -1144,13 +1277,15 @@ export class StressEngine {
           op.name,
           op.captureSession !== false,
           result.sample,
+          sessionInvalid,
         );
-        return result.finalUrl;
+        return { finalUrl: result.finalUrl, sessionInvalid };
       } catch (err) {
         if (!opts.signal.aborted) {
           const msg = err instanceof Error ? err.message : String(err);
           opts.onError(msg, op.name);
         }
+        return { finalUrl: undefined, sessionInvalid: false };
       }
     };
 
@@ -1177,9 +1312,7 @@ export class StressEngine {
 
     // Determinar pathname da página de login para detecção de expiração de sessão
     // Quando um módulo retorna redirect para esta pathname, a sessão expirou
-    const loginPathname = authOps.length > 0
-      ? new URL(authOps[0].url).pathname.toLowerCase()
-      : null;
+    const loginUrl = authOps.length > 0 ? new URL(authOps[0].url) : null;
 
     // Loop principal — apenas operações de módulo (sem re-autenticação desnecessária)
     while (Date.now() < opts.endTime && !opts.signal.aborted) {
@@ -1194,13 +1327,16 @@ export class StressEngine {
 
       const randomModule =
         moduleOps[Math.floor(Math.random() * moduleOps.length)];
-      const finalUrl = await executeOp(randomModule);
+      const opResult = await executeOp(randomModule);
+      const finalUrl = opResult.finalUrl;
 
-      // Detecção de expiração de sessão: módulo retornou redirect para a página de login
+      // Detecção de expiração de sessão: redirect para login ou erro de sessão no body
       const sessionExpired =
-        loginPathname !== null &&
-        finalUrl !== undefined &&
-        finalUrl.pathname.toLowerCase() === loginPathname;
+        opResult.sessionInvalid ||
+        (loginUrl !== null &&
+         finalUrl !== undefined &&
+         finalUrl.pathname.toLowerCase() === loginUrl.pathname.toLowerCase() &&
+         finalUrl.searchParams.toString() === loginUrl.searchParams.toString());
 
       if (sessionExpired) {
         // Limpar estado de sessão antiga antes de re-autenticar
@@ -1328,10 +1464,10 @@ export class StressEngine {
         let bodyCollected = 0;
         const BODY_LIMIT = 2048;
 
-        // Buffer separado para response extraction (maior, até 16KB)
+        // Buffer separado para response extraction (maior, até 64KB)
         const extractChunks: Buffer[] = [];
         let extractCollected = 0;
-        const EXTRACT_LIMIT = 16384;
+        const EXTRACT_LIMIT = 65536;
         const needExtractBody = opts.collectBody;
 
         // Capturar Set-Cookie headers para manter sessão entre operações
@@ -1749,6 +1885,7 @@ export class StressEngine {
       opName: string,
       captureSession: boolean,
       sample?: ResponseSample,
+      sessionInvalid?: boolean,
     ) => void,
     onError: (errorMsg: string, opName: string) => void,
     signal: AbortSignal,
@@ -1791,6 +1928,7 @@ export class StressEngine {
             body: op.body,
             captureSession: op.captureSession,
             extract: op.extract,
+            rejectOnAnyText: op.validation?.rejectOnAnyText,
           })),
           endTime,
           rampUpDelays,
@@ -1814,6 +1952,7 @@ export class StressEngine {
                 opName: string;
                 captureSession: boolean;
                 sample?: ResponseSample;
+                sessionInvalid?: boolean;
               }>;
               networkErrors?: Array<{ message: string; opName: string }>;
             }) => {
@@ -1827,6 +1966,7 @@ export class StressEngine {
                       r.opName,
                       r.captureSession,
                       r.sample,
+                      r.sessionInvalid,
                     );
                   }
                 }

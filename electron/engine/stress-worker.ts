@@ -37,6 +37,7 @@ interface WorkerOperation {
   body?: string;
   captureSession?: boolean;
   extract?: Record<string, string>;
+  rejectOnAnyText?: string[];
 }
 
 interface WorkerConfig {
@@ -63,6 +64,7 @@ interface ResponseItem {
   opName: string;
   captureSession: boolean;
   sample?: ResponseSample;
+  sessionInvalid?: boolean;
 }
 
 interface NetworkError {
@@ -197,10 +199,10 @@ function makeSingleRequest(
       let bodyCollected = 0;
       const BODY_LIMIT = 2048;
 
-      // Buffer separado para extraction (até 16KB)
+      // Buffer separado para extraction (até 64KB)
       const extractChunks: Buffer[] = [];
       let extractCollected = 0;
-      const EXTRACT_LIMIT = 16384;
+      const EXTRACT_LIMIT = 65536;
       const needExtractBody = opts.collectBody;
 
       const setCookieHeaders = res.headers["set-cookie"];
@@ -410,8 +412,8 @@ async function runVU(delay: number): Promise<void> {
   const extractedVars = new Map<string, string>();
 
   // Helper: executa uma única operação (reutilizado nos modos sequencial e aleatório)
-  const executeOp = async (op: WorkerOperation): Promise<URL | undefined> => {
-    if (Date.now() >= config.endTime || signal.aborted) return;
+  const executeOp = async (op: WorkerOperation): Promise<{ finalUrl?: URL; sessionInvalid: boolean }> => {
+    if (Date.now() >= config.endTime || signal.aborted) return { finalUrl: undefined, sessionInvalid: false };
 
     // Resolver placeholders {{VAR}} com valores extraídos
     const resolvedUrl = resolveExtractVars(op.url, extractedVars);
@@ -426,7 +428,7 @@ async function runVU(delay: number): Promise<void> {
     const isHttps = opUrl.protocol === "https:";
     const start = performance.now();
     const hasExtract = op.extract && Object.keys(op.extract).length > 0;
-
+    const hasRejectTexts = !!op.rejectOnAnyText?.length;
     requestCount++;
     const captureSample = requestCount % 50 === 1;
 
@@ -440,7 +442,7 @@ async function runVU(delay: number): Promise<void> {
           body: resolvedBody,
           cookieJar,
           captureSession: op.captureSession !== false,
-          collectBody: !!hasExtract,
+          collectBody: hasExtract || hasRejectTexts,
         },
         captureSample,
       );
@@ -460,6 +462,17 @@ async function runVU(delay: number): Promise<void> {
         }
       }
 
+      // Detectar página de erro de sessão via conteúdo (ex: "Este erro nunca deve ocorrer")
+      let sessionInvalid = false;
+      if (hasRejectTexts && result.bodyText) {
+        for (const text of op.rejectOnAnyText!) {
+          if (result.bodyText.includes(text)) {
+            sessionInvalid = true;
+            break;
+          }
+        }
+      }
+
       responseBatch.push({
         latency: performance.now() - start,
         statusCode: result.statusCode,
@@ -467,13 +480,15 @@ async function runVU(delay: number): Promise<void> {
         opName: op.name,
         captureSession: op.captureSession !== false,
         sample: result.sample,
+        sessionInvalid,
       });
-      return result.finalUrl;
+      return { finalUrl: result.finalUrl, sessionInvalid };
     } catch (err) {
       if (!signal.aborted) {
         const msg = err instanceof Error ? err.message : String(err);
         errorBatch.push({ message: msg, opName: op.name });
       }
+      return { finalUrl: undefined, sessionInvalid: false };
     }
   };
 
@@ -499,9 +514,7 @@ async function runVU(delay: number): Promise<void> {
   }
 
   // Determinar pathname da página de login para detecção de expiração de sessão
-  const loginPathname = authOps.length > 0
-    ? new URL(authOps[0].url).pathname.toLowerCase()
-    : null;
+  const loginUrl = authOps.length > 0 ? new URL(authOps[0].url) : null;
 
   // Loop principal — apenas operações de módulo
   while (Date.now() < config.endTime && !signal.aborted) {
@@ -515,13 +528,16 @@ async function runVU(delay: number): Promise<void> {
 
     const randomModule =
       moduleOps[Math.floor(Math.random() * moduleOps.length)];
-    const finalUrl = await executeOp(randomModule);
+    const opResult = await executeOp(randomModule);
+    const finalUrl = opResult.finalUrl;
 
-    // Detecção de expiração de sessão
+    // Detecção de expiração de sessão: redirect para login ou erro de sessão no body
     const sessionExpired =
-      loginPathname !== null &&
-      finalUrl !== undefined &&
-      finalUrl.pathname.toLowerCase() === loginPathname;
+      opResult.sessionInvalid ||
+      (loginUrl !== null &&
+       finalUrl !== undefined &&
+       finalUrl.pathname.toLowerCase() === loginUrl.pathname.toLowerCase() &&
+       finalUrl.searchParams.toString() === loginUrl.searchParams.toString());
 
     if (sessionExpired) {
       cookieJar.clear();
