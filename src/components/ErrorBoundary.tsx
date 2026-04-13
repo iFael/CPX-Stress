@@ -85,7 +85,7 @@ export class ErrorBoundary extends Component<
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     this.setState({ errorInfo });
     console.error(
-      "[StressFlow] Erro capturado pelo ErrorBoundary:",
+      "[CPX-Stress] Erro capturado pelo ErrorBoundary:",
       error,
       errorInfo,
     );
@@ -254,7 +254,7 @@ export class ErrorBoundary extends Component<
 
           {/* Rodape informativo */}
           <p className="text-center text-2xs mt-4 text-sf-textFaint">
-            CPX &mdash; MisterT Stress &mdash; Se o problema persistir, reinicie a aplicação.
+            CPX-Stress &mdash; Se o problema persistir, reinicie a aplicação.
           </p>
         </div>
       </div>

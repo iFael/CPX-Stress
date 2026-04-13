@@ -262,9 +262,9 @@ export function ErrorExplorer({ testId }: ErrorExplorerProps) {
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
           <Calendar className="w-3.5 h-3.5 text-sf-textMuted" />
-          <label className="text-xs text-sf-textMuted whitespace-nowrap">
+          <span className="text-xs text-sf-textMuted whitespace-nowrap">
             Período:
-          </label>
+          </span>
           <input
             type="datetime-local"
             value={filterTimeStart}

@@ -1,5 +1,5 @@
 /**
- * App.tsx - Componente principal do StressFlow
+ * App.tsx - Componente principal do CPX-Stress
  *
  * Este arquivo e o ponto de entrada visual da aplicação.
  * Ele monta a estrutura geral da tela (layout, menu lateral e conteúdo principal)
@@ -71,7 +71,7 @@ export default function App() {
       const savedHistory = await window.stressflow.history.list();
       setHistory(savedHistory);
     } catch (err) {
-      console.warn("[StressFlow] Não foi possível carregar o histórico:", err);
+      console.warn("[CPX-Stress] Não foi possível carregar o histórico:", err);
       setError("Falha ao carregar histórico de testes anteriores.");
     } finally {
       setIsLoadingHistory(false);
@@ -94,7 +94,7 @@ export default function App() {
       const status = await window.stressflow.credentials.status();
       setCredentialStatus(status);
     } catch (err) {
-      console.warn("[StressFlow] Nao foi possivel verificar credenciais:", err);
+      console.warn("[CPX-Stress] Nao foi possivel verificar credenciais:", err);
     }
   }, [setCredentialStatus]);
 

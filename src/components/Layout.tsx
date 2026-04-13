@@ -1,5 +1,5 @@
 /**
- * Layout.tsx — Estrutura principal da aplicação StressFlow
+ * Layout.tsx — Estrutura principal da aplicação CPX-Stress
  *
  * Este componente define o "esqueleto" visual do aplicativo:
  *   - Cabeçalho (header) com logotipo, nome e versão
@@ -10,7 +10,6 @@
 
 import type { ReactNode } from "react";
 import compexLogo from "@/assets/compex-logo.gif";
-import { StarField } from "@/components/StarField";
 
 /* -------------------------------------------------------------------------- */
 /*  Constantes — informações exibidas no cabeçalho                            */
@@ -47,10 +46,10 @@ interface LayoutProps {
  */
 export function Layout({ children }: LayoutProps) {
   return (
-    <div className="h-screen flex flex-col bg-sf-bg text-sf-text" lang="pt-BR">
-      {/* Fundo animado de estrelas */}
-      <StarField />
-
+    <div
+      className="h-screen flex flex-col bg-sf-shellBg text-sf-text"
+      lang="pt-BR"
+    >
       {/* ------------------------------------------------------------------ */}
       {/*  Link de pular navegação — acessibilidade para teclado             */}
       {/* ------------------------------------------------------------------ */}
@@ -71,13 +70,13 @@ export function Layout({ children }: LayoutProps) {
       {/* ------------------------------------------------------------------ */}
       <header
         role="banner"
-        aria-label="Cabeçalho do aplicativo StressFlow — MisterT ERP"
+        aria-label="Cabeçalho do aplicativo CPX-Stress"
         className="
           h-12 shrink-0
           flex items-center justify-between
           px-4
-          bg-sf-surface/80 backdrop-blur-sm
-          border-b border-sf-border
+          bg-sf-shellSurface
+          border-b border-sf-shellBorder
           select-none
           relative z-10
         "
@@ -95,7 +94,7 @@ export function Layout({ children }: LayoutProps) {
 
         {/* Lado direito: badge de versão */}
         <span
-          className="text-xs text-sf-textMuted bg-sf-bg px-2 py-0.5 rounded-full"
+          className="text-xs text-sf-textMuted bg-sf-shellBg border border-sf-shellBorder px-2 py-0.5 rounded-full"
           aria-label={`Versão ${APP_VERSION}`}
         >
           {APP_VERSION}

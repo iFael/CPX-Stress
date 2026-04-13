@@ -4,7 +4,7 @@ import { useTestStore } from "@/stores/test-store";
 import type { AppView } from "@/types";
 
 /* ============================================================
-   Sidebar.tsx - Barra lateral de navegação do StressFlow
+   Sidebar.tsx - Barra lateral de navegação do CPX-Stress
    ============================================================
    Este componente renderiza o menu lateral da aplicação.
    Ele permite ao usuário:
@@ -81,7 +81,7 @@ const NAV_ITEMS: NavItem[] = [
  */
 function RunningIndicator() {
   return (
-    <div className="p-3 border-t border-sf-border" role="status">
+    <div className="p-3 border-t border-sf-shellBorder" role="status">
       <div className="flex items-center gap-2.5 px-3 py-2 text-sm">
         {/* Bolinha verde pulsante - sinal visual de "em andamento" */}
         <div
@@ -102,14 +102,14 @@ function RunningIndicator() {
  */
 function NewTestShortcut({ onClick }: { onClick: () => void }) {
   return (
-    <div className="p-3 border-t border-sf-border">
+    <div className="p-3 border-t border-sf-shellBorder">
       <button
         type="button"
         onClick={onClick}
         aria-label="Reiniciar e configurar um novo teste"
         className={
           "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm " +
-          "text-sf-textSecondary hover:bg-sf-surfaceHover hover:text-sf-text " +
+          "text-sf-textSecondary hover:bg-sf-shellSurfaceHover hover:text-sf-text " +
           "transition-colors focus-visible:outline-none focus-visible:ring-2 " +
           "focus-visible:ring-sf-primary focus-visible:ring-offset-1"
         }
@@ -131,7 +131,7 @@ function HistoryBadge({ count }: { count: number }) {
   return (
     <span
       className={
-        "ml-auto text-xs bg-sf-bg px-1.5 py-0.5 rounded-full " +
+        "ml-auto text-xs bg-sf-shellBg border border-sf-shellBorder px-1.5 py-0.5 rounded-full " +
         "text-sf-textMuted tabular-nums"
       }
       aria-label={`${count} ${count === 1 ? "teste salvo" : "testes salvos"}`}
@@ -233,7 +233,7 @@ export function Sidebar() {
   // --- Renderização ---
   return (
     <aside
-      className="w-56 bg-sf-surface/70 backdrop-blur-sm border-r border-sf-border flex flex-col shrink-0 relative z-10"
+      className="w-56 bg-sf-shellSurface border-r border-sf-shellBorder flex flex-col shrink-0 relative z-10"
       aria-label="Menu lateral de navegação"
     >
       {/* ---- Menu de navegação principal ---- */}
@@ -262,7 +262,7 @@ export function Sidebar() {
                 "focus-visible:ring-sf-primary focus-visible:ring-offset-1 " +
                 (isActive
                   ? "bg-sf-primary/10 text-sf-primary font-medium"
-                  : "text-sf-textSecondary hover:bg-sf-surfaceHover hover:text-sf-text")
+                  : "text-sf-textSecondary hover:bg-sf-shellSurfaceHover hover:text-sf-text")
               }
             >
               <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -293,13 +293,13 @@ export function Sidebar() {
 
       {/* ---- Rodape com logo Compex e copyright ---- */}
       <footer
-        className="p-3 border-t border-sf-border"
+        className="p-3 border-t border-sf-shellBorder"
         role="contentinfo"
         aria-label="Informações de direitos autorais"
       >
         <div className="flex flex-col items-center gap-1 px-3">
           <span className="text-[10px] text-sf-textMuted/50">
-            &copy; 2026 CPX - MisterT Stress
+            &copy; 2026 CPX-Stress
           </span>
           <span className="text-[9px] text-sf-textMuted/30">
             Compex Tecnologia
