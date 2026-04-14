@@ -6,10 +6,80 @@
  * e otimizações para builds de produção.
  */
 
+import { spawn, spawnSync } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
+import { createRequire } from "node:module";
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import electron from 'vite-plugin-electron/simple'
+import { treeKillSync } from "vite-plugin-electron";
 import path from 'node:path'
+
+type ElectronStartArgs = {
+  startup: () => Promise<void>;
+  reload: () => void;
+};
+
+const require = createRequire(import.meta.url);
+const electronBinary = require("electron") as string;
+let electronProcess: ChildProcess | null = null;
+
+function isElectronRunning(): boolean {
+  return !!electronProcess && electronProcess.exitCode === null && !electronProcess.killed;
+}
+
+function stopElectronApp(): void {
+  if (!electronProcess?.pid) return;
+
+  electronProcess.removeAllListeners();
+
+  if (process.platform === "win32") {
+    spawnSync("taskkill", ["/pid", String(electronProcess.pid), "/T", "/F"], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+  } else {
+    try {
+      treeKillSync(electronProcess.pid);
+    } catch {
+      // Ignora race conditions em que o Electron já saiu por conta própria.
+    }
+  }
+
+  electronProcess = null;
+}
+
+async function safeStartup(): Promise<void> {
+  stopElectronApp();
+
+  const child = spawn(electronBinary, [".", "--no-sandbox"], {
+    stdio: "inherit",
+    env: process.env,
+  });
+
+  child.once("exit", () => {
+    if (electronProcess?.pid === child.pid) {
+      electronProcess = null;
+    }
+  });
+
+  electronProcess = child;
+}
+
+async function handleMainStart(_args: ElectronStartArgs): Promise<void> {
+  await safeStartup();
+}
+
+async function handlePreloadStart({
+  reload,
+}: ElectronStartArgs): Promise<void> {
+  if (isElectronRunning()) {
+    reload();
+    return;
+  }
+
+  await safeStartup();
+}
 
 export default defineConfig({
   /**
@@ -24,6 +94,7 @@ export default defineConfig({
       main: {
         /** Ponto de entrada do processo principal do Electron */
         entry: 'electron/main.ts',
+        onstart: handleMainStart,
         /**
          * Módulos nativos (*.node) não podem ser empacotados pelo Rollup.
          * better-sqlite3 usa bindings dinâmicos para carregar o binário nativo,
@@ -40,6 +111,7 @@ export default defineConfig({
       preload: {
         /** Script de preload que roda antes do renderer, com acesso ao Node.js */
         input: 'electron/preload.ts',
+        onstart: handlePreloadStart,
       },
       /** Configuração do processo renderer (utiliza as configurações padrão do Vite) */
       renderer: {},

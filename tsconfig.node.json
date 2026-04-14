@@ -79,7 +79,11 @@
   /**
    * Arquivos incluídos nesta configuração:
    * - vite.config.ts: configuração do bundler Vite
-   * - electron/: código do processo principal e preload do Electron
+   * - arquivos .ts dentro de electron/: processo principal, preload e engine
+   * - arquivos .ts dentro de src/shared/: tipos/utilitários compartilhados
+   *
+   * Usamos globs explícitos para evitar que artefatos gerados (.js/.d.ts)
+   * dentro de electron/ entrem no projeto e confundam a IDE.
    */
-  "include": ["vite.config.ts", "electron"]
+  "include": ["vite.config.ts", "electron/**/*.ts", "src/shared/**/*.ts"]
 }

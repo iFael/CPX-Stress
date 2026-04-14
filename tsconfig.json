@@ -123,12 +123,14 @@
     }
   },
 
-  /** Inclui apenas os arquivos dentro da pasta 'src' para compilação */
-  "include": ["src"],
+  /** Inclui apenas os arquivos-fonte do renderer */
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"],
+
+  /** Ignora artefatos de build para evitar ruído na IDE */
+  "exclude": ["dist", "dist-electron"],
 
   /**
-   * Referência ao tsconfig.node.json, que configura o TypeScript
-   * para os arquivos de configuração (vite.config.ts) e código Electron.
+   * O renderer usa este tsconfig de forma independente.
+   * O ambiente Node/Electron possui sua própria configuração em tsconfig.node.json.
    */
-  "references": [{ "path": "./tsconfig.node.json" }]
 }
