@@ -66,7 +66,7 @@ export function closeDatabase(): void {
 // ============================================================================
 
 /** Versão atual do preset built-in. Incrementar quando o template mudar. */
-const CURRENT_BUILTIN_VERSION = 6;
+const CURRENT_BUILTIN_VERSION = 7;
 
 /** ID fixo do preset built-in (não muda entre versões). */
 const BUILTIN_PRESET_ID = "builtin-mistert-completo";
@@ -83,7 +83,7 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
       url: "https://dev-mistert.compex.com.br/MisterT.asp?MF=Y",
       method: "GET",
       captureSession: true,
-      extract: { CTRL: "CTRL=(\\d+)" },
+      extract: { LOGIN_CTRL: "CTRL=(\\d+)" },
       navigation: {
         accessMode: "url-driven",
         sourceAction: {
@@ -100,12 +100,12 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     },
     {
       name: "Login",
-      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=1",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{LOGIN_CTRL}}&R=1",
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: "IN1={{STRESSFLOW_USER}}&IN2={{STRESSFLOW_PASS}}",
       captureSession: true,
-      extract: { CTRL: "CTRL=(\\d+)" },
+      extract: { SESSION_CTRL: "CTRL=(\\d+)" },
       navigation: {
         accessMode: "action-driven",
         sourceAction: {
@@ -126,10 +126,9 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     },
     {
       name: "Menu Principal",
-      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=0",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=0",
       method: "GET",
       captureSession: true,
-      extract: { CTRL: "CTRL=(\\d+)" },
       navigation: {
         accessMode: "url-driven",
         notes: "Página navegável por GET dentro da sessão autenticada.",
@@ -141,10 +140,9 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     {
       name: "CPX-Fretes",
       moduleGroup: "CPX-Fretes",
-      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=89",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=89",
       method: "GET",
       captureSession: true,
-      extract: { CTRL: "CTRL=(\\d+)" },
       navigation: {
         accessMode: "url-driven",
         notes: "Página replayable por URL dentro da sessão do mesmo VU.",
@@ -158,10 +156,9 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     {
       name: "CPX-Rastreio",
       moduleGroup: "CPX-Rastreio",
-      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=90",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=90",
       method: "GET",
       captureSession: true,
-      extract: { CTRL: "CTRL=(\\d+)" },
       navigation: {
         accessMode: "url-driven",
         notes: "Página replayable por URL dentro da sessão do mesmo VU.",
@@ -175,10 +172,9 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     {
       name: "Estoque",
       moduleGroup: "Estoque",
-      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=122",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=122",
       method: "GET",
       captureSession: true,
-      extract: { CTRL: "CTRL=(\\d+)" },
       navigation: {
         accessMode: "url-driven",
         notes: "Página replayable por URL dentro da sessão do mesmo VU.",
@@ -192,10 +188,9 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     {
       name: "Ordens E/S",
       moduleGroup: "Ordens E/S",
-      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=232",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=232",
       method: "GET",
       captureSession: true,
-      extract: { CTRL: "CTRL=(\\d+)" },
       navigation: {
         accessMode: "url-driven",
         notes: "Página replayable por URL dentro da sessão do mesmo VU.",
@@ -209,10 +204,9 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     {
       name: "Produção",
       moduleGroup: "Produção",
-      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=169",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=169",
       method: "GET",
       captureSession: true,
-      extract: { CTRL: "CTRL=(\\d+)" },
       navigation: {
         accessMode: "url-driven",
         notes: "Página replayable por URL dentro da sessão do mesmo VU.",
@@ -226,10 +220,9 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     {
       name: "Envio de GNREs",
       moduleGroup: "Envio de GNREs",
-      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=18",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=18",
       method: "GET",
       captureSession: true,
-      extract: { CTRL: "CTRL=(\\d+)" },
       navigation: {
         accessMode: "url-driven",
         notes: "Página replayable por URL dentro da sessão do mesmo VU.",
@@ -243,10 +236,9 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     {
       name: "Financeiro",
       moduleGroup: "Financeiro",
-      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=250",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=250",
       method: "GET",
       captureSession: true,
-      extract: { CTRL: "CTRL=(\\d+)" },
       navigation: {
         accessMode: "url-driven",
         notes: "Página replayable por URL dentro da sessão do mesmo VU.",
@@ -260,11 +252,11 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     {
       name: "Sessões Especiais",
       moduleGroup: "Sessões Especiais",
-      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=864",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=864",
       method: "GET",
       captureSession: true,
       extract: {
-        CTRL: "action=[\"'][^\"']*CTRL=(\\d+)&R=2",
+        ACTION_CTRL: "action=[\"'][^\"']*CTRL=(\\d+)&R=2",
       },
       navigation: {
         accessMode: "url-driven",
@@ -280,12 +272,11 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     {
       name: "Sessões Especiais - Inserir Novo Registro",
       moduleGroup: "Sessões Especiais",
-      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=2",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{ACTION_CTRL}}&R=2",
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: "IN5=Insere+Novo+Registro",
       captureSession: true,
-      extract: { CTRL: "CTRL=(\\d+)" },
       navigation: {
         accessMode: "action-driven",
         sourceAction: {

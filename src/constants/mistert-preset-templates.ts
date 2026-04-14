@@ -68,7 +68,9 @@ export const MISTERT_MODULE_METADATA = [
  * Operações do fluxo principal de teste MisterT ERP.
  *
  * O MisterT usa um único entry-point (MisterT.asp) com parâmetros CTRL e R
- * dinâmicos. CTRL é renovado a cada navegação relevante do fluxo.
+ * dinâmicos. Nem todo CTRL extraído é reutilizável entre módulos independentes:
+ * o login/menu gera um CTRL de sessão estável, enquanto algumas páginas expõem
+ * CTRLs internos válidos apenas para ações do próprio formulário.
  */
 export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   {
@@ -76,7 +78,7 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
     url: "https://dev-mistert.compex.com.br/MisterT.asp?MF=Y",
     method: "GET",
     captureSession: true,
-    extract: { CTRL: "CTRL=(\\d+)" },
+    extract: { LOGIN_CTRL: "CTRL=(\\d+)" },
     navigation: {
       accessMode: "url-driven",
       sourceAction: {
@@ -93,12 +95,12 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   },
   {
     name: "Login",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=1",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{LOGIN_CTRL}}&R=1",
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: "IN1={{STRESSFLOW_USER}}&IN2={{STRESSFLOW_PASS}}",
     captureSession: true,
-    extract: { CTRL: "CTRL=(\\d+)" },
+    extract: { SESSION_CTRL: "CTRL=(\\d+)" },
     navigation: {
       accessMode: "action-driven",
       sourceAction: {
@@ -119,10 +121,9 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   },
   {
     name: "Menu Principal",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=0",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=0",
     method: "GET",
     captureSession: true,
-    extract: { CTRL: "CTRL=(\\d+)" },
     navigation: {
       accessMode: "url-driven",
       notes: "Página navegável por GET dentro da sessão autenticada.",
@@ -134,10 +135,9 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   {
     name: "CPX-Fretes",
     moduleGroup: "CPX-Fretes",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=89",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=89",
     method: "GET",
     captureSession: true,
-    extract: { CTRL: "CTRL=(\\d+)" },
     navigation: {
       accessMode: "url-driven",
       notes: "Página replayable por URL dentro da sessão do mesmo VU.",
@@ -151,10 +151,9 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   {
     name: "CPX-Rastreio",
     moduleGroup: "CPX-Rastreio",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=90",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=90",
     method: "GET",
     captureSession: true,
-    extract: { CTRL: "CTRL=(\\d+)" },
     navigation: {
       accessMode: "url-driven",
       notes: "Página replayable por URL dentro da sessão do mesmo VU.",
@@ -168,10 +167,9 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   {
     name: "Estoque",
     moduleGroup: "Estoque",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=122",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=122",
     method: "GET",
     captureSession: true,
-    extract: { CTRL: "CTRL=(\\d+)" },
     navigation: {
       accessMode: "url-driven",
       notes: "Página replayable por URL dentro da sessão do mesmo VU.",
@@ -185,10 +183,9 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   {
     name: "Ordens E/S",
     moduleGroup: "Ordens E/S",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=232",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=232",
     method: "GET",
     captureSession: true,
-    extract: { CTRL: "CTRL=(\\d+)" },
     navigation: {
       accessMode: "url-driven",
       notes: "Página replayable por URL dentro da sessão do mesmo VU.",
@@ -202,10 +199,9 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   {
     name: "Produção",
     moduleGroup: "Produção",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=169",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=169",
     method: "GET",
     captureSession: true,
-    extract: { CTRL: "CTRL=(\\d+)" },
     navigation: {
       accessMode: "url-driven",
       notes: "Página replayable por URL dentro da sessão do mesmo VU.",
@@ -219,10 +215,9 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   {
     name: "Envio de GNREs",
     moduleGroup: "Envio de GNREs",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=18",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=18",
     method: "GET",
     captureSession: true,
-    extract: { CTRL: "CTRL=(\\d+)" },
     navigation: {
       accessMode: "url-driven",
       notes: "Página replayable por URL dentro da sessão do mesmo VU.",
@@ -236,10 +231,9 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   {
     name: "Financeiro",
     moduleGroup: "Financeiro",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=250",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=250",
     method: "GET",
     captureSession: true,
-    extract: { CTRL: "CTRL=(\\d+)" },
     navigation: {
       accessMode: "url-driven",
       notes: "Página replayable por URL dentro da sessão do mesmo VU.",
@@ -253,11 +247,11 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   {
     name: "Sessões Especiais",
     moduleGroup: "Sessões Especiais",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=864",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=864",
     method: "GET",
     captureSession: true,
     extract: {
-      CTRL: "action=[\"'][^\"']*CTRL=(\\d+)&R=2",
+      ACTION_CTRL: "action=[\"'][^\"']*CTRL=(\\d+)&R=2",
     },
     navigation: {
       accessMode: "url-driven",
@@ -273,12 +267,11 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   {
     name: "Sessões Especiais - Inserir Novo Registro",
     moduleGroup: "Sessões Especiais",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=2",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{ACTION_CTRL}}&R=2",
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: "IN5=Insere+Novo+Registro",
     captureSession: true,
-    extract: { CTRL: "CTRL=(\\d+)" },
     navigation: {
       accessMode: "action-driven",
       sourceAction: {
@@ -315,7 +308,7 @@ export const MISTERT_SPECIAL_SESSIONS_TEMPLATE: readonly TestOperation[] = [
     url: "https://dev-mistert.compex.com.br/MisterT.asp?MF=Y",
     method: "GET",
     captureSession: true,
-    extract: { CTRL: "CTRL=(\\d+)" },
+    extract: { LOGIN_CTRL: "CTRL=(\\d+)" },
     navigation: {
       accessMode: "url-driven",
       sourceAction: {
@@ -328,12 +321,12 @@ export const MISTERT_SPECIAL_SESSIONS_TEMPLATE: readonly TestOperation[] = [
   },
   {
     name: "Login",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=1",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{LOGIN_CTRL}}&R=1",
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: "IN1={{STRESSFLOW_USER}}&IN2={{STRESSFLOW_PASS}}",
     captureSession: true,
-    extract: { CTRL: "CTRL=(\\d+)" },
+    extract: { SESSION_CTRL: "CTRL=(\\d+)" },
     navigation: {
       accessMode: "action-driven",
       sourceAction: {
@@ -351,11 +344,11 @@ export const MISTERT_SPECIAL_SESSIONS_TEMPLATE: readonly TestOperation[] = [
   {
     name: "Sessões Especiais",
     moduleGroup: "Sessões Especiais",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=864",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=864",
     method: "GET",
     captureSession: true,
     extract: {
-      CTRL: "action=[\"'][^\"']*CTRL=(\\d+)&R=2",
+      ACTION_CTRL: "action=[\"'][^\"']*CTRL=(\\d+)&R=2",
     },
     navigation: {
       accessMode: "url-driven",
@@ -371,12 +364,11 @@ export const MISTERT_SPECIAL_SESSIONS_TEMPLATE: readonly TestOperation[] = [
   {
     name: "Sessões Especiais - Inserir Novo Registro",
     moduleGroup: "Sessões Especiais",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{CTRL}}&R=2",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{ACTION_CTRL}}&R=2",
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: "IN5=Insere+Novo+Registro",
     captureSession: true,
-    extract: { CTRL: "CTRL=(\\d+)" },
     navigation: {
       accessMode: "action-driven",
       sourceAction: {
