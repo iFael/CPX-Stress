@@ -19,7 +19,11 @@ import { CredentialAlert } from "@/components/CredentialAlert";
 import { MistertOperationsPanel } from "@/components/MistertOperationsPanel";
 import { PresetModal } from "@/components/PresetModal";
 import { SavePresetDialog } from "@/components/SavePresetDialog";
-import type { MistertValidationResult, ProgressData } from "@/types";
+import type {
+  MistertValidationResult,
+  ProgressData,
+  TestPreset,
+} from "@/types";
 import {
   getMistertModuleByName,
   isMistertModuleOperationName,
@@ -106,7 +110,7 @@ export function TestConfig() {
   // Carregar presets do banco na inicialização (para SavePresetDialog validar nomes)
   useEffect(() => {
     window.stressflow.presets.list()
-      .then((data) => setPresets(data as import("@/types").TestPreset[]))
+      .then((data) => setPresets(data as TestPreset[]))
       .catch(() => console.warn("[CPX-Stress] Erro ao carregar presets na inicialização"));
   }, [setPresets]);
 
@@ -116,20 +120,25 @@ export function TestConfig() {
     (!credentialStatus.STRESSFLOW_USER || !credentialStatus.STRESSFLOW_PASS);
 
   // Detectar a URL base atual a partir das operações
-  const currentBaseUrl =
-    config.operations?.[0]?.url
+  const configuredOperations = config.operations ?? [];
+  const currentBaseUrl = (() => {
+    const firstOperationUrl = configuredOperations[0]?.url;
+    if (!firstOperationUrl) return MISTERT_DEFAULT_BASE_URL;
+
+    return firstOperationUrl
       .replace(/\/MisterT\.asp.*$/, "")
-      .replace(/\/+$/, "") || MISTERT_DEFAULT_BASE_URL;
+      .replace(/\/+$/, "");
+  })();
 
   // Detecção de preset MisterT e estado de seleção dos módulos
   const isMistertPreset =
-    (config.operations ?? []).some((op) => isMistertModuleOperationName(op.name)) ||
-    config.operations?.[0]?.name === "Página de Login";
+    configuredOperations.some((op) => isMistertModuleOperationName(op.name)) ||
+    configuredOperations[0]?.name === "Página de Login";
   const selectedModuleNames = new Set(
     MISTERT_MODULE_METADATA.filter((module) =>
       module.operationNames.every((operationName) =>
-        (config.operations ?? []).some((operation) => operation.name === operationName)
-      )
+        configuredOperations.some((operation) => operation.name === operationName),
+      ),
     ).map((module) => module.name)
   );
   const allModulesSelected = selectedModuleNames.size === MISTERT_MODULE_METADATA.length;
@@ -205,7 +214,7 @@ export function TestConfig() {
      --------------------------------------------------------------- */
   const handleStart = useCallback(async () => {
     const effectiveConfig =
-      config.operations && config.operations.length > 0
+      configuredOperations.length > 0
         ? config
         : (() => {
             const ops = buildMistertOperations(currentBaseUrl);
@@ -265,6 +274,7 @@ export function TestConfig() {
     }
   }, [
     config,
+    config.operations,
     currentBaseUrl,
     setUrlError,
     setError,
@@ -529,12 +539,12 @@ export function TestConfig() {
           ) : (
             <ChevronDown className="w-4 h-4" aria-hidden="true" />
           )}
-          Ver Operações ({(config.operations || []).length} etapas)
+          Ver Operações ({configuredOperations.length} etapas)
         </button>
 
         {showOperations && (
           <MistertOperationsPanel
-            operations={config.operations || []}
+            operations={configuredOperations}
             isMistertPreset={isMistertPreset}
             selectedModuleNames={selectedModuleNames}
             allModulesSelected={allModulesSelected}

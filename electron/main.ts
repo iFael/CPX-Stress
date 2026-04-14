@@ -602,10 +602,12 @@ if (canUseElectronMainApis) {
    */
   ipcMain.handle("history:list", async () => {
   try {
-    return listTestResults();
+    initializeDatabase();
+    const history = listTestResults();
+    return JSON.parse(JSON.stringify(history));
   } catch (error) {
     console.error("[CPX-Stress] Erro ao carregar histórico:", error);
-    throw new Error("Não foi possível carregar o histórico de testes.");
+    return [];
   }
   });
 
@@ -619,7 +621,9 @@ if (canUseElectronMainApis) {
     if (!id || typeof id !== "string") {
       return null;
     }
-    return getTestResult(id);
+    initializeDatabase();
+    const result = getTestResult(id);
+    return result ? JSON.parse(JSON.stringify(result)) : null;
   } catch (error) {
     console.error("[CPX-Stress] Erro ao buscar teste no histórico:", error);
     throw new Error(
@@ -963,10 +967,12 @@ if (canUseElectronMainApis) {
  */
   ipcMain.handle("presets:list", async () => {
   try {
-    return listPresets();
+    initializeDatabase();
+    const presets = listPresets();
+    return JSON.parse(JSON.stringify(presets));
   } catch (error) {
     console.error("[CPX-Stress] Erro ao listar presets:", error);
-    throw new Error("Não foi possível carregar os presets.");
+    return [];
   }
   });
 

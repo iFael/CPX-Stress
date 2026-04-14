@@ -174,6 +174,13 @@ export interface TestResult {
   operationMetrics?: Record<string, OperationMetrics>;
   measurementReliability?: MeasurementReliability;
   operationalWarnings?: string[];
+  errorBreakdown?: {
+    timeout: number;
+    connection: number;
+    http: number;
+    dns: number;
+    unknown: number;
+  };
 }
 
 function percentile(sorted: number[], p: number): number {

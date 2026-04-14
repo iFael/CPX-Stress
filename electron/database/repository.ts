@@ -9,6 +9,11 @@
 import { getDatabase } from "./database";
 import { v4 as uuidv4 } from "uuid";
 import type Database from "better-sqlite3";
+import type {
+  SecondMetrics,
+  TestConfig,
+  TestResult,
+} from "../engine/stress-engine";
 
 // ============================================================================
 // Utilitários internos
@@ -89,11 +94,16 @@ export interface PresetRow {
 // ============================================================================
 
 /** Converte uma row do SQLite para o formato TestResult do app. */
-function rowToTestResult(row: TestResultRow) {
+function rowToTestResult(row: TestResultRow): TestResult {
   return {
     id: row.id,
     url: row.url,
-    config: safeJsonParse(row.config_json, {}),
+    config: safeJsonParse<TestConfig>(row.config_json, {
+      url: row.url,
+      virtualUsers: 0,
+      duration: 0,
+      method: "GET",
+    }),
     startTime: row.start_time,
     endTime: row.end_time,
     durationSeconds: row.duration_seconds,
@@ -113,7 +123,7 @@ function rowToTestResult(row: TestResultRow) {
     throughputBytesPerSec: row.throughput_bytes_per_sec ?? 0,
     totalBytes: row.total_bytes ?? 0,
     statusCodes: safeJsonParse<Record<string, number>>(row.status_codes_json, {}),
-    timeline: safeJsonParse<unknown[]>(row.timeline_json, []),
+    timeline: safeJsonParse<SecondMetrics[]>(row.timeline_json, []),
     status: row.status as "completed" | "cancelled" | "error",
     errorMessage: row.error_message ?? undefined,
     protectionReport: safeJsonParse(row.protection_report_json, undefined),
@@ -123,7 +133,7 @@ function rowToTestResult(row: TestResultRow) {
 }
 
 /** Salva um resultado de teste no banco. */
-export function saveTestResult(result: Record<string, unknown>): void {
+export function saveTestResult(result: TestResult): void {
   const db = getDatabase();
 
   const latency = result.latency as Record<string, number> | undefined;
@@ -173,23 +183,43 @@ export function saveTestResult(result: Record<string, unknown>): void {
 }
 
 /** Lista todos os resultados de testes ordenados por data (mais recente primeiro). */
-export function listTestResults(limit = 100): Record<string, unknown>[] {
+export function listTestResults(limit = 100): TestResult[] {
   const db = getDatabase();
   const rows = db
     .prepare("SELECT * FROM test_results ORDER BY created_at DESC LIMIT ?")
     .all(limit) as TestResultRow[];
 
-  return rows.map(rowToTestResult);
+  return rows.flatMap((row) => {
+    try {
+      return [rowToTestResult(row)];
+    } catch (error) {
+      console.warn(
+        `[CPX-Stress] Ignorando registro de histórico corrompido: ${row.id}`,
+        error,
+      );
+      return [];
+    }
+  });
 }
 
 /** Busca um resultado de teste por ID. */
-export function getTestResult(id: string): Record<string, unknown> | null {
+export function getTestResult(id: string): TestResult | null {
   const db = getDatabase();
   const row = db.prepare("SELECT * FROM test_results WHERE id = ?").get(id) as
     | TestResultRow
     | undefined;
 
-  return row ? rowToTestResult(row) : null;
+  if (!row) return null;
+
+  try {
+    return rowToTestResult(row);
+  } catch (error) {
+    console.warn(
+      `[CPX-Stress] Registro de histórico corrompido ao buscar teste ${id}`,
+      error,
+    );
+    return null;
+  }
 }
 
 /** Remove um resultado de teste por ID (cascade deleta erros associados). */

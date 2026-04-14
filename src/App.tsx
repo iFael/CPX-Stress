@@ -38,12 +38,10 @@ export default function App() {
    * - view:       qual página está sendo exibida (teste, histórico ou resultados)
    * - status:     em que etapa o teste está (parado, rodando, concluido, etc.)
    * - setHistory: função para salvar a lista de testes anteriores no estado
-   * - setError:   função para registrar mensagens de erro
    */
   const view = useTestStore((s) => s.view);
   const status = useTestStore((s) => s.status);
   const setHistory = useTestStore((s) => s.setHistory);
-  const setError = useTestStore((s) => s.setError);
 
   /**
    * Atalhos de teclado globais da aplicação.
@@ -72,11 +70,11 @@ export default function App() {
       setHistory(savedHistory);
     } catch (err) {
       console.warn("[CPX-Stress] Não foi possível carregar o histórico:", err);
-      setError("Falha ao carregar histórico de testes anteriores.");
+      setHistory([]);
     } finally {
       setIsLoadingHistory(false);
     }
-  }, [setHistory, setError]);
+  }, [setHistory]);
 
   useEffect(() => {
     loadHistory();
