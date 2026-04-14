@@ -109,3 +109,4 @@ coverage
 # Claude Code (configuracoes locais do agente)
 # --------------------------------------------------
 .claude/
+.codex-logs/
