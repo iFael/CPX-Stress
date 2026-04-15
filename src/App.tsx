@@ -42,6 +42,11 @@ export default function App() {
   const view = useTestStore((s) => s.view);
   const status = useTestStore((s) => s.status);
   const setHistory = useTestStore((s) => s.setHistory);
+  const isWideContent =
+    view === "results" ||
+    status === "running" ||
+    status === "completed" ||
+    status === "cancelled";
 
   /**
    * Atalhos de teclado globais da aplicação.
@@ -109,8 +114,12 @@ export default function App() {
           <Sidebar />
 
           {/* Area de conteúdo principal — muda conforme a página ativa */}
-          <main className="flex-1 overflow-auto px-4 py-2 flex justify-center">
-            <div className="w-full max-w-4xl my-auto">
+          <main className="flex-1 overflow-auto px-4 py-3 flex justify-center">
+            <div
+              className={`w-full my-auto ${
+                isWideContent ? "max-w-[1560px]" : "max-w-4xl"
+              }`}
+            >
               <MainContent
                 view={view}
                 status={status}

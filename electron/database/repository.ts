@@ -60,6 +60,9 @@ export interface TestResultRow {
   error_message: string | null;
   protection_report_json: string | null;
   operation_metrics_json: string | null;
+  vu_results_json: string | null;
+  measurement_reliability_json: string | null;
+  operational_warnings_json: string | null;
   error_breakdown_json: string | null;
   created_at: string;
 }
@@ -128,6 +131,15 @@ function rowToTestResult(row: TestResultRow): TestResult {
     errorMessage: row.error_message ?? undefined,
     protectionReport: safeJsonParse(row.protection_report_json, undefined),
     operationMetrics: safeJsonParse(row.operation_metrics_json, undefined),
+    vuResults: safeJsonParse(row.vu_results_json, undefined),
+    measurementReliability: safeJsonParse(
+      row.measurement_reliability_json,
+      undefined,
+    ),
+    operationalWarnings: safeJsonParse(
+      row.operational_warnings_json,
+      undefined,
+    ),
     errorBreakdown: safeJsonParse(row.error_breakdown_json, undefined),
   };
 }
@@ -146,9 +158,10 @@ export function saveTestResult(result: TestResult): void {
       latency_p50, latency_p90, latency_p95, latency_p99, latency_max,
       error_rate, throughput_bytes_per_sec, total_bytes, status_codes_json,
       timeline_json, status, error_message, protection_report_json,
-      operation_metrics_json, error_breakdown_json, created_at
+      operation_metrics_json, vu_results_json, measurement_reliability_json,
+      operational_warnings_json, error_breakdown_json, created_at
     ) VALUES (
-      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
     )
   `,
   ).run(
@@ -177,6 +190,13 @@ export function saveTestResult(result: TestResult): void {
     (result.errorMessage as string) || null,
     result.protectionReport ? JSON.stringify(result.protectionReport) : null,
     result.operationMetrics ? JSON.stringify(result.operationMetrics) : null,
+    result.vuResults ? JSON.stringify(result.vuResults) : null,
+    result.measurementReliability
+      ? JSON.stringify(result.measurementReliability)
+      : null,
+    result.operationalWarnings
+      ? JSON.stringify(result.operationalWarnings)
+      : null,
     result.errorBreakdown ? JSON.stringify(result.errorBreakdown) : null,
     (result.startTime as string) || new Date().toISOString(),
   );

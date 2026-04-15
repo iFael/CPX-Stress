@@ -443,6 +443,31 @@ function applyMigrations(database: Database.Database): void {
         .run(3);
     })();
   }
+
+  if (version < 4) {
+    database.transaction(() => {
+      database.exec(`
+        ALTER TABLE test_results ADD COLUMN measurement_reliability_json TEXT
+      `);
+      database.exec(`
+        ALTER TABLE test_results ADD COLUMN operational_warnings_json TEXT
+      `);
+      database
+        .prepare("INSERT INTO schema_version (version) VALUES (?)")
+        .run(4);
+    })();
+  }
+
+  if (version < 5) {
+    database.transaction(() => {
+      database.exec(`
+        ALTER TABLE test_results ADD COLUMN vu_results_json TEXT
+      `);
+      database
+        .prepare("INSERT INTO schema_version (version) VALUES (?)")
+        .run(5);
+    })();
+  }
 }
 
 /**

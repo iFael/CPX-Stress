@@ -17,6 +17,7 @@
 import { parentPort, workerData } from "node:worker_threads";
 import http from "node:http";
 import https from "node:https";
+import { setMaxListeners } from "node:events";
 import { CookieJar } from "./cookie-jar";
 
 if (!parentPort) {
@@ -43,6 +44,7 @@ interface WorkerOperation {
 
 interface WorkerConfig {
   vuCount: number;
+  startVuIndex: number;
   operations: WorkerOperation[];
   endTime: number;
   rampUpDelays: number[];
@@ -59,18 +61,42 @@ interface ResponseSample {
 }
 
 interface ResponseItem {
+  vuId: number;
   latency: number;
   statusCode: number;
   bytes: number;
   opName: string;
+  targetLabel: string;
+  method: string;
   captureSession: boolean;
   sample?: ResponseSample;
   sessionInvalid?: boolean;
 }
 
 interface NetworkError {
+  vuId: number;
   message: string;
   opName: string;
+  targetLabel: string;
+  method: string;
+}
+
+type WorkerVuActivityState =
+  | "requesting"
+  | "success"
+  | "error"
+  | "reauthenticating";
+
+interface WorkerActivityEvent {
+  vuId: number;
+  state: WorkerVuActivityState;
+  operationName: string;
+  targetLabel: string;
+  method: string;
+  statusCode?: number;
+  latencyMs?: number;
+  updatedAt: number;
+  message?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,6 +107,7 @@ const config = workerData as WorkerConfig;
 const port = parentPort;
 const abortController = new AbortController();
 const signal = abortController.signal;
+setMaxListeners(0, signal);
 
 // Responder a mensagem de cancelamento do thread principal
 port.on("message", (msg: { type: string }) => {
@@ -106,6 +133,7 @@ const agents = {
 // Buffers de lote — enviados ao thread principal periodicamente
 let responseBatch: ResponseItem[] = [];
 let errorBatch: NetworkError[] = [];
+const liveVuStates = new Map<number, WorkerActivityEvent>();
 let requestCount = 0;
 
 // Enviar lotes a cada 100ms para não sobrecarregar o IPC
@@ -121,6 +149,44 @@ const batchTimer = setInterval(() => {
     errorBatch = [];
   }
 }, BATCH_INTERVAL_MS);
+
+const ACTIVITY_SNAPSHOT_INTERVAL_MS = 1000;
+const activitySnapshotTimer = setInterval(() => {
+  if (liveVuStates.size === 0) return;
+  port.postMessage({
+    type: "activitySnapshot",
+    activityEvents: [...liveVuStates.values()],
+  });
+}, ACTIVITY_SNAPSHOT_INTERVAL_MS);
+
+function setVuActivity(event: WorkerActivityEvent): void {
+  liveVuStates.set(event.vuId, event);
+}
+
+function sanitizeTargetLabel(url: URL): string {
+  const params = new URLSearchParams(url.search);
+  const kept = new URLSearchParams();
+  const visibleKeys = new Set(["R", "MF", "Op", "op"]);
+  const sensitiveKeyPattern = /(ctrl|token|pass|senha|secret|session|cookie|auth|key)/i;
+
+  for (const [key, value] of params.entries()) {
+    if (visibleKeys.has(key)) {
+      kept.set(key, value);
+      continue;
+    }
+    if (sensitiveKeyPattern.test(key)) {
+      kept.set(key, "***");
+      continue;
+    }
+    if (kept.size < 4 && value.length <= 32 && /^[\w.\-:/]+$/i.test(value)) {
+      kept.set(key, value);
+    }
+  }
+
+  const normalizedPath = url.pathname.replace(/\/+$/, "") || "/";
+  const query = kept.toString();
+  return query ? `${normalizedPath}?${query}` : normalizedPath;
+}
 
 // ---------------------------------------------------------------------------
 // Execução de requisições HTTP
@@ -394,7 +460,7 @@ function resolveExtractHeaders(
 // Execução de um Virtual User (VU)
 // ---------------------------------------------------------------------------
 
-async function runVU(delay: number): Promise<void> {
+async function runVU(delay: number, vuId: number): Promise<void> {
   if (delay > 0) {
     await new Promise<void>((resolve) => {
       const timer = setTimeout(resolve, delay);
@@ -432,6 +498,17 @@ async function runVU(delay: number): Promise<void> {
     const hasRejectTexts = !!op.rejectOnAnyText?.length;
     requestCount++;
     const captureSample = requestCount % 50 === 1;
+
+    const targetLabel = sanitizeTargetLabel(opUrl);
+    setVuActivity({
+      vuId,
+      state: "requesting",
+      operationName: op.name,
+      targetLabel,
+      method: op.method,
+      updatedAt: Date.now(),
+      message: "Requisição em andamento.",
+    });
 
     try {
       const result = await makeRequest(
@@ -475,19 +552,51 @@ async function runVU(delay: number): Promise<void> {
       }
 
       responseBatch.push({
+        vuId,
         latency: performance.now() - start,
         statusCode: result.statusCode,
         bytes: result.bytes,
         opName: op.name,
+        targetLabel,
+        method: op.method,
         captureSession: op.captureSession !== false,
         sample: result.sample,
         sessionInvalid,
+      });
+      setVuActivity({
+        vuId,
+        state: result.statusCode >= 400 ? "error" : "success",
+        operationName: op.name,
+        targetLabel,
+        method: op.method,
+        statusCode: result.statusCode,
+        latencyMs: Math.round((performance.now() - start) * 100) / 100,
+        updatedAt: Date.now(),
+        message:
+          result.statusCode >= 400
+            ? `Resposta HTTP ${result.statusCode}.`
+            : "Resposta concluída com sucesso.",
       });
       return { finalUrl: result.finalUrl, sessionInvalid };
     } catch (err) {
       if (!signal.aborted) {
         const msg = err instanceof Error ? err.message : String(err);
-        errorBatch.push({ message: msg, opName: op.name });
+        errorBatch.push({
+          vuId,
+          message: msg,
+          opName: op.name,
+          targetLabel,
+          method: op.method,
+        });
+        setVuActivity({
+          vuId,
+          state: "error",
+          operationName: op.name,
+          targetLabel,
+          method: op.method,
+          updatedAt: Date.now(),
+          message: msg,
+        });
       }
       return { finalUrl: undefined, sessionInvalid: false };
     }
@@ -560,6 +669,15 @@ async function runVU(delay: number): Promise<void> {
     }
 
     if (sessionExpired) {
+      setVuActivity({
+        vuId,
+        state: "reauthenticating",
+        operationName: "Reautenticando sessão",
+        targetLabel: "Fluxo de login",
+        method: "POST",
+        updatedAt: Date.now(),
+        message: "Sessão expirada; refazendo autenticação.",
+      });
       cookieJar.clear();
       extractedVars.clear();
       for (const op of authOps) {
@@ -577,7 +695,7 @@ async function main(): Promise<void> {
   const vuPromises: Promise<void>[] = [];
 
   for (let i = 0; i < config.vuCount; i++) {
-    vuPromises.push(runVU(config.rampUpDelays[i] || 0));
+    vuPromises.push(runVU(config.rampUpDelays[i] || 0, config.startVuIndex + i + 1));
   }
 
   try {
@@ -587,6 +705,7 @@ async function main(): Promise<void> {
   }
 
   clearInterval(batchTimer);
+  clearInterval(activitySnapshotTimer);
 
   // Flush final — envia dados restantes no buffer
   if (responseBatch.length > 0 || errorBatch.length > 0) {
@@ -597,6 +716,13 @@ async function main(): Promise<void> {
     });
     responseBatch = [];
     errorBatch = [];
+  }
+
+  if (liveVuStates.size > 0) {
+    port.postMessage({
+      type: "activitySnapshot",
+      activityEvents: [...liveVuStates.values()],
+    });
   }
 
   // Limpar recursos

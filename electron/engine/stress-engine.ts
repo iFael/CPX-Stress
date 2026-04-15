@@ -3,8 +3,10 @@ import https from "node:https";
 import dns from "node:dns";
 import { URL } from "node:url";
 import path from "node:path";
+import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
+import { setMaxListeners } from "node:events";
 import { Worker } from "node:worker_threads";
 import { v4 as uuidv4 } from "uuid";
 import { ProtectionDetector } from "./protection-detector";
@@ -103,6 +105,62 @@ export interface SecondMetrics {
   activeUsers: number;
 }
 
+export type LiveVuActivityState =
+  | "queued"
+  | "requesting"
+  | "success"
+  | "error"
+  | "reauthenticating";
+
+export interface LiveVuActivitySnapshot {
+  vuId: number;
+  state: LiveVuActivityState;
+  operationName: string;
+  targetLabel: string;
+  method: string;
+  statusCode?: number;
+  latencyMs?: number;
+  updatedAt: number;
+  message?: string;
+}
+
+export interface LiveOperationSummary {
+  operationName: string;
+  activeVus: number;
+  lastSecondRequests: number;
+  lastSecondErrors: number;
+}
+
+export interface LiveActivityData {
+  mode: "per-vu" | "summary";
+  totalVus: number;
+  vus: LiveVuActivitySnapshot[];
+  summary: LiveOperationSummary[];
+  fallbackThreshold: number;
+}
+
+export interface VuResultSummary {
+  vuId: number;
+  finalState: LiveVuActivityState;
+  totalRequests: number;
+  successfulRequests: number;
+  failedRequests: number;
+  outcomeBreakdown: Record<string, number>;
+  lastOperationName: string;
+  lastTargetLabel: string;
+  lastMethod: string;
+  lastStatusCode?: number;
+  lastLatencyMs?: number;
+  lastUpdatedAt: number;
+  lastMessage?: string;
+}
+
+interface RuntimeErrorSecondMetrics {
+  second: number;
+  timeoutErrors: number;
+  connectionErrors: number;
+}
+
 export interface ProgressData {
   currentSecond: number;
   totalSeconds: number;
@@ -112,6 +170,7 @@ export interface ProgressData {
     totalErrors: number;
     rps: number;
   };
+  liveActivity: LiveActivityData;
 }
 
 export interface TestResult {
@@ -181,6 +240,7 @@ export interface TestResult {
     dns: number;
     unknown: number;
   };
+  vuResults?: VuResultSummary[];
 }
 
 function percentile(sorted: number[], p: number): number {
@@ -565,6 +625,7 @@ export function validateTestConfig(config: TestConfig): void {
  * para evitar saturação do event loop principal do Node.js.
  */
 const WORKER_THREAD_THRESHOLD = 256;
+const LIVE_VU_FALLBACK_THRESHOLD = 500;
 
 export class StressEngine {
   private cancelled = false;
@@ -610,6 +671,209 @@ export class StressEngine {
       };
     }
   > = new Map();
+  private liveVuActivity = new Map<number, LiveVuActivitySnapshot>();
+  private vuResultSummaries = new Map<number, VuResultSummary>();
+  private secOperationCounts = new Map<
+    string,
+    { requests: number; errors: number }
+  >();
+
+  private createQueuedVuActivity(vuId: number): LiveVuActivitySnapshot {
+    return {
+      vuId,
+      state: "queued",
+      operationName: "Aguardando início",
+      targetLabel: "Aguardando primeiro acesso",
+      method: "—",
+      updatedAt: Date.now(),
+      message: "VU aguardando ramp-up ou primeira requisição.",
+    };
+  }
+
+  private initializeLiveVuActivity(totalVus: number): void {
+    this.liveVuActivity = new Map();
+    this.vuResultSummaries = new Map();
+    for (let vuId = 1; vuId <= totalVus; vuId++) {
+      this.liveVuActivity.set(vuId, this.createQueuedVuActivity(vuId));
+      this.vuResultSummaries.set(vuId, {
+        vuId,
+        finalState: "queued",
+        totalRequests: 0,
+        successfulRequests: 0,
+        failedRequests: 0,
+        outcomeBreakdown: {},
+        lastOperationName: "Aguardando início",
+        lastTargetLabel: "Aguardando primeiro acesso",
+        lastMethod: "—",
+        lastUpdatedAt: Date.now(),
+        lastMessage: "VU aguardando ramp-up ou primeira requisição.",
+      });
+    }
+  }
+
+  private updateVuActivity(
+    vuId: number,
+    data: Omit<LiveVuActivitySnapshot, "vuId" | "updatedAt"> & {
+      updatedAt?: number;
+    },
+  ): void {
+    const existing =
+      this.liveVuActivity.get(vuId) ?? this.createQueuedVuActivity(vuId);
+    this.liveVuActivity.set(vuId, {
+      ...existing,
+      ...data,
+      vuId,
+      updatedAt: data.updatedAt ?? Date.now(),
+    });
+  }
+
+  private updateVuResultSummary(
+    vuId: number,
+    data: Partial<VuResultSummary> & {
+      outcomeKey?: string;
+      incrementTotalRequests?: boolean;
+      incrementSuccess?: boolean;
+      incrementFailure?: boolean;
+    },
+  ): void {
+    const existing =
+      this.vuResultSummaries.get(vuId) ?? {
+        vuId,
+        finalState: "queued" as LiveVuActivityState,
+        totalRequests: 0,
+        successfulRequests: 0,
+        failedRequests: 0,
+        outcomeBreakdown: {},
+        lastOperationName: "Aguardando início",
+        lastTargetLabel: "Aguardando primeiro acesso",
+        lastMethod: "—",
+        lastUpdatedAt: Date.now(),
+        lastMessage: "VU aguardando ramp-up ou primeira requisição.",
+      };
+
+    const outcomeBreakdown = { ...existing.outcomeBreakdown };
+    if (data.outcomeKey) {
+      outcomeBreakdown[data.outcomeKey] =
+        (outcomeBreakdown[data.outcomeKey] || 0) + 1;
+    }
+
+    this.vuResultSummaries.set(vuId, {
+      ...existing,
+      ...data,
+      outcomeBreakdown,
+      totalRequests:
+        existing.totalRequests + (data.incrementTotalRequests ? 1 : 0),
+      successfulRequests:
+        existing.successfulRequests + (data.incrementSuccess ? 1 : 0),
+      failedRequests: existing.failedRequests + (data.incrementFailure ? 1 : 0),
+      lastUpdatedAt: data.lastUpdatedAt ?? Date.now(),
+    });
+  }
+
+  private noteOperationSecondCount(
+    operationName: string,
+    kind: "request" | "error",
+  ): void {
+    const current = this.secOperationCounts.get(operationName) ?? {
+      requests: 0,
+      errors: 0,
+    };
+    if (kind === "request") current.requests++;
+    else current.errors++;
+    this.secOperationCounts.set(operationName, current);
+  }
+
+  private sanitizeTargetLabel(url: URL): string {
+    const params = new URLSearchParams(url.search);
+    const kept = new URLSearchParams();
+    const visibleKeys = new Set(["R", "MF", "Op", "op"]);
+    const sensitiveKeyPattern = /(ctrl|token|pass|senha|secret|session|cookie|auth|key)/i;
+
+    for (const [key, value] of params.entries()) {
+      if (visibleKeys.has(key)) {
+        kept.set(key, value);
+        continue;
+      }
+      if (sensitiveKeyPattern.test(key)) {
+        kept.set(key, "***");
+        continue;
+      }
+      if (
+        kept.size < 4 &&
+        value.length <= 32 &&
+        /^[\w.\-:/]+$/i.test(value)
+      ) {
+        kept.set(key, value);
+      }
+    }
+
+    const normalizedPath = url.pathname.replace(/\/+$/, "") || "/";
+    const query = kept.toString();
+    return query ? `${normalizedPath}?${query}` : normalizedPath;
+  }
+
+  private buildLiveOperationSummary(): LiveOperationSummary[] {
+    const activeByOperation = new Map<string, number>();
+
+    for (const activity of this.liveVuActivity.values()) {
+      if (
+        activity.state === "queued" ||
+        !activity.operationName ||
+        activity.operationName === "Aguardando início"
+      ) {
+        continue;
+      }
+      activeByOperation.set(
+        activity.operationName,
+        (activeByOperation.get(activity.operationName) || 0) + 1,
+      );
+    }
+
+    const operationNames = new Set<string>([
+      ...this.opMetrics.keys(),
+      ...activeByOperation.keys(),
+      ...this.secOperationCounts.keys(),
+    ]);
+
+    return [...operationNames]
+      .map((operationName) => {
+        const secondCounts = this.secOperationCounts.get(operationName) ?? {
+          requests: 0,
+          errors: 0,
+        };
+        return {
+          operationName,
+          activeVus: activeByOperation.get(operationName) || 0,
+          lastSecondRequests: secondCounts.requests,
+          lastSecondErrors: secondCounts.errors,
+        };
+      })
+      .sort((a, b) => {
+        if (b.activeVus !== a.activeVus) return b.activeVus - a.activeVus;
+        if (b.lastSecondRequests !== a.lastSecondRequests) {
+          return b.lastSecondRequests - a.lastSecondRequests;
+        }
+        return a.operationName.localeCompare(b.operationName, "pt-BR");
+      });
+  }
+
+  private buildLiveActivity(totalVus: number): LiveActivityData {
+    const summary = this.buildLiveOperationSummary();
+    const mode =
+      totalVus > LIVE_VU_FALLBACK_THRESHOLD ? "summary" : "per-vu";
+    const vus =
+      mode === "per-vu"
+        ? [...this.liveVuActivity.values()].sort((a, b) => a.vuId - b.vuId)
+        : [];
+
+    return {
+      mode,
+      totalVus,
+      vus,
+      summary,
+      fallbackThreshold: LIVE_VU_FALLBACK_THRESHOLD,
+    };
+  }
 
   private preflight(
     url: URL,
@@ -652,11 +916,16 @@ export class StressEngine {
         );
       });
 
+      const cleanup = () => {
+        signal.removeEventListener("abort", abortHandler);
+      };
       const abortHandler = () => {
+        cleanup();
         req.destroy();
         reject(new Error("Cancelado"));
       };
       signal.addEventListener("abort", abortHandler, { once: true });
+      req.on("close", cleanup);
 
       req.end();
     });
@@ -675,6 +944,7 @@ export class StressEngine {
     this.errorBuffer = [];
     this.onErrorBatch = onErrorBatch || null;
     this.opMetrics = new Map();
+    this.secOperationCounts = new Map();
     validateTestConfig(config);
 
     // Validação de configuração (defensiva — pode já ter sido validada pelo main process)
@@ -717,6 +987,8 @@ export class StressEngine {
     }
 
     const signal = this.abortController.signal;
+    setMaxListeners(0, signal);
+    this.initializeLiveVuActivity(config.virtualUsers);
 
     // Correção BUG-02: Validar que o host alvo não é interno/privado (proteção SSRF)
     await validateTargetHost(url.hostname);
@@ -795,9 +1067,11 @@ export class StressEngine {
     let secRequests = 0;
     let secBytes = 0;
     let secStatusCodes: Record<string, number> = {};
+    let secRuntimeClientErrors = { timeout: 0, connection: 0 };
     let currentSecond = 0;
 
     const timeline: SecondMetrics[] = [];
+    const runtimeErrorTimeline: RuntimeErrorSecondMetrics[] = [];
     const rampUp = config.rampUp || 0;
 
     const interval = setInterval(() => {
@@ -833,6 +1107,12 @@ export class StressEngine {
       };
 
       timeline.push(metrics);
+      runtimeErrorTimeline.push({
+        second: currentSecond,
+        timeoutErrors: secRuntimeClientErrors.timeout,
+        connectionErrors: secRuntimeClientErrors.connection,
+      });
+      const liveActivity = this.buildLiveActivity(config.virtualUsers);
       onProgress({
         currentSecond,
         totalSeconds: config.duration,
@@ -842,6 +1122,7 @@ export class StressEngine {
           totalErrors,
           rps: currentSecond > 0 ? round2(totalRequests / currentSecond) : 0,
         },
+        liveActivity,
       });
 
       secLatencies = [];
@@ -849,6 +1130,8 @@ export class StressEngine {
       secRequests = 0;
       secBytes = 0;
       secStatusCodes = {};
+      secRuntimeClientErrors = { timeout: 0, connection: 0 };
+      this.secOperationCounts = new Map();
     }, 1000);
     this.activeInterval = interval;
 
@@ -869,10 +1152,13 @@ export class StressEngine {
     // Callbacks de resposta/erro extraídos — reutilizados nos modos
     // single-threaded e multi-threaded (worker_threads).
     const handleResponse = (
+      vuId: number,
       latency: number,
       statusCode: number,
       bytes: number,
       operationName: string,
+      targetLabel: string,
+      method: string,
       captureSession: boolean,
       sample?: ResponseSample,
       sessionInvalid: boolean = false,
@@ -892,9 +1178,42 @@ export class StressEngine {
       totalRequests++;
       totalBytes += bytes;
       secBytes += bytes;
+      this.noteOperationSecondCount(operationName, "request");
       const code = String(statusCode);
       globalStatusCodes[code] = (globalStatusCodes[code] || 0) + 1;
       secStatusCodes[code] = (secStatusCodes[code] || 0) + 1;
+      if (statusCode >= 400) {
+        this.noteOperationSecondCount(operationName, "error");
+      }
+
+      this.updateVuActivity(vuId, {
+        state: statusCode >= 400 ? "error" : "success",
+        operationName,
+        targetLabel,
+        method,
+        statusCode,
+        latencyMs: round2(latency),
+        message:
+          statusCode >= 400
+            ? `Resposta HTTP ${statusCode}.`
+            : "Resposta concluída com sucesso.",
+      });
+      this.updateVuResultSummary(vuId, {
+        finalState: statusCode >= 400 ? "error" : "success",
+        lastOperationName: operationName,
+        lastTargetLabel: targetLabel,
+        lastMethod: method,
+        lastStatusCode: statusCode,
+        lastLatencyMs: round2(latency),
+        lastMessage:
+          statusCode >= 400
+            ? `Resposta HTTP ${statusCode}.`
+            : "Resposta concluída com sucesso.",
+        outcomeKey: String(statusCode),
+        incrementTotalRequests: true,
+        incrementSuccess: statusCode < 400,
+        incrementFailure: statusCode >= 400,
+      });
 
       // Métricas por operação
       const opMet = this.opMetrics.get(operationName);
@@ -945,11 +1264,37 @@ export class StressEngine {
       }
     };
 
-    const handleError = (errorMsg: string, operationName: string) => {
+    const handleError = (
+      vuId: number,
+      errorMsg: string,
+      operationName: string,
+      targetLabel: string,
+      method: string,
+    ) => {
       totalErrors++;
       secErrors++;
       totalRequests++;
       secRequests++;
+      this.noteOperationSecondCount(operationName, "request");
+      this.noteOperationSecondCount(operationName, "error");
+      this.updateVuActivity(vuId, {
+        state: "error",
+        operationName,
+        targetLabel,
+        method,
+        message: errorMsg,
+      });
+      const errorType = this.classifyError(errorMsg);
+      this.updateVuResultSummary(vuId, {
+        finalState: "error",
+        lastOperationName: operationName,
+        lastTargetLabel: targetLabel,
+        lastMethod: method,
+        lastMessage: errorMsg,
+        outcomeKey: errorType,
+        incrementTotalRequests: true,
+        incrementFailure: true,
+      });
 
       // Métricas por operação
       const opMet = this.opMetrics.get(operationName);
@@ -959,8 +1304,10 @@ export class StressEngine {
       }
 
       // Capturar erro detalhado
-      const errorType = this.classifyError(errorMsg);
       this.runtimeErrorCounts[errorType]++;
+      if (errorType === "timeout" || errorType === "connection") {
+        secRuntimeClientErrors[errorType]++;
+      }
       this.captureError(
         testId,
         operationName,
@@ -969,6 +1316,20 @@ export class StressEngine {
         errorMsg,
         undefined,
       );
+    };
+
+    const handleVuActivity = (activity: LiveVuActivitySnapshot) => {
+      this.updateVuActivity(activity.vuId, activity);
+      this.updateVuResultSummary(activity.vuId, {
+        finalState: activity.state,
+        lastOperationName: activity.operationName,
+        lastTargetLabel: activity.targetLabel,
+        lastMethod: activity.method,
+        lastStatusCode: activity.statusCode,
+        lastLatencyMs: activity.latencyMs,
+        lastUpdatedAt: activity.updatedAt,
+        lastMessage: activity.message,
+      });
     };
 
     // Modo de execução: worker threads para cargas altas, single-threaded para cargas normais
@@ -981,6 +1342,7 @@ export class StressEngine {
         endTime,
         handleResponse,
         handleError,
+        handleVuActivity,
         signal,
       );
     } else {
@@ -992,6 +1354,7 @@ export class StressEngine {
 
         vuPromises.push(
           this.spawnVU(delay, {
+            vuId: i + 1,
             operations,
             isHttps,
             agents,
@@ -1001,6 +1364,7 @@ export class StressEngine {
             testId,
             onResponse: handleResponse,
             onError: handleError,
+            onVuActivity: handleVuActivity,
           }),
         );
       }
@@ -1051,6 +1415,12 @@ export class StressEngine {
         activeUsers,
       };
       timeline.push(metrics);
+      runtimeErrorTimeline.push({
+        second: currentSecond,
+        timeoutErrors: secRuntimeClientErrors.timeout,
+        connectionErrors: secRuntimeClientErrors.connection,
+      });
+      const liveActivity = this.buildLiveActivity(config.virtualUsers);
       onProgress({
         currentSecond,
         totalSeconds: config.duration,
@@ -1060,7 +1430,10 @@ export class StressEngine {
           totalErrors,
           rps: currentSecond > 0 ? round2(totalRequests / currentSecond) : 0,
         },
+        liveActivity,
       });
+      secRuntimeClientErrors = { timeout: 0, connection: 0 };
+      this.secOperationCounts = new Map();
     }
 
     agents.http.destroy();
@@ -1106,6 +1479,7 @@ export class StressEngine {
     const measurementReliability = this.buildMeasurementReliability({
       config,
       timeline,
+      runtimeErrorTimeline,
       totalRequests,
       actualDuration,
       timeoutErrors: this.runtimeErrorCounts.timeout,
@@ -1120,6 +1494,10 @@ export class StressEngine {
     if (eb.timeout + eb.connection + eb.http + eb.dns + eb.unknown > 0) {
       result.errorBreakdown = { ...eb };
     }
+
+    result.vuResults = [...this.vuResultSummaries.values()].sort(
+      (a, b) => a.vuId - b.vuId,
+    );
 
     // Flush de erros restantes no buffer
     this.flushErrors();
@@ -1181,6 +1559,7 @@ export class StressEngine {
   private async spawnVU(
     delay: number,
     opts: {
+      vuId: number;
       operations: TestOperation[];
       isHttps: boolean;
       agents: {
@@ -1192,15 +1571,25 @@ export class StressEngine {
       signal: AbortSignal;
       testId: string;
       onResponse: (
+        vuId: number,
         latency: number,
         statusCode: number,
         bytes: number,
         operationName: string,
+        targetLabel: string,
+        method: string,
         captureSession: boolean,
         sample?: ResponseSample,
         sessionInvalid?: boolean,
       ) => void;
-      onError: (errorMsg: string, operationName: string) => void;
+      onError: (
+        vuId: number,
+        errorMsg: string,
+        operationName: string,
+        targetLabel: string,
+        method: string,
+      ) => void;
+      onVuActivity: (activity: LiveVuActivitySnapshot) => void;
     },
   ): Promise<void> {
     if (delay > 0) {
@@ -1244,6 +1633,17 @@ export class StressEngine {
 
       this.vuRequestCount++;
       const captureSample = this.vuRequestCount % 50 === 1;
+
+      const targetLabel = this.sanitizeTargetLabel(opUrl);
+      opts.onVuActivity({
+        vuId: opts.vuId,
+        state: "requesting",
+        operationName: op.name,
+        targetLabel,
+        method: op.method,
+        updatedAt: Date.now(),
+        message: "Requisição em andamento.",
+      });
 
       try {
         const result = await this.makeRequest(
@@ -1289,10 +1689,13 @@ export class StressEngine {
 
         const latency = performance.now() - start;
         opts.onResponse(
+          opts.vuId,
           latency,
           result.statusCode,
           result.bytes,
           op.name,
+          targetLabel,
+          op.method,
           op.captureSession !== false,
           result.sample,
           sessionInvalid,
@@ -1301,7 +1704,7 @@ export class StressEngine {
       } catch (err) {
         if (!opts.signal.aborted) {
           const msg = err instanceof Error ? err.message : String(err);
-          opts.onError(msg, op.name);
+          opts.onError(opts.vuId, msg, op.name, targetLabel, op.method);
         }
         return { finalUrl: undefined, sessionInvalid: false };
       }
@@ -1377,6 +1780,15 @@ export class StressEngine {
 
       if (sessionExpired) {
         // Limpar estado de sessão antiga antes de re-autenticar
+        opts.onVuActivity({
+          vuId: opts.vuId,
+          state: "reauthenticating",
+          operationName: "Reautenticando sessão",
+          targetLabel: "Fluxo de login",
+          method: "POST",
+          updatedAt: Date.now(),
+          message: "Sessão expirada; refazendo autenticação.",
+        });
         cookieJar.clear();
         extractedVars.clear();
         // Re-autenticar: executar a cadeia de auth sequencialmente
@@ -1707,6 +2119,7 @@ export class StressEngine {
   private buildMeasurementReliability(params: {
     config: TestConfig;
     timeline: SecondMetrics[];
+    runtimeErrorTimeline: RuntimeErrorSecondMetrics[];
     totalRequests: number;
     actualDuration: number;
     timeoutErrors: number;
@@ -1714,6 +2127,7 @@ export class StressEngine {
     usedReservoirSampling: boolean;
   }): MeasurementReliability {
     const signals = this.collectReliabilitySignals(params);
+    const window = this.collectReliabilityWindow(params);
     const warnings: string[] = [];
 
     if (signals.usedReservoirSampling) {
@@ -1738,12 +2152,12 @@ export class StressEngine {
     }
     if (signals.timeoutErrors > 0) {
       warnings.push(
-        `${signals.timeoutErrors} timeouts foram registrados no gerador de carga.`,
+        `${signals.timeoutErrors} timeouts foram registrados pelo cliente do teste.`,
       );
     }
     if (signals.connectionErrors > 0) {
       warnings.push(
-        `${signals.connectionErrors} falhas de conexão foram registradas no gerador de carga.`,
+        `${signals.connectionErrors} falhas de conexão foram registradas pelo cliente do teste.`,
       );
     }
     if (signals.durationOverrunSeconds > 2) {
@@ -1753,12 +2167,16 @@ export class StressEngine {
     }
 
     let level: MeasurementReliability["level"] = "high";
-    if (
-      signals.steadyStateCv > 45 ||
-      signals.throughputDropPercent > 60 ||
-      signals.latencyGrowthFactor > 6 ||
-      (signals.timeoutErrors > 0 && signals.connectionErrors > 0)
-    ) {
+    const hasStrongClientPressure =
+      signals.connectionErrors > 0 ||
+      signals.durationOverrunSeconds > 10 ||
+      (signals.timeoutErrors > 0 &&
+        signals.durationOverrunSeconds > 5 &&
+        (signals.steadyStateCv > 45 ||
+          signals.throughputDropPercent > 60 ||
+          signals.latencyGrowthFactor > 6));
+
+    if (hasStrongClientPressure) {
       level = "generator-saturated";
     } else if (warnings.length > 0) {
       level = "degraded";
@@ -1768,15 +2186,16 @@ export class StressEngine {
       level === "high"
         ? "A medição foi estável para a carga aplicada."
         : level === "degraded"
-          ? "A medição permaneceu utilizável, mas o gerador mostrou sinais de degradação."
-          : "O gerador de carga saturou e passou a influenciar fortemente o resultado.";
+          ? "A medição permaneceu utilizável, mas mostrou sinais de instabilidade."
+          : "O gerador de carga mostrou sinais claros de saturação e passou a influenciar o resultado.";
 
-    return { level, summary, warnings, signals };
+    return { level, summary, warnings, signals, window };
   }
 
   private collectReliabilitySignals(params: {
     config: TestConfig;
     timeline: SecondMetrics[];
+    runtimeErrorTimeline: RuntimeErrorSecondMetrics[];
     totalRequests: number;
     actualDuration: number;
     timeoutErrors: number;
@@ -1856,6 +2275,153 @@ export class StressEngine {
     };
   }
 
+  private collectReliabilityWindow(params: {
+    config: TestConfig;
+    timeline: SecondMetrics[];
+    runtimeErrorTimeline: RuntimeErrorSecondMetrics[];
+    totalRequests: number;
+    actualDuration: number;
+    timeoutErrors: number;
+    connectionErrors: number;
+    usedReservoirSampling: boolean;
+  }): MeasurementReliability["window"] {
+    if (params.timeline.length === 0) {
+      return {
+        reason: "Sem dados suficientes",
+        detail: "O teste não gerou timeline suficiente para estimar a fronteira de confiabilidade.",
+      };
+    }
+
+    const lastSecond = params.timeline[params.timeline.length - 1]?.second;
+    if (!lastSecond) {
+      return {
+        reason: "Sem dados suficientes",
+        detail: "O teste não gerou timeline suficiente para estimar a fronteira de confiabilidade.",
+      };
+    }
+
+    const windowSize = Math.min(
+      12,
+      Math.max(5, Math.ceil(params.timeline.length * 0.1)),
+    );
+    const analysisStartSecond = Math.max(windowSize, (params.config.rampUp || 0) + 1);
+    const secondToRuntime = new Map(
+      params.runtimeErrorTimeline.map((entry) => [entry.second, entry] as const),
+    );
+
+    const baselineEndIndex = params.timeline.findIndex(
+      (second) => second.second >= analysisStartSecond,
+    );
+    if (baselineEndIndex < 0) {
+      return {
+        fullyReliableUntilSecond: lastSecond,
+        reason: "Medição estável até o fim",
+        detail: "O teste terminou antes de acumular uma janela estável suficiente para identificar influência.",
+      };
+    }
+
+    const baselineStartIndex = Math.max(0, baselineEndIndex - windowSize + 1);
+    const baselineWindow = params.timeline.slice(
+      baselineStartIndex,
+      baselineEndIndex + 1,
+    );
+    const baselineRequests = baselineWindow.map((second) => second.requests);
+    const baselineThroughput = this.averageMetric(baselineRequests);
+    const baselineLatency = this.averageMetric(
+      baselineWindow
+        .map((second) => second.latencyAvg)
+        .filter((value) => value > 0),
+    );
+
+    for (let endIndex = baselineEndIndex + 1; endIndex < params.timeline.length; endIndex++) {
+      const startIndex = Math.max(0, endIndex - windowSize + 1);
+      const windowTimeline = params.timeline.slice(startIndex, endIndex + 1);
+      const windowRequests = windowTimeline
+        .map((second) => second.requests)
+        .filter((value) => value > 0);
+      const requestAverage = this.averageMetric(windowRequests);
+      const requestStdDev =
+        windowRequests.length > 0
+          ? Math.sqrt(
+              windowRequests.reduce(
+                (sum, value) => sum + (value - requestAverage) ** 2,
+                0,
+              ) / windowRequests.length,
+            )
+          : 0;
+      const windowCv =
+        requestAverage > 0 ? round2((requestStdDev / requestAverage) * 100) : 0;
+      const windowLatency = this.averageMetric(
+        windowTimeline
+          .map((second) => second.latencyAvg)
+          .filter((value) => value > 0),
+      );
+      const latencyGrowth =
+        baselineLatency > 0 ? round2(windowLatency / baselineLatency) : 1;
+      const throughputDrop =
+        baselineThroughput > 0
+          ? round2(
+              Math.max(0, (1 - requestAverage / baselineThroughput) * 100),
+            )
+          : 0;
+      const windowRuntime = windowTimeline.map(
+        (second) =>
+          secondToRuntime.get(second.second) || {
+            second: second.second,
+            timeoutErrors: 0,
+            connectionErrors: 0,
+          },
+      );
+      const timeoutErrors = windowRuntime.reduce(
+        (sum, second) => sum + second.timeoutErrors,
+        0,
+      );
+      const connectionErrors = windowRuntime.reduce(
+        (sum, second) => sum + second.connectionErrors,
+        0,
+      );
+
+      let reason: string | null = null;
+      let detail: string | null = null;
+
+      if (connectionErrors > 0) {
+        reason = "Falhas de conexão do cliente";
+        detail = `${connectionErrors} falha(s) de conexão apareceram a partir deste trecho.`;
+      } else if (timeoutErrors > 0) {
+        reason = "Timeouts do cliente";
+        detail = `${timeoutErrors} timeout(s) ocorreram neste trecho.`;
+      } else if (throughputDrop > 35) {
+        reason = "Queda de throughput";
+        detail = `A taxa média de requests caiu ${throughputDrop}% em relação à base inicial.`;
+      } else if (latencyGrowth > 3) {
+        reason = "Crescimento de latência";
+        detail = `A latência média do cliente cresceu ${latencyGrowth}x em relação à base inicial.`;
+      } else if (windowCv > 30) {
+        reason = "Instabilidade de RPS";
+        detail = `O trecho passou a oscilar com CV de ${windowCv}%.`;
+      }
+
+      if (reason && detail) {
+        const influencedFromSecond = windowTimeline[0]?.second;
+        return {
+          fullyReliableUntilSecond:
+            influencedFromSecond && influencedFromSecond > 1
+              ? influencedFromSecond - 1
+              : undefined,
+          influencedFromSecond,
+          reason,
+          detail,
+        };
+      }
+    }
+
+    return {
+      fullyReliableUntilSecond: lastSecond,
+      reason: "Medição estável até o fim",
+      detail: "Nenhum trecho posterior mostrou sinais suficientes para considerar influência da medição.",
+    };
+  }
+
   private averageMetric(values: number[]): number {
     if (values.length === 0) return 0;
     return values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -1916,22 +2482,43 @@ export class StressEngine {
     operations: TestOperation[],
     endTime: number,
     onResponse: (
+      vuId: number,
       latency: number,
       statusCode: number,
       bytes: number,
       opName: string,
+      targetLabel: string,
+      method: string,
       captureSession: boolean,
       sample?: ResponseSample,
       sessionInvalid?: boolean,
     ) => void,
-    onError: (errorMsg: string, opName: string) => void,
+    onError: (
+      vuId: number,
+      errorMsg: string,
+      opName: string,
+      targetLabel: string,
+      method: string,
+    ) => void,
+    onVuActivity: (activity: LiveVuActivitySnapshot) => void,
     signal: AbortSignal,
   ): Promise<void> {
     const numWorkers = Math.min(os.cpus().length, 8);
     const vusPerWorker = Math.ceil(config.virtualUsers / numWorkers);
     const rampUp = config.rampUp ?? 0;
 
-    const workerPath = path.join(__dirname, "stress-worker.js");
+    const workerPathCandidates = [
+      path.join(__dirname, "stress-worker.js"),
+      path.resolve(__dirname, "../../dist-electron/stress-worker.js"),
+    ];
+    const workerPath = workerPathCandidates.find((candidate) =>
+      fs.existsSync(candidate),
+    );
+    if (!workerPath) {
+      throw new Error(
+        "Worker de stress não encontrado. Gere-o com `npm run build:worker`.",
+      );
+    }
     const workers: Worker[] = [];
     const workerPromises: Promise<void>[] = [];
     this.activeWorkers = workers;
@@ -1957,6 +2544,7 @@ export class StressEngine {
       const worker = new Worker(workerPath, {
         workerData: {
           vuCount,
+          startVuIndex: startVU,
           operations: operations.map((op) => ({
             name: op.name,
             moduleGroup: op.moduleGroup,
@@ -1984,24 +2572,37 @@ export class StressEngine {
             (msg: {
               type: string;
               responses?: Array<{
+                vuId: number;
                 latency: number;
                 statusCode: number;
                 bytes: number;
                 opName: string;
+                targetLabel: string;
+                method: string;
                 captureSession: boolean;
                 sample?: ResponseSample;
                 sessionInvalid?: boolean;
               }>;
-              networkErrors?: Array<{ message: string; opName: string }>;
+              networkErrors?: Array<{
+                vuId: number;
+                message: string;
+                opName: string;
+                targetLabel: string;
+                method: string;
+              }>;
+              activityEvents?: LiveVuActivitySnapshot[];
             }) => {
               if (msg.type === "batch") {
                 if (msg.responses) {
                   for (const r of msg.responses) {
                     onResponse(
+                      r.vuId,
                       r.latency,
                       r.statusCode,
                       r.bytes,
                       r.opName,
+                      r.targetLabel,
+                      r.method,
                       r.captureSession,
                       r.sample,
                       r.sessionInvalid,
@@ -2010,7 +2611,19 @@ export class StressEngine {
                 }
                 if (msg.networkErrors) {
                   for (const e of msg.networkErrors) {
-                    onError(e.message, e.opName);
+                    onError(
+                      e.vuId,
+                      e.message,
+                      e.opName,
+                      e.targetLabel,
+                      e.method,
+                    );
+                  }
+                }
+              } else if (msg.type === "activitySnapshot") {
+                if (msg.activityEvents) {
+                  for (const activity of msg.activityEvents) {
+                    onVuActivity(activity);
                   }
                 }
               } else if (msg.type === "done") {

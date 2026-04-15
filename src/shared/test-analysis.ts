@@ -34,6 +34,12 @@ export interface MeasurementReliability {
   summary: string;
   warnings: string[];
   signals: MeasurementReliabilitySignals;
+  window?: {
+    fullyReliableUntilSecond?: number;
+    influencedFromSecond?: number;
+    reason: string;
+    detail: string;
+  };
 }
 
 export function round2(value: number): number {
