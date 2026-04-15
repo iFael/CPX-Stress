@@ -145,7 +145,7 @@ async function checkMockServer(): Promise<boolean> {
 async function runSingle(
   name: string,
   config: TestConfig,
-): Promise<TestResult> {
+): Promise<{ result: TestResult; progressEvents: ProgressData[] }> {
   const engine = new StressEngine();
   const progressEvents: ProgressData[] = [];
   const start = Date.now();
@@ -154,7 +154,7 @@ async function runSingle(
   console.log(
     `  ⏱ ${name}: ${elapsed}s, ${result.totalRequests} reqs, ${result.totalErrors} errs, ${result.rps} rps`,
   );
-  return result;
+  return { result, progressEvents };
 }
 
 async function runScenario(scenario: StressScenario) {
@@ -167,20 +167,21 @@ async function runScenario(scenario: StressScenario) {
   console.log(`  Repetições: ${scenario.repetitions}`);
   console.log("═".repeat(80));
 
-  const results: TestResult[] = [];
+  const results: Array<{ result: TestResult; progressEvents: ProgressData[] }> =
+    [];
 
   for (let i = 0; i < scenario.repetitions; i++) {
     const name = `${scenario.name}-R${i + 1}`;
     try {
-      const result = await runSingle(name, scenario.config);
-      results.push(result);
+      const runOutput = await runSingle(name, scenario.config);
+      results.push(runOutput);
 
       // Salvar resultado
       const outDir = path.join(__dirname, "results");
       if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
       fs.writeFileSync(
         path.join(outDir, `${name}.json`),
-        JSON.stringify(result, null, 2),
+        JSON.stringify(runOutput.result, null, 2),
       );
     } catch (err) {
       console.error(`  ❌ ERRO em ${name}: ${err}`);
@@ -194,7 +195,7 @@ async function runScenario(scenario: StressScenario) {
 
   // Validações por resultado individual
   for (let i = 0; i < results.length; i++) {
-    const r = results[i];
+    const { result: r, progressEvents } = results[i];
     const prefix = `R${i + 1}`;
 
     // Invariantes básicos
@@ -262,13 +263,55 @@ async function runScenario(scenario: StressScenario) {
         "Percentis globais aproximados",
       );
     }
+
+    const lastProgress = progressEvents[progressEvents.length - 1];
+    if (lastProgress) {
+      const expectedMode =
+        r.config.virtualUsers > 500 ? "summary" : "per-vu";
+      check(
+        `${prefix}-L01`,
+        `liveActivity.mode === ${expectedMode}`,
+        lastProgress.liveActivity.mode === expectedMode,
+        `mode=${lastProgress.liveActivity.mode}, vus=${r.config.virtualUsers}`,
+      );
+      check(
+        `${prefix}-L02`,
+        "liveActivity.totalVus === virtualUsers",
+        lastProgress.liveActivity.totalVus === r.config.virtualUsers,
+        `totalVus=${lastProgress.liveActivity.totalVus}, expected=${r.config.virtualUsers}`,
+      );
+
+      if (r.config.virtualUsers > 500) {
+        const configuredOps =
+          r.config.operations && r.config.operations.length > 0
+            ? r.config.operations.map((op) => op.name)
+            : ["default"];
+        check(
+          `${prefix}-L03`,
+          "Resumo agregado contém operações configuradas",
+          lastProgress.liveActivity.summary.every((item) =>
+            configuredOps.includes(item.operationName),
+          ),
+          `summaryOps=${lastProgress.liveActivity.summary.map((item) => item.operationName).join(", ")}`,
+        );
+        check(
+          `${prefix}-L04`,
+          "Soma de activeVus no resumo não excede totalVus",
+          lastProgress.liveActivity.summary.reduce(
+            (sum, item) => sum + item.activeVus,
+            0,
+          ) <= lastProgress.liveActivity.totalVus,
+          `activeSum=${lastProgress.liveActivity.summary.reduce((sum, item) => sum + item.activeVus, 0)}, total=${lastProgress.liveActivity.totalVus}`,
+        );
+      }
+    }
   }
 
   // Comparação entre repetições (se > 1)
   if (results.length >= 2) {
     console.log("\n  📊 Comparação entre repetições");
 
-    const rpsList = results.map((r) => r.rps);
+    const rpsList = results.map((run) => run.result.rps);
     const rpsAvg = rpsList.reduce((a, b) => a + b, 0) / rpsList.length;
     const rpsStddev = Math.sqrt(
       rpsList.reduce((s, v) => s + (v - rpsAvg) ** 2, 0) / rpsList.length,
@@ -281,7 +324,7 @@ async function runScenario(scenario: StressScenario) {
       `RPS=[${rpsList.join(", ")}], CV=${rpsCV.toFixed(1)}%`,
     );
 
-    const p95List = results.map((r) => r.latency.p95);
+    const p95List = results.map((run) => run.result.latency.p95);
     const p95Avg = p95List.reduce((a, b) => a + b, 0) / p95List.length;
     const p95Var =
       p95Avg > 0
@@ -294,7 +337,7 @@ async function runScenario(scenario: StressScenario) {
       `P95=[${p95List.map((v) => v.toFixed(2)).join(", ")}], maxVar=${p95Var.toFixed(1)}%`,
     );
 
-    const p99List = results.map((r) => r.latency.p99);
+    const p99List = results.map((run) => run.result.latency.p99);
     const p99Avg = p99List.reduce((a, b) => a + b, 0) / p99List.length;
     const p99Var =
       p99Avg > 0
@@ -310,7 +353,7 @@ async function runScenario(scenario: StressScenario) {
 
   // Ponto de saturação
   if (results.length > 0) {
-    const r = results[0];
+    const r = results[0].result;
     const tl = r.timeline;
     if (tl.length >= 10) {
       const stable = tl.slice(

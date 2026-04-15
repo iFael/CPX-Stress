@@ -499,6 +499,7 @@ async function validateMixedProtocolAgentSelection() {
   };
 
   await engine.spawnVU(0, {
+    vuId: 1,
     operations: [
       { name: "http-op", url: "http://example.com/ok", method: "GET" },
       { name: "https-op", url: "https://example.com/ok", method: "GET" },
@@ -516,6 +517,7 @@ async function validateMixedProtocolAgentSelection() {
     testId: "mixed-protocol-test",
     onResponse: () => {},
     onError: () => {},
+    onVuActivity: () => {},
   });
 
   const httpSeen = seen.find((item) => item.protocol === "http:");
@@ -770,6 +772,12 @@ const scenarios: TestScenario[] = [
         result.latency.p50 > 0 && result.latency.p99 / result.latency.p50 > 1.5,
         `p99/p50=${result.latency.p50 > 0 ? (result.latency.p99 / result.latency.p50).toFixed(2) : "N/A"}`,
       );
+      check(
+        "A5-04",
+        "Latência variável isolada não deve saturar o gerador",
+        result.measurementReliability?.level !== "generator-saturated",
+        `level=${result.measurementReliability?.level ?? "none"}`,
+      );
     },
   },
   {
@@ -868,6 +876,12 @@ async function runScenario(
   validateTimeline(result);
   validateSanity(result);
   validateReservoir(result);
+  check(
+    "MR-01",
+    "measurementReliability.window está presente",
+    !!result.measurementReliability?.window,
+    JSON.stringify(result.measurementReliability?.window),
+  );
 
   // Validações de progress events
   console.log("\n  📡 Validação de Progress Events");
@@ -903,6 +917,35 @@ async function runScenario(
       "Quantidade de progress events acompanha timeline (±1)",
       Math.abs(progressEvents.length - result.timeline.length) <= 1,
       `progress=${progressEvents.length}, timeline=${result.timeline.length}`,
+    );
+    check(
+      "P-06",
+      "liveActivity permanece em modo per-vu até 500 VUs",
+      lastProgress.liveActivity.mode === "per-vu",
+      `mode=${lastProgress.liveActivity.mode}`,
+    );
+    check(
+      "P-07",
+      "liveActivity.vus.length === virtualUsers",
+      lastProgress.liveActivity.vus.length === scenario.config.virtualUsers,
+      `vus=${lastProgress.liveActivity.vus.length}, expected=${scenario.config.virtualUsers}`,
+    );
+    check(
+      "P-08",
+      "IDs de VU são únicos e estáveis no snapshot final",
+      new Set(lastProgress.liveActivity.vus.map((vu) => vu.vuId)).size ===
+        scenario.config.virtualUsers,
+      `unique=${new Set(lastProgress.liveActivity.vus.map((vu) => vu.vuId)).size}, expected=${scenario.config.virtualUsers}`,
+    );
+    check(
+      "P-09",
+      "Existe operação válida em algum snapshot de atividade",
+      progressEvents.some((event) =>
+        event.liveActivity.vus.some(
+          (vu) => vu.operationName && vu.operationName !== "Aguardando início",
+        ),
+      ),
+      "Nenhum VU saiu do estado inicial.",
     );
   }
 
