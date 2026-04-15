@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import {
   StopCircle,
   Activity,
+  BarChart3,
   Clock,
   AlertTriangle,
   Gauge,
@@ -24,10 +25,22 @@ import {
   Heart,
 } from "lucide-react";
 import { useTestStore } from "@/stores/test-store";
+import { BenchmarkConsensusPanel } from "@/components/BenchmarkConsensusPanel";
 import { MetricsChart } from "@/components/MetricsChart";
 import { InfoTooltip } from "@/components/InfoTooltip";
 import { METRIC_EXPLANATIONS } from "@/components/results-constants";
 import { formatMs } from "@/shared/test-analysis";
+import {
+  buildArtilleryConfigFromTestConfig,
+  buildJMeterConfigFromTestConfig,
+  buildK6ConfigFromTestConfig,
+  buildLocustConfigFromTestConfig,
+} from "@/shared/external-benchmark-configs";
+import type {
+  LiveActivityData,
+  LiveVuActivitySnapshot,
+  LiveVuActivityState,
+} from "@/types";
 
 // ---------------------------------------------------------------------------
 // Utilitarios de formatacao
@@ -40,6 +53,66 @@ function formatTimeRemaining(seconds: number): string {
   const min = Math.floor(seconds / 60);
   const sec = seconds % 60;
   return `${min}min ${sec}s restantes`;
+}
+
+function formatActivityAge(timestamp: number): string {
+  const diffSeconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+  if (diffSeconds <= 1) return "agora";
+  return `${diffSeconds}s atrás`;
+}
+
+function getStateBadge(state: LiveVuActivityState): {
+  label: string;
+  className: string;
+} {
+  switch (state) {
+    case "requesting":
+      return {
+        label: "Acessando",
+        className:
+          "bg-sf-primary/10 text-sf-primary border border-sf-primary/30",
+      };
+    case "success":
+      return {
+        label: "OK",
+        className:
+          "bg-sf-success/10 text-sf-success border border-sf-success/30",
+      };
+    case "error":
+      return {
+        label: "Erro",
+        className:
+          "bg-sf-danger/10 text-sf-danger border border-sf-danger/30",
+      };
+    case "reauthenticating":
+      return {
+        label: "Reautenticando",
+        className:
+          "bg-sf-warning/10 text-sf-warning border border-sf-warning/30",
+      };
+    case "queued":
+    default:
+      return {
+        label: "Na fila",
+        className:
+          "bg-sf-surface text-sf-textSecondary border border-sf-border",
+      };
+  }
+}
+
+function formatRequestStatus(activity: LiveVuActivitySnapshot): string {
+  if (activity.state === "requesting") {
+    return `${activity.method} em andamento`;
+  }
+  if (activity.statusCode !== undefined) {
+    const latency =
+      activity.latencyMs !== undefined ? ` • ${formatMs(activity.latencyMs)}` : "";
+    return `${activity.statusCode}${latency}`;
+  }
+  if (activity.message) {
+    return activity.message;
+  }
+  return activity.method;
 }
 
 // ---------------------------------------------------------------------------
@@ -103,6 +176,7 @@ export function TestProgress() {
   const progress = useTestStore((s) => s.progress);
   const timeline = useTestStore((s) => s.timeline);
   const config = useTestStore((s) => s.config);
+  const benchmarkRunKey = useTestStore((s) => s.benchmarks.runKey);
 
   // Otimizacao: useCallback garante referência estável para o handler de cancelamento.
   // Sem isso, uma nova função e criada a cada re-render (a cada segundo durante o teste),
@@ -159,6 +233,20 @@ export function TestProgress() {
       barStyle: { width: `${_percentage}%` } as const,
     };
   }, [progress, config.duration]);
+
+  const k6Config = useMemo(() => buildK6ConfigFromTestConfig(config), [config]);
+  const locustConfig = useMemo(
+    () => buildLocustConfigFromTestConfig(config),
+    [config],
+  );
+  const artilleryConfig = useMemo(
+    () => buildArtilleryConfigFromTestConfig(config),
+    [config],
+  );
+  const jmeterConfig = useMemo(
+    () => buildJMeterConfigFromTestConfig(config),
+    [config],
+  );
 
   // ---------------------------------------------------------------------------
   // Renderização
@@ -341,6 +429,34 @@ export function TestProgress() {
         </div>
       )}
 
+      <div className="mb-6 space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium text-sf-textSecondary">
+          <BarChart3 className="w-4 h-4 text-sf-primary" />
+          Benchmarks Paralelos
+        </div>
+        <BenchmarkConsensusPanel
+          runKey={benchmarkRunKey}
+          autoStartOnMount
+          k6Config={k6Config}
+          locustConfig={locustConfig}
+          artilleryConfig={artilleryConfig}
+          jmeterConfig={jmeterConfig}
+          cpxResult={{
+            avgLatency: progress?.metrics.latencyAvg ?? 0,
+            p90Latency: progress?.metrics.latencyP90 ?? 0,
+            p95Latency: progress?.metrics.latencyP95 ?? 0,
+            p99Latency: progress?.metrics.latencyP99 ?? 0,
+            rps: progress?.cumulative.rps ?? 0,
+            errorRate,
+            totalRequests: progress?.cumulative.totalRequests ?? 0,
+          }}
+        />
+      </div>
+
+      {progress && (
+        <LiveVuActivityPanel liveActivity={progress.liveActivity} />
+      )}
+
       {/* ===== Gráficos em tempo real ===== */}
       {/* Os gráficos so aparecem após pelo menos 2 segundos de dados (para ter pontos suficientes) */}
       {timeline.length > 1 && (
@@ -437,6 +553,142 @@ const LiveMetricCard = memo(function LiveMetricCard({
       <div className="text-[10px] text-sf-textMuted mb-1">{sublabel}</div>
       {/* Valor principal em destaque */}
       <div className="text-xl font-bold text-sf-text font-mono">{value}</div>
+    </div>
+  );
+});
+
+interface LiveVuActivityPanelProps {
+  liveActivity: LiveActivityData;
+}
+
+const LiveVuActivityPanel = memo(function LiveVuActivityPanel({
+  liveActivity,
+}: LiveVuActivityPanelProps) {
+  return (
+    <div
+      className="bg-sf-surface border border-sf-border rounded-xl p-4 mb-6"
+      role="region"
+      aria-label="Atividade ao vivo dos VUs"
+    >
+      <div className="flex flex-col gap-2 mb-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h3 className="text-sm font-medium text-sf-text flex items-center gap-1.5">
+            Atividade dos VUs
+            <InfoTooltip text="Mostra o que cada usuário virtual está acessando agora. Em cargas muito altas, a interface troca automaticamente para um resumo agregado por operação." />
+          </h3>
+          <p className="text-xs text-sf-textMuted mt-1">
+            {liveActivity.totalVus.toLocaleString("pt-BR")} VUs monitorados ao vivo.
+          </p>
+        </div>
+        {liveActivity.mode === "summary" && (
+          <div className="text-xs text-sf-warning bg-sf-warning/10 border border-sf-warning/30 rounded-lg px-3 py-2">
+            Exibindo resumo agregado porque o teste passou de{" "}
+            {liveActivity.fallbackThreshold.toLocaleString("pt-BR")} VUs.
+          </div>
+        )}
+      </div>
+
+      {liveActivity.mode === "per-vu" ? (
+        <div className="max-h-[26rem] overflow-auto rounded-lg border border-sf-border">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead className="sticky top-0 bg-sf-bg/95 backdrop-blur">
+              <tr className="text-xs text-sf-textMuted border-b border-sf-border">
+                <th className="text-left py-2 px-3 font-medium">VU</th>
+                <th className="text-left py-2 px-3 font-medium">Status</th>
+                <th className="text-left py-2 px-3 font-medium">Operação</th>
+                <th className="text-left py-2 px-3 font-medium">Alvo</th>
+                <th className="text-left py-2 px-3 font-medium">
+                  HTTP/Latência
+                </th>
+                <th className="text-left py-2 px-3 font-medium">Atualização</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-sf-border/50">
+              {liveActivity.vus.map((activity) => {
+                const badge = getStateBadge(activity.state);
+                return (
+                  <tr
+                    key={activity.vuId}
+                    className="hover:bg-sf-bg/30 transition-colors"
+                  >
+                    <td className="py-2 px-3 font-mono text-sf-text">
+                      #{activity.vuId}
+                    </td>
+                    <td className="py-2 px-3">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.className}`}
+                      >
+                        {badge.label}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 text-sf-text font-medium">
+                      {activity.operationName}
+                    </td>
+                    <td
+                      className="py-2 px-3 text-sf-textSecondary font-mono text-xs"
+                      title={activity.targetLabel}
+                    >
+                      {activity.targetLabel}
+                    </td>
+                    <td className="py-2 px-3 text-sf-textSecondary font-mono text-xs">
+                      {formatRequestStatus(activity)}
+                    </td>
+                    <td className="py-2 px-3 text-sf-textMuted text-xs">
+                      {formatActivityAge(activity.updatedAt)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="overflow-auto rounded-lg border border-sf-border">
+          <table className="w-full min-w-[540px] text-sm">
+            <thead className="bg-sf-bg/95">
+              <tr className="text-xs text-sf-textMuted border-b border-sf-border">
+                <th className="text-left py-2 px-3 font-medium">Operação</th>
+                <th className="text-right py-2 px-3 font-medium">VUs ativos</th>
+                <th className="text-right py-2 px-3 font-medium">
+                  Req./seg atual
+                </th>
+                <th className="text-right py-2 px-3 font-medium">
+                  Erros/seg atual
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-sf-border/50">
+              {liveActivity.summary.map((operation) => (
+                <tr
+                  key={operation.operationName}
+                  className="hover:bg-sf-bg/30 transition-colors"
+                >
+                  <td className="py-2 px-3 text-sf-text font-medium">
+                    {operation.operationName}
+                  </td>
+                  <td className="py-2 px-3 text-right text-sf-textSecondary font-mono">
+                    {operation.activeVus.toLocaleString("pt-BR")}
+                  </td>
+                  <td className="py-2 px-3 text-right text-sf-textSecondary font-mono">
+                    {operation.lastSecondRequests.toLocaleString("pt-BR")}
+                  </td>
+                  <td className="py-2 px-3 text-right font-mono">
+                    <span
+                      className={
+                        operation.lastSecondErrors > 0
+                          ? "text-sf-danger"
+                          : "text-sf-success"
+                      }
+                    >
+                      {operation.lastSecondErrors.toLocaleString("pt-BR")}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 });

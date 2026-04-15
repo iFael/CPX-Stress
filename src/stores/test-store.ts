@@ -53,6 +53,13 @@ import type {
   TestPreset,
   ActivePresetInfo,
   TestOperation,
+  ExternalBenchmarkEngine,
+  ExternalBenchmarkStatus,
+  ExternalBenchmarksState,
+  ArtillerySummary,
+  JMeterSummary,
+  K6Summary,
+  LocustSummary,
 } from "@/types";
 import {
   buildMistertOperations,
@@ -139,6 +146,9 @@ interface TestState {
 
   /** Lista de presets carregados do banco (built-in + usuário). */
   presets: TestPreset[];
+
+  /** Estado compartilhado dos benchmarks externos executados em paralelo. */
+  benchmarks: ExternalBenchmarksState;
 }
 
 /**
@@ -225,6 +235,37 @@ interface TestActions {
    * NÃO zera activePreset — diferente de updateConfig que sempre zera.
    */
   updateModuleSelection: (operations: TestOperation[]) => void;
+
+  // -- Benchmarks externos ----------------------------------------------------
+
+  setBenchmarkRun: (runKey: string | null) => void;
+  markBenchmarksStarted: () => void;
+  setBenchmarkAvailable: (
+    engine: ExternalBenchmarkEngine,
+    available: boolean | null,
+  ) => void;
+  setBenchmarkStatus: (
+    engine: ExternalBenchmarkEngine,
+    status: ExternalBenchmarkStatus,
+  ) => void;
+  appendBenchmarkProgress: (
+    engine: ExternalBenchmarkEngine,
+    line: string,
+  ) => void;
+  setBenchmarkError: (
+    engine: ExternalBenchmarkEngine,
+    error: string | null,
+  ) => void;
+  setBenchmarkSummary: (
+    engine: ExternalBenchmarkEngine,
+    summary:
+      | K6Summary
+      | LocustSummary
+      | ArtillerySummary
+      | JMeterSummary
+      | null,
+  ) => void;
+  resetBenchmarkEngine: (engine: ExternalBenchmarkEngine) => void;
 }
 
 /**
@@ -280,6 +321,38 @@ const ESTADO_INICIAL: TestState = {
   credentialStatus: null,
   activePreset: null,
   presets: [],
+  benchmarks: {
+    runKey: null,
+    started: false,
+    k6: {
+      available: null,
+      status: "idle",
+      error: null,
+      progress: [],
+      summary: null,
+    },
+    locust: {
+      available: null,
+      status: "idle",
+      error: null,
+      progress: [],
+      summary: null,
+    },
+    artillery: {
+      available: null,
+      status: "idle",
+      error: null,
+      progress: [],
+      summary: null,
+    },
+    jmeter: {
+      available: null,
+      status: "idle",
+      error: null,
+      progress: [],
+      summary: null,
+    },
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -407,5 +480,118 @@ export const useTestStore = create<TestStore>((set) => ({
       },
       // activePreset NÃO é zerado — seleção de módulo é personalização temporária
       // do preset ativo para um teste específico (D4 de 04-CONTEXT.md)
+    })),
+
+  setBenchmarkRun: (runKey) =>
+    set((state) => ({
+      benchmarks: {
+        runKey,
+        started: false,
+        k6: {
+          ...state.benchmarks.k6,
+          error: null,
+          progress: [],
+          summary: null,
+          status: "idle",
+        },
+        locust: {
+          ...state.benchmarks.locust,
+          error: null,
+          progress: [],
+          summary: null,
+          status: "idle",
+        },
+        artillery: {
+          ...state.benchmarks.artillery,
+          error: null,
+          progress: [],
+          summary: null,
+          status: "idle",
+        },
+        jmeter: {
+          ...state.benchmarks.jmeter,
+          error: null,
+          progress: [],
+          summary: null,
+          status: "idle",
+        },
+      },
+    })),
+
+  markBenchmarksStarted: () =>
+    set((state) => ({
+      benchmarks: {
+        ...state.benchmarks,
+        started: true,
+      },
+    })),
+
+  setBenchmarkAvailable: (engine, available) =>
+    set((state) => ({
+      benchmarks: {
+        ...state.benchmarks,
+        [engine]: {
+          ...state.benchmarks[engine],
+          available,
+        },
+      },
+    })),
+
+  setBenchmarkStatus: (engine, status) =>
+    set((state) => ({
+      benchmarks: {
+        ...state.benchmarks,
+        [engine]: {
+          ...state.benchmarks[engine],
+          status,
+        },
+      },
+    })),
+
+  appendBenchmarkProgress: (engine, line) =>
+    set((state) => ({
+      benchmarks: {
+        ...state.benchmarks,
+        [engine]: {
+          ...state.benchmarks[engine],
+          progress: [...state.benchmarks[engine].progress.slice(-199), line],
+        },
+      },
+    })),
+
+  setBenchmarkError: (engine, error) =>
+    set((state) => ({
+      benchmarks: {
+        ...state.benchmarks,
+        [engine]: {
+          ...state.benchmarks[engine],
+          error,
+        },
+      },
+    })),
+
+  setBenchmarkSummary: (engine, summary) =>
+    set((state) => ({
+      benchmarks: {
+        ...state.benchmarks,
+        [engine]: {
+          ...state.benchmarks[engine],
+          summary,
+        },
+      },
+    })),
+
+  resetBenchmarkEngine: (engine) =>
+    set((state) => ({
+      benchmarks: {
+        ...state.benchmarks,
+        [engine]: {
+          ...state.benchmarks[engine],
+          error: null,
+          progress: [],
+          summary: null,
+          status: "idle",
+        },
+      },
     })),
 }));

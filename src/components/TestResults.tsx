@@ -23,6 +23,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from "react";
 import type { ReactNode } from "react";
 import {
+  BarChart3,
   FileText,
   RotateCcw,
   Check,
@@ -38,6 +39,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useTestStore } from "@/stores/test-store";
+import { BenchmarkConsensusPanel } from "@/components/BenchmarkConsensusPanel";
 import { MetricsChart } from "@/components/MetricsChart";
 import { ProtectionReportSection } from "@/components/ProtectionReport";
 import { ResultsSummary } from "@/components/ResultsSummary";
@@ -52,12 +54,25 @@ import { generatePDF } from "@/services/pdf-generator";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toPng } from "html-to-image";
-import type { TestResult } from "@/types";
+import type {
+  ArtilleryConfig,
+  K6Config,
+  JMeterConfig,
+  LocustConfig,
+  TestResult,
+  VuResultSummary,
+} from "@/types";
 import {
   getMeasurementReliabilityMeta,
   formatMs,
   calculateHealthScore,
 } from "@/shared/test-analysis";
+import {
+  buildArtilleryConfigFromTestResult,
+  buildJMeterConfigFromTestResult,
+  buildK6ConfigFromTestResult,
+  buildLocustConfigFromTestResult,
+} from "@/shared/external-benchmark-configs";
 
 // =============================================================================
 // Funções Utilitárias de Formatação
@@ -251,60 +266,160 @@ function getPreBlockingHealth(result: TestResult): {
 
   // Filtra apenas os dados dos segundos anteriores ao bloqueio
   const preBlock = result.timeline.filter((s) => s.second < blockSecond);
-  if (preBlock.length < 2) return null;
+  const score = getTimelineSliceHealth(result, preBlock);
+  if (!score) return null;
 
-  // Agrega as métricas do período pré-bloqueio
-  const totalReqs = preBlock.reduce((sum, s) => sum + s.requests, 0);
-  const totalErrs = preBlock.reduce((sum, s) => sum + s.errors, 0);
+  return { score, blockSecond };
+}
+
+function getTimelineSliceHealth(
+  result: TestResult,
+  slice: TestResult["timeline"],
+): HealthInfo | null {
+  if (slice.length < 2) return null;
+
+  const totalReqs = slice.reduce((sum, s) => sum + s.requests, 0);
+  const totalErrs = slice.reduce((sum, s) => sum + s.errors, 0);
   const errorRate =
     totalReqs > 0 ? Math.round((totalErrs / totalReqs) * 10000) / 100 : 0;
-  const totalBytes = preBlock.reduce((sum, s) => sum + s.bytesReceived, 0);
+  const totalBytes = slice.reduce((sum, s) => sum + s.bytesReceived, 0);
   const safeTotalReqs = Math.max(totalReqs, 1);
 
-  // Calcula latência média ponderada pelo número de requests de cada segundo
   const p50 =
-    preBlock.reduce((sum, s) => sum + s.latencyP50 * s.requests, 0) /
+    slice.reduce((sum, s) => sum + s.latencyP50 * s.requests, 0) /
     safeTotalReqs;
   const p90 =
-    preBlock.reduce((sum, s) => sum + s.latencyP90 * s.requests, 0) /
+    slice.reduce((sum, s) => sum + s.latencyP90 * s.requests, 0) /
     safeTotalReqs;
   const p95 =
-    preBlock.reduce((sum, s) => sum + s.latencyP95 * s.requests, 0) /
+    slice.reduce((sum, s) => sum + s.latencyP95 * s.requests, 0) /
     safeTotalReqs;
   const p99 =
-    preBlock.reduce((sum, s) => sum + s.latencyP99 * s.requests, 0) /
+    slice.reduce((sum, s) => sum + s.latencyP99 * s.requests, 0) /
     safeTotalReqs;
   const avg =
-    preBlock.reduce((sum, s) => sum + s.latencyAvg * s.requests, 0) /
+    slice.reduce((sum, s) => sum + s.latencyAvg * s.requests, 0) /
     safeTotalReqs;
 
-  // Min e max consideram apenas segundos que tiveram requests
-  const nonEmpty = preBlock.filter((s) => s.requests > 0);
+  const nonEmpty = slice.filter((s) => s.requests > 0);
   const min =
     nonEmpty.length > 0 ? Math.min(...nonEmpty.map((s) => s.latencyMin)) : 0;
   const max =
     nonEmpty.length > 0 ? Math.max(...nonEmpty.map((s) => s.latencyMax)) : 0;
 
-  // Agrega os códigos de status HTTP do período pré-bloqueio
-  const preStatusCodes: Record<string, number> = {};
-  for (const s of preBlock) {
+  const sliceStatusCodes: Record<string, number> = {};
+  for (const s of slice) {
     for (const [code, count] of Object.entries(s.statusCodes)) {
-      preStatusCodes[code] = (preStatusCodes[code] || 0) + count;
+      sliceStatusCodes[code] = (sliceStatusCodes[code] || 0) + count;
     }
   }
 
-  // Cria um resultado sintético com dados pré-bloqueio para calcular a nota
   const synthetic: TestResult = {
     ...result,
     errorRate,
     totalBytes,
     totalRequests: totalReqs,
     totalErrors: totalErrs,
-    statusCodes: preStatusCodes,
+    statusCodes: sliceStatusCodes,
     latency: { avg, min, p50, p90, p95, p99, max },
   };
 
-  return { score: getHealthInfo(synthetic), blockSecond };
+  return getHealthInfo(synthetic);
+}
+
+function getPreReliabilityHealth(result: TestResult): {
+  score: HealthInfo;
+  reliableUntilSecond: number;
+  influencedFromSecond: number;
+  reason: string;
+  detail: string;
+} | null {
+  const window = result.measurementReliability?.window;
+  if (
+    !window ||
+    window.fullyReliableUntilSecond === undefined ||
+    window.influencedFromSecond === undefined
+  ) {
+    return null;
+  }
+
+  const reliableSlice = result.timeline.filter(
+    (second) => second.second <= window.fullyReliableUntilSecond!,
+  );
+  const score = getTimelineSliceHealth(result, reliableSlice);
+  if (!score) return null;
+
+  return {
+    score,
+    reliableUntilSecond: window.fullyReliableUntilSecond,
+    influencedFromSecond: window.influencedFromSecond,
+    reason: window.reason,
+    detail: window.detail,
+  };
+}
+
+function getVuFinalStateBadge(state: VuResultSummary["finalState"]): {
+  label: string;
+  className: string;
+} {
+  switch (state) {
+    case "requesting":
+      return {
+        label: "Acessando",
+        className:
+          "bg-sf-primary/10 text-sf-primary border border-sf-primary/30",
+      };
+    case "success":
+      return {
+        label: "OK",
+        className:
+          "bg-sf-success/10 text-sf-success border border-sf-success/30",
+      };
+    case "error":
+      return {
+        label: "Erro",
+        className:
+          "bg-sf-danger/10 text-sf-danger border border-sf-danger/30",
+      };
+    case "reauthenticating":
+      return {
+        label: "Reautenticando",
+        className:
+          "bg-sf-warning/10 text-sf-warning border border-sf-warning/30",
+      };
+    case "queued":
+    default:
+      return {
+        label: "Na fila",
+        className:
+          "bg-sf-surface text-sf-textSecondary border border-sf-border",
+      };
+  }
+}
+
+function formatVuOutcomeBreakdown(outcomes: Record<string, number>): string {
+  const entries = Object.entries(outcomes).sort(([a], [b]) =>
+    a.localeCompare(b, "pt-BR"),
+  );
+  if (entries.length === 0) return "—";
+  return entries.map(([key, count]) => `${key}×${count}`).join(", ");
+}
+
+function formatVuLastRequest(summary: VuResultSummary): string {
+  if (summary.lastStatusCode !== undefined) {
+    const latency =
+      summary.lastLatencyMs !== undefined
+        ? ` • ${formatMs(summary.lastLatencyMs)}`
+        : "";
+    return `${summary.lastStatusCode}${latency}`;
+  }
+  return summary.lastMessage || summary.lastMethod;
+}
+
+function formatVuEventOffset(startTime: string, updatedAt: number): string {
+  const start = new Date(startTime).getTime();
+  const diffMs = Math.max(0, updatedAt - start);
+  return `+${(diffMs / 1000).toFixed(1)}s`;
 }
 
 // =============================================================================
@@ -341,6 +456,7 @@ export function TestResults() {
   const setCurrentResult = useTestStore((s) => s.setCurrentResult);
   const setView = useTestStore((s) => s.setView);
   const setError = useTestStore((s) => s.setError);
+  const benchmarkRunKey = useTestStore((s) => s.benchmarks.runKey);
 
   // ---- Estado local do componente ----
   const [exporting, setExporting] = useState(false);
@@ -403,7 +519,24 @@ export function TestResults() {
   // completa, múltiplos reduce e filtros. Sem memoização, cada mudança de
   // estado local (ex: expandir/colapsar seções) recalcularia tudo.
   const health = useMemo(() => getHealthInfo(result), [result]);
+  const artilleryConfig = useMemo(
+    () => buildArtilleryConfigFromTestResult(result),
+    [result],
+  );
+  const k6Config = useMemo(() => buildK6ConfigFromTestResult(result), [result]);
+  const jmeterConfig = useMemo(
+    () => buildJMeterConfigFromTestResult(result),
+    [result],
+  );
+  const locustConfig = useMemo(
+    () => buildLocustConfigFromTestResult(result),
+    [result],
+  );
   const preBlockHealth = useMemo(() => getPreBlockingHealth(result), [result]);
+  const preReliabilityHealth = useMemo(
+    () => getPreReliabilityHealth(result),
+    [result],
+  );
   const reliabilityMeta = useMemo(
     () => getMeasurementReliabilityMeta(result.measurementReliability),
     [result.measurementReliability],
@@ -593,6 +726,29 @@ export function TestResults() {
       {/* ================================================================= */}
       <ResultsSummary result={result} />
 
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium text-sf-textSecondary">
+          <BarChart3 className="w-4 h-4 text-sf-primary" />
+          Benchmarks Externos
+        </div>
+        <BenchmarkConsensusPanel
+          runKey={benchmarkRunKey}
+          k6Config={k6Config}
+          locustConfig={locustConfig}
+          artilleryConfig={artilleryConfig}
+          jmeterConfig={jmeterConfig}
+          cpxResult={{
+            avgLatency: result.latency.avg,
+            p90Latency: result.latency.p90,
+            p95Latency: result.latency.p95,
+            p99Latency: result.latency.p99,
+            rps: result.rps,
+            errorRate: result.errorRate,
+            totalRequests: result.totalRequests,
+          }}
+        />
+      </div>
+
       {result.measurementReliability && (
         <div
           className={`p-4 rounded-xl border ${reliabilityMeta.bg} ${reliabilityMeta.border}`}
@@ -633,6 +789,46 @@ export function TestResults() {
                   <span>Percentis globais aproximados</span>
                 )}
               </div>
+              {result.measurementReliability.window && (
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {result.measurementReliability.window
+                    .fullyReliableUntilSecond !== undefined && (
+                    <span className="px-2 py-1 rounded-md bg-sf-surface border border-sf-border text-sf-textSecondary">
+                      100% confiável até s
+                      {result.measurementReliability.window
+                        .fullyReliableUntilSecond}
+                    </span>
+                  )}
+                  {result.measurementReliability.window
+                    .influencedFromSecond !== undefined && (
+                    <span className="px-2 py-1 rounded-md bg-sf-surface border border-sf-border text-sf-textSecondary">
+                      Influenciada a partir de s
+                      {result.measurementReliability.window.influencedFromSecond}
+                    </span>
+                  )}
+                  <span className="px-2 py-1 rounded-md bg-sf-surface border border-sf-border text-sf-textSecondary">
+                    Gatilho: {result.measurementReliability.window.reason}
+                  </span>
+                </div>
+              )}
+              {preReliabilityHealth && (
+                <div className="text-sm text-sf-textSecondary">
+                  Até o segundo {preReliabilityHealth.reliableUntilSecond}, a
+                  medição permaneceu íntegra. Se considerar apenas esse trecho,
+                  a saúde calculada é{" "}
+                  <span className={preReliabilityHealth.score.color}>
+                    {preReliabilityHealth.score.score}/100
+                  </span>
+                  . A influência começa no segundo{" "}
+                  {preReliabilityHealth.influencedFromSecond} por{" "}
+                  {preReliabilityHealth.reason.toLowerCase()}.
+                </div>
+              )}
+              {result.measurementReliability.window?.detail && (
+                <p className="text-sm text-sf-textSecondary">
+                  {result.measurementReliability.window.detail}
+                </p>
+              )}
               {result.operationalWarnings &&
                 result.operationalWarnings.length > 0 && (
                   <div className="space-y-1">
@@ -650,6 +846,103 @@ export function TestResults() {
             <AlertTriangle
               className={`w-5 h-5 shrink-0 ${reliabilityMeta.color}`}
             />
+          </div>
+        </div>
+      )}
+
+      {result.vuResults && result.vuResults.length > 0 && (
+        <div className="bg-sf-surface border border-sf-border rounded-xl p-4">
+          <div className="mb-3">
+            <h3 className="text-sm font-medium text-sf-text flex items-center gap-1">
+              Resumo Final dos VUs
+              <InfoTooltip text="Tabela consolidada por VU com o último estado conhecido, quantidades de acessos concluídos e o breakdown dos resultados retornados durante o teste." />
+            </h3>
+            <p className="text-xs text-sf-textMuted mt-1">
+              {result.vuResults.length.toLocaleString("pt-BR")} VUs
+              consolidados no relatório final.
+            </p>
+          </div>
+          <div className="max-h-[34rem] overflow-auto rounded-lg border border-sf-border">
+            <table className="w-full min-w-[1380px] text-sm">
+              <thead className="sticky top-0 bg-sf-bg/95 backdrop-blur">
+                <tr className="text-xs text-sf-textMuted border-b border-sf-border">
+                  <th className="text-left py-2 px-3 font-medium">VU</th>
+                  <th className="text-left py-2 px-3 font-medium">
+                    Status final
+                  </th>
+                  <th className="text-right py-2 px-3 font-medium">Reqs</th>
+                  <th className="text-right py-2 px-3 font-medium">OK</th>
+                  <th className="text-right py-2 px-3 font-medium">Falhas</th>
+                  <th className="text-left py-2 px-3 font-medium">
+                    Resultados
+                  </th>
+                  <th className="text-left py-2 px-3 font-medium">
+                    Última operação
+                  </th>
+                  <th className="text-left py-2 px-3 font-medium">
+                    Último alvo
+                  </th>
+                  <th className="text-left py-2 px-3 font-medium">
+                    Último HTTP/Latência
+                  </th>
+                  <th className="text-left py-2 px-3 font-medium">
+                    Último evento
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-sf-border/50">
+                {result.vuResults.map((summary) => {
+                  const badge = getVuFinalStateBadge(summary.finalState);
+                  return (
+                    <tr
+                      key={summary.vuId}
+                      className="hover:bg-sf-bg/30 transition-colors"
+                    >
+                      <td className="py-2 px-3 font-mono text-sf-text">
+                        #{summary.vuId}
+                      </td>
+                      <td className="py-2 px-3">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.className}`}
+                        >
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono text-sf-textSecondary">
+                        {summary.totalRequests.toLocaleString("pt-BR")}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono text-sf-success">
+                        {summary.successfulRequests.toLocaleString("pt-BR")}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono text-sf-danger">
+                        {summary.failedRequests.toLocaleString("pt-BR")}
+                      </td>
+                      <td
+                        className="py-2 px-3 text-sf-textSecondary font-mono text-xs"
+                        title={formatVuOutcomeBreakdown(summary.outcomeBreakdown)}
+                      >
+                        {formatVuOutcomeBreakdown(summary.outcomeBreakdown)}
+                      </td>
+                      <td className="py-2 px-3 text-sf-text font-medium">
+                        {summary.lastOperationName}
+                      </td>
+                      <td
+                        className="py-2 px-3 text-sf-textSecondary font-mono text-xs"
+                        title={summary.lastTargetLabel}
+                      >
+                        {summary.lastTargetLabel}
+                      </td>
+                      <td className="py-2 px-3 text-sf-textSecondary font-mono text-xs">
+                        {formatVuLastRequest(summary)}
+                      </td>
+                      <td className="py-2 px-3 text-sf-textMuted text-xs font-mono">
+                        {formatVuEventOffset(result.startTime, summary.lastUpdatedAt)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
