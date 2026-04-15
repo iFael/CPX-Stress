@@ -32,6 +32,10 @@ import type {
   ProgressData,
   TestResult,
 } from "./engine/stress-engine";
+import type { ArtilleryConfig, ArtillerySummary } from "./engine/artillery-types";
+import type { K6Config, K6Summary } from "./engine/k6-types";
+import type { LocustConfig, LocustSummary } from "./engine/locust-types";
+import type { JMeterConfig, JMeterSummary } from "./engine/jmeter-types";
 import type { MistertValidationResult } from "../src/shared/mistert-validation";
 
 // -----------------------------------------------------------------------------
@@ -65,10 +69,24 @@ const ALLOWED_INVOKE_CHANNELS = [
   "presets:save",
   "presets:rename",
   "presets:delete",
+  "k6:check",
+  "k6:run",
+  "artillery:check",
+  "artillery:run",
+  "locust:check",
+  "locust:run",
+  "jmeter:check",
+  "jmeter:run",
 ] as const;
 
 /** Canais que o frontend pode escutar para receber dados em tempo real */
-const ALLOWED_RECEIVE_CHANNELS = ["test:progress"] as const;
+const ALLOWED_RECEIVE_CHANNELS = [
+  "test:progress",
+  "k6:progress",
+  "artillery:progress",
+  "locust:progress",
+  "jmeter:progress",
+] as const;
 
 // Tipos derivados das listas de canais permitidos
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number];
@@ -204,6 +222,95 @@ const api = {
     getPath: (): Promise<string> =>
       safeInvoke("app:getPath") as Promise<string>,
   },
+
+  // ---------------------------------------------------------------------------
+  // k6 - benchmark externo para comparação de métricas
+  // ---------------------------------------------------------------------------
+  k6: {
+    /** Verifica se o binário do k6 está disponível para uso. */
+    check: (): Promise<boolean> =>
+      safeInvoke("k6:check") as Promise<boolean>,
+
+    /** Executa o benchmark k6 usando o config fornecido. */
+    run: (config: K6Config): Promise<K6Summary> =>
+      safeInvoke("k6:run", config) as Promise<K6Summary>,
+  },
+
+  /** Alias flat para compatibilidade com a documentação da integração. */
+  k6Check: (): Promise<boolean> => safeInvoke("k6:check") as Promise<boolean>,
+
+  /** Alias flat para compatibilidade com a documentação da integração. */
+  k6Run: (config: K6Config): Promise<K6Summary> =>
+    safeInvoke("k6:run", config) as Promise<K6Summary>,
+
+  /** Escuta o progresso textual emitido pelo subprocesso k6. */
+  onK6Progress: (callback: (line: string) => void): (() => void) =>
+    safeOnReceive("k6:progress", callback as (data: unknown) => void),
+
+  // ---------------------------------------------------------------------------
+  // Artillery - benchmark externo para comparação de métricas
+  // ---------------------------------------------------------------------------
+  artillery: {
+    check: (): Promise<boolean> =>
+      safeInvoke("artillery:check") as Promise<boolean>,
+
+    run: (config: ArtilleryConfig): Promise<ArtillerySummary> =>
+      safeInvoke("artillery:run", config) as Promise<ArtillerySummary>,
+  },
+
+  artilleryCheck: (): Promise<boolean> =>
+    safeInvoke("artillery:check") as Promise<boolean>,
+
+  artilleryRun: (config: ArtilleryConfig): Promise<ArtillerySummary> =>
+    safeInvoke("artillery:run", config) as Promise<ArtillerySummary>,
+
+  onArtilleryProgress: (callback: (line: string) => void): (() => void) =>
+    safeOnReceive("artillery:progress", callback as (data: unknown) => void),
+
+  // ---------------------------------------------------------------------------
+  // Locust - benchmark externo para comparação de métricas
+  // ---------------------------------------------------------------------------
+  locust: {
+    /** Verifica se o binário do Locust está disponível para uso. */
+    check: (): Promise<boolean> =>
+      safeInvoke("locust:check") as Promise<boolean>,
+
+    /** Executa o benchmark Locust usando o config fornecido. */
+    run: (config: LocustConfig): Promise<LocustSummary> =>
+      safeInvoke("locust:run", config) as Promise<LocustSummary>,
+  },
+
+  /** Alias flat para compatibilidade e consumo simples no renderer. */
+  locustCheck: (): Promise<boolean> =>
+    safeInvoke("locust:check") as Promise<boolean>,
+
+  /** Alias flat para compatibilidade e consumo simples no renderer. */
+  locustRun: (config: LocustConfig): Promise<LocustSummary> =>
+    safeInvoke("locust:run", config) as Promise<LocustSummary>,
+
+  /** Escuta o progresso textual emitido pelo subprocesso Locust. */
+  onLocustProgress: (callback: (line: string) => void): (() => void) =>
+    safeOnReceive("locust:progress", callback as (data: unknown) => void),
+
+  // ---------------------------------------------------------------------------
+  // JMeter - benchmark externo para comparação de métricas
+  // ---------------------------------------------------------------------------
+  jmeter: {
+    check: (): Promise<boolean> =>
+      safeInvoke("jmeter:check") as Promise<boolean>,
+
+    run: (config: JMeterConfig): Promise<JMeterSummary> =>
+      safeInvoke("jmeter:run", config) as Promise<JMeterSummary>,
+  },
+
+  jmeterCheck: (): Promise<boolean> =>
+    safeInvoke("jmeter:check") as Promise<boolean>,
+
+  jmeterRun: (config: JMeterConfig): Promise<JMeterSummary> =>
+    safeInvoke("jmeter:run", config) as Promise<JMeterSummary>,
+
+  onJMeterProgress: (callback: (line: string) => void): (() => void) =>
+    safeOnReceive("jmeter:progress", callback as (data: unknown) => void),
 
   // ---------------------------------------------------------------------------
   // Erros - consulta e análise de erros detalhados armazenados no SQLite

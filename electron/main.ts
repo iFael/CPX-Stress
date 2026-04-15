@@ -23,6 +23,14 @@ import { app, BrowserWindow, ipcMain, dialog, shell, session, nativeImage } from
 import path from "node:path";
 import fs from "node:fs";
 import { StressEngine, validateTestConfig } from "./engine/stress-engine";
+import { isArtilleryAvailable, runArtillery } from "./engine/artillery-runner";
+import type { ArtilleryConfig } from "./engine/artillery-types";
+import { isK6Available, runK6 } from "./engine/k6-runner";
+import type { K6Config } from "./engine/k6-types";
+import { isLocustAvailable, runLocust } from "./engine/locust-runner";
+import type { LocustConfig } from "./engine/locust-types";
+import { isJMeterAvailable, runJMeter } from "./engine/jmeter-runner";
+import type { JMeterConfig } from "./engine/jmeter-types";
 import {
   resolveConfigEnvPlaceholders,
   runMistertValidation,
@@ -456,6 +464,18 @@ function traduzirErro(error: unknown): string {
     return "O endereço informado não é válido. Verifique se começa com http:// ou https:// — exemplo: https://www.meusite.com.br";
   if (mensagem.includes("Credenciais obrigatórias ausentes"))
     return mensagem;
+  if (mensagem.includes("Artillery não foi encontrado") || mensagem.includes("binário do Artillery")) {
+    return "O binário do Artillery não foi encontrado. Instale o Artillery ou configure ARTILLERY_PATH para habilitar a comparação.";
+  }
+  if (mensagem.includes("k6 não encontrado") || mensagem.includes("binário do k6")) {
+    return "O binário do k6 não foi encontrado. Instale o k6 ou configure o caminho do executável para habilitar a comparação.";
+  }
+  if (mensagem.includes("Locust não foi encontrado") || mensagem.includes("binário do Locust")) {
+    return "O binário do Locust não foi encontrado. Instale o Locust ou configure LOCUST_PATH para habilitar a comparação.";
+  }
+  if (mensagem.includes("JMeter não foi encontrado") || mensagem.includes("binário do JMeter")) {
+    return "O binário do JMeter não foi encontrado. Instale o JMeter ou configure JMETER_PATH para habilitar a comparação.";
+  }
 
   // Erro genérico — preserva a mensagem original como detalhe
   return `Ocorreu um erro inesperado: ${mensagem}`;
@@ -507,6 +527,16 @@ if (canUseElectronMainApis) {
     validateTestConfig(resolvedConfig);
 
     activeEngine = new StressEngine();
+    const pendingErrorRows: Array<{
+      id: string;
+      test_id: string;
+      timestamp: number;
+      operation_name: string;
+      status_code: number;
+      error_type: string;
+      message: string;
+      response_snippet: string | null;
+    }> = [];
 
     activeTestPromise = activeEngine.run(
       resolvedConfig,
@@ -514,26 +544,20 @@ if (canUseElectronMainApis) {
         mainWindow?.webContents.send("test:progress", progress);
       },
       (errors: ErrorDetail[]) => {
-        // Callback de flush de erros: salva lote no SQLite
-        try {
-          saveErrorBatch(
-            errors.map((e) => ({
-              id: e.id,
-              test_id: e.testId,
-              timestamp: e.timestamp,
-              operation_name: e.operationName,
-              status_code: e.statusCode,
-              error_type: e.errorType,
-              message: e.message,
-              response_snippet: e.responseSnippet || null,
-            })),
-          );
-        } catch (err) {
-          console.error(
-            "[CPX-Stress] Erro ao salvar lote de erros no banco:",
-            err,
-          );
-        }
+        // Acumula erros durante a execução e persiste só depois que o
+        // test_result existir, evitando violação da FK test_errors.test_id.
+        pendingErrorRows.push(
+          ...errors.map((e) => ({
+            id: e.id,
+            test_id: e.testId,
+            timestamp: e.timestamp,
+            operation_name: e.operationName,
+            status_code: e.statusCode,
+            error_type: e.errorType,
+            message: e.message,
+            response_snippet: e.responseSnippet || null,
+          })),
+        );
       },
     );
 
@@ -541,6 +565,9 @@ if (canUseElectronMainApis) {
 
     // Salva o resultado no banco SQLite
     saveTestResult(result);
+    if (pendingErrorRows.length > 0) {
+      saveErrorBatch(pendingErrorRows);
+    }
 
     return result;
   } catch (error) {
@@ -868,6 +895,132 @@ if (canUseElectronMainApis) {
   } catch (error) {
     console.error("[CPX-Stress] Erro ao obter caminho de dados:", error);
     return "Caminho indisponível";
+  }
+  });
+
+/**
+ * Canal: k6:check
+ * Verifica se o binário do k6 está disponível para execução.
+ */
+  ipcMain.handle("k6:check", () => {
+  try {
+    return isK6Available();
+  } catch (error) {
+    console.error("[CPX-Stress] Erro ao verificar disponibilidade do k6:", error);
+    return false;
+  }
+  });
+
+/**
+ * Canal: k6:run
+ * Executa um benchmark com k6 usando o mesmo config do teste atual.
+ * O progresso textual do subprocesso é encaminhado ao renderer.
+ */
+  ipcMain.handle("k6:run", async (_event, config: K6Config) => {
+  try {
+    if (!config || typeof config !== "object") {
+      throw new Error("Configuração do k6 inválida.");
+    }
+    return await runK6(config, (line) => {
+      mainWindow?.webContents.send("k6:progress", line);
+    });
+  } catch (error) {
+    console.error("[CPX-Stress] Erro ao executar comparação com k6:", error);
+    throw new Error(traduzirErro(error));
+  }
+  });
+
+/**
+ * Canal: artillery:check
+ * Verifica se o binário do Artillery está disponível para execução.
+ */
+  ipcMain.handle("artillery:check", () => {
+  try {
+    return isArtilleryAvailable();
+  } catch (error) {
+    console.error("[CPX-Stress] Erro ao verificar disponibilidade do Artillery:", error);
+    return false;
+  }
+  });
+
+/**
+ * Canal: artillery:run
+ * Executa um benchmark com Artillery usando o mesmo config do teste atual.
+ */
+  ipcMain.handle("artillery:run", async (_event, config: ArtilleryConfig) => {
+  try {
+    if (!config || typeof config !== "object") {
+      throw new Error("Configuração do Artillery inválida.");
+    }
+    return await runArtillery(config, (line) => {
+      mainWindow?.webContents.send("artillery:progress", line);
+    });
+  } catch (error) {
+    console.error("[CPX-Stress] Erro ao executar comparação com Artillery:", error);
+    throw new Error(traduzirErro(error));
+  }
+  });
+
+/**
+ * Canal: locust:check
+ * Verifica se o binário do Locust está disponível para execução.
+ */
+  ipcMain.handle("locust:check", () => {
+  try {
+    return isLocustAvailable();
+  } catch (error) {
+    console.error("[CPX-Stress] Erro ao verificar disponibilidade do Locust:", error);
+    return false;
+  }
+  });
+
+/**
+ * Canal: locust:run
+ * Executa um benchmark com Locust usando o mesmo config do teste atual.
+ * O progresso textual do subprocesso é encaminhado ao renderer.
+ */
+  ipcMain.handle("locust:run", async (_event, config: LocustConfig) => {
+  try {
+    if (!config || typeof config !== "object") {
+      throw new Error("Configuração do Locust inválida.");
+    }
+    return await runLocust(config, (line) => {
+      mainWindow?.webContents.send("locust:progress", line);
+    });
+  } catch (error) {
+    console.error("[CPX-Stress] Erro ao executar comparação com Locust:", error);
+    throw new Error(traduzirErro(error));
+  }
+  });
+
+/**
+ * Canal: jmeter:check
+ * Verifica se o binário do JMeter está disponível para execução.
+ */
+  ipcMain.handle("jmeter:check", () => {
+  try {
+    return isJMeterAvailable();
+  } catch (error) {
+    console.error("[CPX-Stress] Erro ao verificar disponibilidade do JMeter:", error);
+    return false;
+  }
+  });
+
+/**
+ * Canal: jmeter:run
+ * Executa um benchmark com JMeter usando o mesmo config do teste atual.
+ */
+  ipcMain.handle("jmeter:run", async (_event, config: JMeterConfig) => {
+  try {
+    if (!config || typeof config !== "object") {
+      throw new Error("Configuração do JMeter inválida.");
+    }
+    return await runJMeter(config, (line) => {
+      mainWindow?.webContents.send("jmeter:progress", line);
+    });
+  } catch (error) {
+    console.error("[CPX-Stress] Erro ao executar comparação com JMeter:", error);
+    throw new Error(traduzirErro(error));
   }
   });
 

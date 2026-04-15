@@ -24,6 +24,30 @@ import type {
   OperationValidationResult,
   ValidationDimensionStatus,
 } from "@/shared/mistert-validation";
+import type {
+  K6Config,
+  K6FlowOperation,
+  K6Status,
+  K6Summary,
+} from "../../electron/engine/k6-types";
+import type {
+  ArtilleryConfig,
+  ArtilleryFlowOperation,
+  ArtilleryStatus,
+  ArtillerySummary,
+} from "../../electron/engine/artillery-types";
+import type {
+  LocustConfig,
+  LocustFlowOperation,
+  LocustStatus,
+  LocustSummary,
+} from "../../electron/engine/locust-types";
+import type {
+  JMeterConfig,
+  JMeterFlowOperation,
+  JMeterStatus,
+  JMeterSummary,
+} from "../../electron/engine/jmeter-types";
 
 export type {
   MistertValidationResult,
@@ -34,6 +58,25 @@ export type {
   OperationValidationResult,
   ValidationDimensionStatus,
 } from "@/shared/mistert-validation";
+export type { K6Config, K6FlowOperation, K6Status, K6Summary };
+export type {
+  ArtilleryConfig,
+  ArtilleryFlowOperation,
+  ArtilleryStatus,
+  ArtillerySummary,
+};
+export type {
+  LocustConfig,
+  LocustFlowOperation,
+  LocustStatus,
+  LocustSummary,
+};
+export type {
+  JMeterConfig,
+  JMeterFlowOperation,
+  JMeterStatus,
+  JMeterSummary,
+};
 
 // ============================================================================
 // 1. CONFIGURAÇÃO DO TESTE
@@ -342,6 +385,56 @@ export interface SecondMetrics {
   activeUsers: number;
 }
 
+export type LiveVuActivityState =
+  | "queued"
+  | "requesting"
+  | "success"
+  | "error"
+  | "reauthenticating";
+
+export interface LiveVuActivitySnapshot {
+  vuId: number;
+  state: LiveVuActivityState;
+  operationName: string;
+  targetLabel: string;
+  method: string;
+  statusCode?: number;
+  latencyMs?: number;
+  updatedAt: number;
+  message?: string;
+}
+
+export interface LiveOperationSummary {
+  operationName: string;
+  activeVus: number;
+  lastSecondRequests: number;
+  lastSecondErrors: number;
+}
+
+export interface LiveActivityData {
+  mode: "per-vu" | "summary";
+  totalVus: number;
+  vus: LiveVuActivitySnapshot[];
+  summary: LiveOperationSummary[];
+  fallbackThreshold: number;
+}
+
+export interface VuResultSummary {
+  vuId: number;
+  finalState: LiveVuActivityState;
+  totalRequests: number;
+  successfulRequests: number;
+  failedRequests: number;
+  outcomeBreakdown: Record<string, number>;
+  lastOperationName: string;
+  lastTargetLabel: string;
+  lastMethod: string;
+  lastStatusCode?: number;
+  lastLatencyMs?: number;
+  lastUpdatedAt: number;
+  lastMessage?: string;
+}
+
 /**
  * Dados de progresso do teste em tempo real.
  *
@@ -372,6 +465,9 @@ export interface ProgressData {
     /** Requisições por segundo (media acumulada). */
     rps: number;
   };
+
+  /** Atividade ao vivo dos VUs ou resumo agregado quando a carga é alta. */
+  liveActivity: LiveActivityData;
 }
 
 // ============================================================================
@@ -524,6 +620,9 @@ export interface TestResult {
     dns: number;
     unknown: number;
   };
+
+  /** Resumo final por VU com contagens e último acesso conhecido. */
+  vuResults?: VuResultSummary[];
 }
 
 // ============================================================================
@@ -782,6 +881,42 @@ export interface CredentialStatus {
   STRESSFLOW_PASS: boolean;
 }
 
+export type ExternalBenchmarkEngine =
+  | "k6"
+  | "locust"
+  | "artillery"
+  | "jmeter";
+
+export type ExternalBenchmarkStatus =
+  | "idle"
+  | "checking"
+  | "running"
+  | "done"
+  | "error";
+
+export interface ExternalBenchmarkEntry<TSummary = unknown> {
+  available: boolean | null;
+  status: ExternalBenchmarkStatus;
+  error: string | null;
+  progress: string[];
+  summary: TSummary | null;
+}
+
+export interface ExternalBenchmarksState {
+  runKey: string | null;
+  started: boolean;
+  k6: ExternalBenchmarkEntry<K6Summary>;
+  locust: ExternalBenchmarkEntry<LocustSummary>;
+  artillery: ExternalBenchmarkEntry<ArtillerySummary>;
+  jmeter: ExternalBenchmarkEntry<JMeterSummary>;
+}
+
+// ============================================================================
+// 6. INTEGRACOES EXTERNAS
+// ----------------------------------------------------------------------------
+// Tipos usados pelos benchmarks externos.
+// ============================================================================
+
 // ============================================================================
 // 7. PRESET SYSTEM
 // ----------------------------------------------------------------------------
@@ -938,6 +1073,64 @@ declare global {
         /** Retorna o caminho do diretório de dados da aplicação no sistema. */
         getPath: () => Promise<string>;
       };
+
+      /**
+       * Integração com o benchmark externo k6.
+       * Permite verificar disponibilidade do binário, executar o benchmark
+       * com um config equivalente e acompanhar o progresso textual em tempo real.
+       */
+      k6: {
+        check: () => Promise<boolean>;
+        run: (config: K6Config) => Promise<K6Summary>;
+      };
+
+      /** Alias legado/flat para compatibilidade com a documentação de integração. */
+      k6Check: () => Promise<boolean>;
+      /** Alias legado/flat para compatibilidade com a documentação de integração. */
+      k6Run: (config: K6Config) => Promise<K6Summary>;
+      /** Escuta o progresso textual do subprocesso k6. */
+      onK6Progress: (cb: (line: string) => void) => () => void;
+
+      /**
+       * Integração com o benchmark externo Artillery.
+       */
+      artillery: {
+        check: () => Promise<boolean>;
+        run: (config: ArtilleryConfig) => Promise<ArtillerySummary>;
+      };
+
+      artilleryCheck: () => Promise<boolean>;
+      artilleryRun: (config: ArtilleryConfig) => Promise<ArtillerySummary>;
+      onArtilleryProgress: (cb: (line: string) => void) => () => void;
+
+      /**
+       * Integração com o benchmark externo Locust.
+       * Permite verificar disponibilidade do binário, executar o benchmark
+       * com um config equivalente e acompanhar o progresso textual em tempo real.
+       */
+      locust: {
+        check: () => Promise<boolean>;
+        run: (config: LocustConfig) => Promise<LocustSummary>;
+      };
+
+      /** Alias flat para compatibilidade e consumo simples no renderer. */
+      locustCheck: () => Promise<boolean>;
+      /** Alias flat para compatibilidade e consumo simples no renderer. */
+      locustRun: (config: LocustConfig) => Promise<LocustSummary>;
+      /** Escuta o progresso textual do subprocesso Locust. */
+      onLocustProgress: (cb: (line: string) => void) => () => void;
+
+      /**
+       * Integração com o benchmark externo JMeter.
+       */
+      jmeter: {
+        check: () => Promise<boolean>;
+        run: (config: JMeterConfig) => Promise<JMeterSummary>;
+      };
+
+      jmeterCheck: () => Promise<boolean>;
+      jmeterRun: (config: JMeterConfig) => Promise<JMeterSummary>;
+      onJMeterProgress: (cb: (line: string) => void) => () => void;
 
       /**
        * Módulo de pesquisa e consulta de erros detalhados.
