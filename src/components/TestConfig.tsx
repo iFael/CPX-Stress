@@ -78,6 +78,7 @@ export function TestConfig() {
   const clearProgress = useTestStore((s) => s.clearProgress);
   const setCurrentResult = useTestStore((s) => s.setCurrentResult);
   const addToHistory = useTestStore((s) => s.addToHistory);
+  const setBenchmarkRun = useTestStore((s) => s.setBenchmarkRun);
   const error = useTestStore((s) => s.error);
   const setError = useTestStore((s) => s.setError);
   const credentialStatus = useTestStore((s) => s.credentialStatus);
@@ -250,6 +251,7 @@ export function TestConfig() {
     }
 
     setIsStarting(true);
+    setBenchmarkRun(`live-${Date.now()}`);
     setStatus("running");
 
     const unsubscribe = window.stressflow.test.onProgress((data) => {
@@ -283,6 +285,7 @@ export function TestConfig() {
     setProgress,
     setCurrentResult,
     addToHistory,
+    setBenchmarkRun,
     updateConfig,
   ]);
 
