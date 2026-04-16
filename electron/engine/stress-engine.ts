@@ -1654,6 +1654,7 @@ export class StressEngine {
         captureSession: boolean,
         sample?: ResponseSample,
         sessionInvalid?: boolean,
+        failureMessage?: string,
       ) => void;
       onError: (
         vuId: number,
@@ -2529,12 +2530,15 @@ export class StressEngine {
       baselineEndIndex + 1,
     );
     const baselineRequests = baselineWindow.map((second) => second.requests);
+    const baselineCompletedSeconds = baselineRequests.filter(
+      (value) => value > 0,
+    ).length;
     const baselineThroughput = this.averageMetric(baselineRequests);
-    const baselineLatency = this.averageMetric(
-      baselineWindow
-        .map((second) => second.latencyAvg)
-        .filter((value) => value > 0),
-    );
+    const baselineLatencySamples = baselineWindow
+      .map((second) => second.latencyAvg)
+      .filter((value) => value > 0);
+    const baselineLatency = this.averageMetric(baselineLatencySamples);
+    const minCompletedSeconds = Math.max(3, Math.ceil(windowSize * 0.6));
 
     for (let endIndex = baselineEndIndex + 1; endIndex < params.timeline.length; endIndex++) {
       const startIndex = Math.max(0, endIndex - windowSize + 1);
@@ -2542,9 +2546,12 @@ export class StressEngine {
       const windowRequests = windowTimeline
         .map((second) => second.requests)
         .filter((value) => value > 0);
+      const hasEnoughCompletedSamples =
+        baselineCompletedSeconds >= minCompletedSeconds &&
+        windowRequests.length >= minCompletedSeconds;
       const requestAverage = this.averageMetric(windowRequests);
       const requestStdDev =
-        windowRequests.length > 0
+        hasEnoughCompletedSamples && windowRequests.length > 0
           ? Math.sqrt(
               windowRequests.reduce(
                 (sum, value) => sum + (value - requestAverage) ** 2,
@@ -2553,16 +2560,22 @@ export class StressEngine {
             )
           : 0;
       const windowCv =
-        requestAverage > 0 ? round2((requestStdDev / requestAverage) * 100) : 0;
-      const windowLatency = this.averageMetric(
-        windowTimeline
-          .map((second) => second.latencyAvg)
-          .filter((value) => value > 0),
-      );
+        hasEnoughCompletedSamples && requestAverage > 0
+          ? round2((requestStdDev / requestAverage) * 100)
+          : 0;
+      const windowLatencySamples = windowTimeline
+        .map((second) => second.latencyAvg)
+        .filter((value) => value > 0);
+      const hasEnoughLatencySamples =
+        baselineLatencySamples.length >= minCompletedSeconds &&
+        windowLatencySamples.length >= minCompletedSeconds;
+      const windowLatency = this.averageMetric(windowLatencySamples);
       const latencyGrowth =
-        baselineLatency > 0 ? round2(windowLatency / baselineLatency) : 1;
+        hasEnoughLatencySamples && baselineLatency > 0
+          ? round2(windowLatency / baselineLatency)
+          : 1;
       const throughputDrop =
-        baselineThroughput > 0
+        hasEnoughCompletedSamples && baselineThroughput > 0
           ? round2(
               Math.max(0, (1 - requestAverage / baselineThroughput) * 100),
             )
@@ -2695,6 +2708,7 @@ export class StressEngine {
       captureSession: boolean,
       sample?: ResponseSample,
       sessionInvalid?: boolean,
+      failureMessage?: string,
     ) => void,
     onError: (
       vuId: number,

@@ -269,7 +269,11 @@ export async function runJMeter(
 
       try {
         const summary = parseJtl(resultsPath, config.duration, config.vus);
-        summary.duration = Number(((Date.now() - startedAt) / 1000).toFixed(2));
+        const actualDuration = Number(((Date.now() - startedAt) / 1000).toFixed(2));
+        summary.duration = actualDuration;
+        summary.rps = actualDuration > 0 ? summary.totalReqs / actualDuration : 0;
+        summary.throughputBytesPerSec =
+          actualDuration > 0 ? summary.totalBytes / actualDuration : 0;
         summary.vus = config.vus;
         summary.executable = binary.label;
         summary.version = getJMeterVersion(binary);

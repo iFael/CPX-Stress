@@ -222,9 +222,13 @@ export async function runLocust(
         const summary = parseLocustSummary(
           fs.readFileSync(summaryPath, "utf8"),
         );
-        summary.duration = Number(
+        const actualDuration = Number(
           ((Date.now() - startedAt) / 1000).toFixed(2),
         );
+        summary.duration = actualDuration;
+        summary.rps = actualDuration > 0 ? summary.totalReqs / actualDuration : 0;
+        summary.throughputBytesPerSec =
+          actualDuration > 0 ? summary.totalBytes / actualDuration : 0;
         summary.vus = config.vus;
         summary.executable = resolved.label;
         summary.version = getLocustVersion(resolved);

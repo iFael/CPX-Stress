@@ -13,6 +13,10 @@ function toJMeterVarSyntax(value: string): string {
   return value.replace(/\{\{(\w+)\}\}/g, "${$1}");
 }
 
+function toGroovyString(value: string): string {
+  return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+}
+
 function splitUrl(urlText: string) {
   const parsed = new URL(urlText);
   return {
@@ -70,6 +74,134 @@ function buildRegexExtractors(
     .join("\n");
 }
 
+function buildJsr223Element(
+  testClass: "JSR223Assertion" | "JSR223Sampler",
+  testName: string,
+  script: string,
+  indent: string,
+): string {
+  return `${indent}<${testClass} guiclass="TestBeanGUI" testclass="${testClass}" testname="${xmlEscape(
+    testName,
+  )}" enabled="true"><stringProp name="cacheKey">${xmlEscape(
+    testName,
+  )}</stringProp><stringProp name="filename"></stringProp><stringProp name="parameters"></stringProp><stringProp name="script">${xmlEscape(
+    script,
+  )}</stringProp><stringProp name="scriptLanguage">groovy</stringProp></${testClass}>\n${indent}<hashTree/>`;
+}
+
+function buildValidationAssertion(
+  operation: NonNullable<JMeterConfig["flowOperations"]>[number],
+  indent: string,
+): string {
+  const extractorNames = (operation.extractors || []).map(
+    (extractor) => extractor.varName,
+  );
+  const rejectTexts = operation.rejectTexts || [];
+  const expectedTexts = operation.expectedTexts || [];
+  const rejectLoginLikeContent =
+    typeof operation.rejectLoginLikeContent === "boolean"
+      ? operation.rejectLoginLikeContent
+      : operation.name !== "Página de Login";
+
+  if (
+    extractorNames.length === 0 &&
+    rejectTexts.length === 0 &&
+    expectedTexts.length === 0 &&
+    !rejectLoginLikeContent
+  ) {
+    return "";
+  }
+
+  const script = [
+    "def responseText = prev.getResponseDataAsString() ?: ''",
+    "def normalized = responseText",
+    "  .replaceAll('(?is)<script[\\\\s\\\\S]*?</script>', ' ')",
+    "  .replaceAll('(?is)<style[\\\\s\\\\S]*?</style>', ' ')",
+    "  .replaceAll('(?is)<[^>]+>', ' ')",
+    "  .replace('&nbsp;', ' ')",
+    "  .replace('&#160;', ' ')",
+    "  .replace('&amp;', '&')",
+    "  .replace('&quot;', '\"')",
+    "  .replace('&#34;', '\"')",
+    "  .replace('&apos;', " + toGroovyString("'") + ")",
+    "  .replace('&#39;', " + toGroovyString("'") + ")",
+    "  .replace('&lt;', '<')",
+    "  .replace('&gt;', '>')",
+    "  .replaceAll('\\\\s+', ' ')",
+    "  .trim()",
+    "  .toLowerCase()",
+    "def fail = { String message, boolean markSessionInvalid ->",
+    "  prev.setSuccessful(false)",
+    "  prev.setResponseMessage(message)",
+    "  AssertionResult.setFailure(true)",
+    "  AssertionResult.setFailureMessage(message)",
+    "  if (markSessionInvalid) {",
+    "    vars.put('CPX_REAUTH', 'true')",
+    "    vars.put('CPX_AUTH_DONE', 'false')",
+    "  }",
+    "}",
+  ];
+
+  if (extractorNames.length > 0) {
+    script.push(
+      `def missingExtractors = [${extractorNames
+        .map((name) => toGroovyString(name))
+        .join(", ")}].findAll { (vars.get(it) ?: '') == '__MISSING__' }`,
+      "if (!missingExtractors.isEmpty()) {",
+      "  fail('Extractor(es) ausente(s): ' + missingExtractors.join(', '), true)",
+      "  return",
+      "}",
+    );
+  }
+
+  if (rejectTexts.length > 0) {
+    script.push(
+      `for (String text : [${rejectTexts.map((text) => toGroovyString(text)).join(", ")}]) {`,
+      "  if (normalized.contains(text.toLowerCase())) {",
+      "    fail('Texto de sessão inválida detectado: ' + text, true)",
+      "    return",
+      "  }",
+      "}",
+    );
+  }
+
+  if (rejectLoginLikeContent) {
+    script.push(
+      "if (normalized.contains('bem vindo') && normalized.contains('nome') && normalized.contains('senha')) {",
+      "  fail('A resposta parece a tela de login do MisterT', true)",
+      "  return",
+      "}",
+    );
+  }
+
+  if (expectedTexts.length > 0) {
+    script.push(
+      `def expectedMatch = [${expectedTexts
+        .map((text) => toGroovyString(text))
+        .join(", ")}].any { normalized.contains(it.toLowerCase()) }`,
+      "if (!expectedMatch) {",
+      "  fail('Nenhum texto esperado foi encontrado na resposta', false)",
+      "  return",
+      "}",
+    );
+  }
+
+  return buildJsr223Element(
+    "JSR223Assertion",
+    `${operation.name} Validation`,
+    script.join("\n"),
+    indent,
+  );
+}
+
+function buildAuthStateSampler(
+  testName: string,
+  script: string,
+  indent: string,
+): string {
+  return buildJsr223Element("JSR223Sampler", testName, script, indent);
+}
+
 function buildSampler(
   operation: NonNullable<JMeterConfig["flowOperations"]>[number],
   index: number,
@@ -84,6 +216,7 @@ function buildSampler(
 
   const headerManager = buildHeaderManager(operation.headers, "              ");
   const regexExtractors = buildRegexExtractors(operation.extractors, "              ");
+  const validationAssertion = buildValidationAssertion(operation, "              ");
 
   return `          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="${xmlEscape(
             operation.name || `Request ${index + 1}`,
@@ -100,7 +233,7 @@ function buildSampler(
           )}</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.auto_redirects">false</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp><boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp><stringProp name="HTTPSampler.connect_timeout">30000</stringProp><stringProp name="HTTPSampler.response_timeout">30000</stringProp></HTTPSamplerProxy>
           <hashTree>
 ${headerManager}
-${regexExtractors ? `${regexExtractors}\n` : ""}          </hashTree>`;
+${regexExtractors ? `${regexExtractors}\n` : ""}${validationAssertion ? `${validationAssertion}\n` : ""}          </hashTree>`;
 }
 
 function buildFlowController(
@@ -173,11 +306,32 @@ export function generateJMeterPlan(config: JMeterConfig): string {
   const fallbackSamplers = operations
     .map((operation, index) => buildSampler(operation, index))
     .join("\n");
+  const authPrepareSampler = buildAuthStateSampler(
+    "Prepare Auth State",
+    [
+      "vars.put('CPX_REAUTH', 'false')",
+      "vars.put('CPX_AUTH_DONE', 'false')",
+    ].join("\n"),
+    "          ",
+  );
+  const authFinalizeSampler = buildAuthStateSampler(
+    "Finalize Auth State",
+    [
+      "if ('true'.equals(vars.get('CPX_REAUTH'))) {",
+      "  vars.put('CPX_AUTH_DONE', 'false')",
+      "} else {",
+      "  vars.put('CPX_AUTH_DONE', 'true')",
+      "}",
+    ].join("\n"),
+    "          ",
+  );
   const threadTree =
     moduleFlows.length > 0
-      ? `        <OnceOnlyController guiclass="OnceOnlyControllerGui" testclass="OnceOnlyController" testname="Authenticate Once" enabled="true"></OnceOnlyController>
+      ? `        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Authenticate If Needed" enabled="true"><stringProp name="IfController.condition">${xmlEscape("${__groovy(vars.get('CPX_AUTH_DONE') != 'true' || vars.get('CPX_REAUTH') == 'true')}")}</stringProp><boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp></IfController>
         <hashTree>
+${authPrepareSampler}
 ${authSamplers}
+${authFinalizeSampler}
         </hashTree>
         <RandomController guiclass="LogicControllerGui" testclass="RandomController" testname="Random Module Flow" enabled="true"></RandomController>
         <hashTree>
