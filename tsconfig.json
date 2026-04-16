@@ -110,16 +110,16 @@
 
     /* ====== Aliases de Importação ====== */
 
-    /** Diretório base para resolução de paths relativos */
-    "baseUrl": ".",
+    /** Silencia avisos de depreciação suportados pela série atual do TypeScript. */
+    "ignoreDeprecations": "5.0",
 
     /**
-     * Mapeia o alias '@' para a pasta 'src'.
+     * Mapeia o alias '@' para a pasta 'src', relativo a este tsconfig.
      * Deve corresponder ao alias configurado no vite.config.ts.
      * Exemplo: import { algo } from '@/utils/algo'
      */
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
 
