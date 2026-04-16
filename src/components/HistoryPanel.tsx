@@ -454,8 +454,6 @@ export function HistoryPanel() {
                   setShowSortMenu(false);
                 }}
                 aria-label="Filtrar por status"
-                aria-expanded={showFilterMenu ? "true" : "false"}
-                aria-haspopup="listbox"
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all focus:outline-none focus:ring-2 focus:ring-sf-primary/50 ${
                   statusFilter !== "all"
                     ? "bg-sf-primary/10 border-sf-primary/30 text-sf-primary"
@@ -468,8 +466,6 @@ export function HistoryPanel() {
 
               {showFilterMenu && (
                 <div
-                  role="listbox"
-                  aria-label="Opções de filtro por status"
                   className="absolute top-full left-0 mt-1 bg-sf-surface border border-sf-border rounded-lg shadow-lg py-1 z-20 min-w-[150px]"
                 >
                   {(Object.keys(STATUS_FILTER_LABELS) as StatusFilter[]).map(
@@ -477,8 +473,6 @@ export function HistoryPanel() {
                       <button
                         type="button"
                         key={key}
-                        role="option"
-                        aria-selected={statusFilter === key ? "true" : "false"}
                         onClick={() => {
                           setStatusFilter(key);
                           setShowFilterMenu(false);
@@ -506,8 +500,6 @@ export function HistoryPanel() {
                   setShowFilterMenu(false);
                 }}
                 aria-label="Ordenar resultados"
-                aria-expanded={showSortMenu ? "true" : "false"}
-                aria-haspopup="listbox"
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-sf-surface border border-sf-border text-sf-textSecondary hover:bg-sf-surfaceHover transition-all focus:outline-none focus:ring-2 focus:ring-sf-primary/50"
               >
                 <ArrowUpDown className="w-3.5 h-3.5" aria-hidden="true" />
@@ -516,16 +508,12 @@ export function HistoryPanel() {
 
               {showSortMenu && (
                 <div
-                  role="listbox"
-                  aria-label="Opções de ordenação"
                   className="absolute top-full left-0 mt-1 bg-sf-surface border border-sf-border rounded-lg shadow-lg py-1 z-20 min-w-[170px]"
                 >
                   {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
                     <button
                       type="button"
                       key={key}
-                      role="option"
-                      aria-selected={sortBy === key ? "true" : "false"}
                       onClick={() => {
                         setSortBy(key);
                         setShowSortMenu(false);
@@ -596,8 +584,6 @@ export function HistoryPanel() {
                 </h3>
                 <div
                   className="space-y-2"
-                  role="list"
-                  aria-label={`Testes: ${group.label}`}
                 >
                   {group.items.map((result) => (
                     <HistoryItem
@@ -616,8 +602,6 @@ export function HistoryPanel() {
             /* Exibicao linear (quando ordenado por métrica) */
             <div
               className="space-y-2"
-              role="list"
-              aria-label="Lista de testes realizados"
             >
               {processedResults.map((result) => (
                 <HistoryItem
@@ -701,8 +685,6 @@ const HistoryItem = memo(function HistoryItem({
 
   return (
     <div
-      role="listitem"
-      aria-label={`Teste em ${result.url}, ${statusLabel}, nota de saúde ${healthScore}`}
       className="bg-sf-surface border border-sf-border rounded-xl p-4 hover:border-sf-textMuted transition-all group focus-within:ring-2 focus-within:ring-sf-primary/30"
     >
       <div className="flex items-center justify-between gap-3">

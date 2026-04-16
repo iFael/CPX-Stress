@@ -199,7 +199,6 @@ export function TestProgress() {
     secondsRemaining,
     errorRate,
     liveHealth,
-    barStyle,
   } = useMemo(() => {
     const _currentSecond = progress?.currentSecond ?? 0;
     const _totalSeconds = progress?.totalSeconds ?? config.duration;
@@ -227,9 +226,6 @@ export function TestProgress() {
       secondsRemaining: _secondsRemaining,
       errorRate: _errorRate,
       liveHealth: _liveHealth,
-      // Estilo memoizado para a largura da barra de progresso.
-      // Não e possível usar classe Tailwind pura aqui porque o valor e dinâmico (0-100%).
-      barStyle: { width: `${_percentage}%` } as const,
     };
   }, [progress, config.duration]);
 
@@ -308,25 +304,12 @@ export function TestProgress() {
             </span>
           </div>
         </div>
-        {/* Barra visual */}
-        <div
-          className="h-3 bg-sf-surface rounded-full overflow-hidden border border-sf-border"
-          role="progressbar"
-          aria-valuenow={Number(percentage)}
-          aria-valuemin={Number(0)}
-          aria-valuemax={Number(100)}
+        <progress
+          value={percentage}
+          max={100}
+          className="test-progress-bar w-full"
           aria-label={`Progresso do teste: ${percentage}% concluido, ${formatTimeRemaining(secondsRemaining)}`}
-        >
-          <div
-            className="h-full bg-gradient-to-r from-sf-primary to-sf-accent rounded-full transition-all duration-500 ease-out relative"
-            style={barStyle}
-          >
-            {/* Efeito de brilho na ponta da barra */}
-            {percentage > 0 && percentage < 100 && (
-              <div className="absolute right-0 top-0 h-full w-4 bg-gradient-to-r from-transparent to-white/20 animate-pulse" />
-            )}
-          </div>
-        </div>
+        />
         {/* Marcadores de 25%, 50%, 75% para referência visual */}
         <div className="flex justify-between mt-1 px-0.5">
           {[0, 25, 50, 75, 100].map((mark) => (

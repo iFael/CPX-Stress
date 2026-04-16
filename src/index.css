@@ -74,15 +74,6 @@ body {
   background: transparent;
 }
 
-/* Custom scrollbar — Firefox & standard property.
-   scrollbar-width and scrollbar-color are standard CSS properties fully supported
-   by the Chromium engine bundled with Electron 28+. Browser compatibility warnings
-   for older Chrome (<121), Safari, or Samsung Internet do not apply here. */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(42, 45, 58, 0.6) transparent;
-}
-
 /* ======================================================================== */
 /*  Focus styles — accessible and consistent                                */
 /* ======================================================================== */
@@ -161,6 +152,83 @@ input[type="number"] {
 
 .compex-logo-glow:hover {
   animation: logo-glow-pulse 1.8s ease-in-out infinite;
+}
+
+.compex-logo-base {
+  filter: brightness(0) invert(1);
+  cursor: default;
+}
+
+.test-progress-bar {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 0.75rem;
+  border: 1px solid #2a2d3a;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: #1a1d27;
+}
+
+.test-progress-bar::-webkit-progress-bar {
+  background: #1a1d27;
+  border-radius: 9999px;
+}
+
+.test-progress-bar::-webkit-progress-value {
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #6366f1 0%, #22d3ee 100%);
+}
+
+.test-progress-bar::-moz-progress-bar {
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #6366f1 0%, #22d3ee 100%);
+}
+
+.health-score-bar {
+  width: 100%;
+  height: 0.5rem;
+  margin-top: 0.5rem;
+  -webkit-appearance: none;
+  appearance: none;
+  border: 0;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.health-score-bar::-webkit-progress-bar {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 9999px;
+}
+
+.health-score-bar::-webkit-progress-value {
+  border-radius: 9999px;
+  background: var(--health-score-fill, #6366f1);
+}
+
+.health-score-bar::-moz-progress-bar {
+  border-radius: 9999px;
+  background: var(--health-score-fill, #6366f1);
+}
+
+.health-score-bar--primary {
+  --health-score-fill: #6366f1;
+}
+
+.health-score-bar--success {
+  --health-score-fill: #22c55e;
+}
+
+.health-score-bar--info {
+  --health-score-fill: #60a5fa;
+}
+
+.health-score-bar--warning {
+  --health-score-fill: #f59e0b;
+}
+
+.health-score-bar--danger {
+  --health-score-fill: #ef4444;
 }
 
 @keyframes slide-up {

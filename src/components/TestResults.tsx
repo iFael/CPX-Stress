@@ -1534,20 +1534,20 @@ export function TestResults() {
 function HealthScoreBar({ score, color }: { score: number; color: string }) {
   // Mapeia a cor do texto para a cor de fundo correspondente (para a barra)
   const barColorMap: Record<string, string> = {
-    "text-sf-success": "bg-sf-success",
-    "text-blue-400": "bg-blue-400",
-    "text-sf-warning": "bg-sf-warning",
-    "text-sf-danger": "bg-sf-danger",
+    "text-sf-success": "health-score-bar--success",
+    "text-blue-400": "health-score-bar--info",
+    "text-sf-warning": "health-score-bar--warning",
+    "text-sf-danger": "health-score-bar--danger",
   };
-  const barColor = barColorMap[color] || "bg-sf-primary";
+  const barColor = barColorMap[color] || "health-score-bar--primary";
 
   return (
-    <div className="w-full h-2 bg-sf-bg/50 rounded-full overflow-hidden mt-2">
-      <div
-        className={`h-full rounded-full transition-all duration-1000 ease-out ${barColor}`}
-        style={{ width: `${score}%` }}
-      />
-    </div>
+    <progress
+      value={score}
+      max={100}
+      className={`health-score-bar ${barColor}`}
+      aria-label={`Nota de saúde ${score} de 100`}
+    />
   );
 }
 

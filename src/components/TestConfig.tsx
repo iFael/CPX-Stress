@@ -320,8 +320,7 @@ export function TestConfig() {
             <img
               src={compexLogo}
               alt="Compex"
-              className="compex-logo-glow relative h-12 w-auto opacity-90 transition-opacity duration-300 hover:opacity-100 select-none"
-              style={{ filter: "brightness(0) invert(1)", cursor: "default" }}
+              className="compex-logo-base compex-logo-glow relative h-12 w-auto opacity-90 transition-opacity duration-300 hover:opacity-100 select-none"
               draggable={false}
             />
           </div>
@@ -375,7 +374,6 @@ export function TestConfig() {
                 key={env.url}
                 type="button"
                 onClick={() => !isDisabled && handleEnvironmentChange(env.url)}
-                aria-pressed={isSelected}
                 disabled={isDisabled}
                 className={`px-3 py-2.5 rounded-xl text-sm border transition-all text-left ${
                   isDisabled
@@ -481,7 +479,6 @@ export function TestConfig() {
         <button
           type="button"
           onClick={() => setShowAdvanced((prev) => !prev)}
-          aria-expanded={showAdvanced}
           aria-controls="advanced-settings"
           className="flex items-center gap-2 text-sm text-sf-textMuted hover:text-sf-textSecondary transition-colors rounded-lg px-2 py-1"
         >
@@ -533,7 +530,6 @@ export function TestConfig() {
         <button
           type="button"
           onClick={() => setShowOperations((prev) => !prev)}
-          aria-expanded={showOperations}
           className="flex items-center gap-2 text-sm text-sf-textMuted hover:text-sf-textSecondary transition-colors rounded-lg px-2 py-1"
         >
           <Layers className="w-4 h-4" aria-hidden="true" />
