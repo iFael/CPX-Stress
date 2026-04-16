@@ -267,8 +267,11 @@ Este comando executa o build e em seguida usa o [electron-builder](https://www.e
 | `npm run dist`          | Gera o instalador do aplicativo desktop                                     |
 | `npm run audit:ssrf`    | Valida bloqueio de localhost, IPs privados, link-local e metadata endpoints |
 | `npm run audit:engine`  | Sobe o mock server e executa a auditoria funcional completa do engine       |
+| `npm run audit:convergence` | Sobe o mock server e valida convergência semântica entre CPX, k6, Locust e JMeter |
 | `npm run audit:extreme` | Sobe o mock server e executa auditoria de carga extrema do gerador          |
 | `npm run verify`        | Executa lint, format check, typecheck, build e auditorias principais        |
+
+O workflow de CI executa a convergência em modo estrito com `CPX_CONVERGENCE_STRICT=true`, exigindo k6, Locust e JMeter instalados e funcionais no ambiente.
 
 ### Capacidade do alvo x capacidade do CPX-Stress
 

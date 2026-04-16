@@ -61,12 +61,21 @@ interface CheckResult {
 }
 
 type ScenarioResults = Partial<Record<EngineName, ComparableEngineResult>>;
+type ExternalEngineName = Exclude<EngineName, "cpx">;
 
 process.env.STRESSFLOW_ALLOW_INTERNAL = "true";
 
 const MOCK_BASE = "http://127.0.0.1:8787";
 const UNREACHABLE_BASE = "http://127.0.0.1:65534";
 const PERSIST_RESULTS = process.env.CPX_SAVE_CONVERGENCE_RESULTS === "1";
+const STRICT_CONVERGENCE = ["1", "true", "yes", "on"].includes(
+  (process.env.CPX_CONVERGENCE_STRICT || "").toLowerCase(),
+);
+const AVAILABLE_EXTERNAL_ENGINES: Record<ExternalEngineName, boolean> = {
+  k6: isK6Available(),
+  locust: isLocustAvailable(),
+  jmeter: isJMeterAvailable(),
+};
 const LOGIN_OP = "Página de Login";
 const AUTH_OP = "Autenticar Sessão";
 const ALPHA_OP = "Módulo Alpha";
@@ -319,6 +328,22 @@ function writeScenarioOutput(scenarioName: ScenarioName, results: ScenarioResult
   );
 }
 
+function validateExternalEngineAvailability(): void {
+  for (const [engineName, isAvailable] of Object.entries(
+    AVAILABLE_EXTERNAL_ENGINES,
+  ) as Array<[ExternalEngineName, boolean]>) {
+    recordCheck(
+      `availability-${engineName}`,
+      `${engineName} disponível para comparação externa`,
+      isAvailable,
+      isAvailable
+        ? "Binário encontrado no ambiente atual."
+        : "Binário não encontrado no ambiente atual.",
+      !STRICT_CONVERGENCE,
+    );
+  }
+}
+
 async function runScenario(
   scenarioName: ScenarioName,
   config: TestConfig,
@@ -330,7 +355,7 @@ async function runScenario(
   const engine = new StressEngine();
   results.cpx = normalizeCpxResult(await engine.run(config, () => {}));
 
-  if (isK6Available()) {
+  if (AVAILABLE_EXTERNAL_ENGINES.k6) {
     try {
       const k6 = await runK6(buildK6ConfigFromTestConfig(config));
       results.k6 = normalizeExternalSummary("k6", k6);
@@ -357,11 +382,11 @@ async function runScenario(
       "k6 disponível para comparação",
       false,
       "Binário do k6 não encontrado no ambiente atual.",
-      true,
+      !STRICT_CONVERGENCE,
     );
   }
 
-  if (isLocustAvailable()) {
+  if (AVAILABLE_EXTERNAL_ENGINES.locust) {
     try {
       const locust = await runLocust(buildLocustConfigFromTestConfig(config));
       results.locust = normalizeExternalSummary("locust", locust);
@@ -388,11 +413,11 @@ async function runScenario(
       "Locust disponível para comparação",
       false,
       "Binário do Locust não encontrado no ambiente atual.",
-      true,
+      !STRICT_CONVERGENCE,
     );
   }
 
-  if (isJMeterAvailable()) {
+  if (AVAILABLE_EXTERNAL_ENGINES.jmeter) {
     try {
       const jmeter = await runJMeter(buildJMeterConfigFromTestConfig(config));
       results.jmeter = normalizeExternalSummary("jmeter", jmeter);
@@ -419,7 +444,7 @@ async function runScenario(
       "JMeter disponível para comparação",
       false,
       "Binário do JMeter não encontrado no ambiente atual.",
-      true,
+      !STRICT_CONVERGENCE,
     );
   }
 
@@ -436,10 +461,16 @@ function validateStableScenario(results: ScenarioResults, config: TestConfig): v
 
   recordCheck(
     "stable-available-engines",
-    "Há pelo menos uma engine externa disponível",
-    engines.length > 1,
-    `engines=${engines.map((item) => item.engine).join(", ")}`,
-    true,
+    STRICT_CONVERGENCE
+      ? "Todas as engines externas exigidas estão presentes no cenário estável"
+      : "Há pelo menos uma engine externa disponível",
+    STRICT_CONVERGENCE
+      ? (Object.keys(AVAILABLE_EXTERNAL_ENGINES) as ExternalEngineName[]).every(
+          (engineName) => AVAILABLE_EXTERNAL_ENGINES[engineName],
+        )
+      : engines.length > 1,
+    `engines=${engines.map((item) => item.engine).join(", ") || "cpx"}, strict=${STRICT_CONVERGENCE ? "on" : "off"}`,
+    !STRICT_CONVERGENCE,
   );
 
   for (const result of engines) {
@@ -685,6 +716,8 @@ async function main(): Promise<void> {
     console.error("   Execute: node audit/mock-server.js 8787");
     process.exit(1);
   }
+
+  validateExternalEngineAvailability();
 
   console.log("\n▶ Cenário estável (round-robin por operação)");
   const stableConfig = buildParityConfig("stable");
