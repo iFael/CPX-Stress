@@ -266,6 +266,12 @@ export interface TestConfig {
   flowSelectionMode?: FlowSelectionMode;
 
   /**
+   * Timeout por requisição, em milissegundos.
+   * Usado principalmente em auditorias de convergência e cenários controlados.
+   */
+  requestTimeoutMs?: number;
+
+  /**
    * Cabecalhos HTTP adicionais (opcional).
    * Usados para enviar informações extras, como tokens de autenticação.
    * Exemplo: { "Authorization": "Bearer abc123" }

@@ -9,6 +9,7 @@ export interface JMeterConfig {
   duration: number;
   method?: "GET" | "POST" | "PUT" | "DELETE";
   flowSelectionMode?: FlowSelectionMode;
+  requestTimeoutMs?: number;
   headers?: Record<string, string>;
   body?: string;
   flowOperations?: JMeterFlowOperation[];

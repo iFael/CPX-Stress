@@ -10,6 +10,7 @@ export interface LocustConfig {
   host?: string;
   method?: "GET" | "POST" | "PUT" | "DELETE";
   flowSelectionMode?: FlowSelectionMode;
+  requestTimeoutMs?: number;
   headers?: Record<string, string>;
   body?: string;
   flowOperations?: LocustFlowOperation[];

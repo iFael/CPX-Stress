@@ -9,6 +9,7 @@ export interface K6Config {
   duration: number;
   method?: "GET" | "POST" | "PUT" | "DELETE";
   flowSelectionMode?: FlowSelectionMode;
+  requestTimeoutMs?: number;
   headers?: Record<string, string>;
   body?: string;
   flowOperations?: K6FlowOperation[];
