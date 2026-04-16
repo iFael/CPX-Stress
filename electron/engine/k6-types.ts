@@ -20,6 +20,8 @@ export interface K6FlowOperation {
     varName: string;
     regex: string;
   }>;
+  expectedTexts?: string[];
+  rejectLoginLikeContent?: boolean;
   rejectTexts?: string[];
 }
 

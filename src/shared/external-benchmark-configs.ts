@@ -1,5 +1,4 @@
 import type {
-  ArtilleryConfig,
   K6Config,
   JMeterConfig,
   LocustConfig,
@@ -23,6 +22,8 @@ function buildExternalFlowOperationsFromOperations(operations?: TestOperation[])
           regex,
         }))
       : undefined,
+    expectedTexts: operation.validation?.expectedAnyText,
+    rejectLoginLikeContent: operation.validation?.rejectLoginLikeContent,
     rejectTexts: operation.validation?.rejectOnAnyText,
   }));
 }
@@ -33,12 +34,6 @@ export function buildExternalFlowOperations(result: TestResult) {
 
 export function buildK6ConfigFromTestResult(result: TestResult): K6Config {
   return buildK6ConfigFromTestConfig(result.config, result.url);
-}
-
-export function buildArtilleryConfigFromTestResult(
-  result: TestResult,
-): ArtilleryConfig {
-  return buildArtilleryConfigFromTestConfig(result.config, result.url);
 }
 
 export function buildLocustConfigFromTestResult(result: TestResult): LocustConfig {
@@ -60,22 +55,6 @@ export function buildK6ConfigFromTestConfig(
     method: config.method,
     headers: config.headers,
     body: config.body,
-    flowOperations: buildExternalFlowOperationsFromOperations(config.operations),
-  };
-}
-
-export function buildArtilleryConfigFromTestConfig(
-  config: TestConfig,
-  fallbackUrl?: string,
-): ArtilleryConfig {
-  return {
-    url: fallbackUrl || config.url,
-    vus: config.virtualUsers,
-    duration: config.duration,
-    method: config.method,
-    headers: config.headers,
-    body: config.body,
-    rampUpSeconds: config.rampUp,
     flowOperations: buildExternalFlowOperationsFromOperations(config.operations),
   };
 }

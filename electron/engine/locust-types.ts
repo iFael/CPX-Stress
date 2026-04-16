@@ -23,6 +23,8 @@ export interface LocustFlowOperation {
     varName: string;
     regex: string;
   }>;
+  expectedTexts?: string[];
+  rejectLoginLikeContent?: boolean;
   rejectTexts?: string[];
 }
 

@@ -20,6 +20,8 @@ export interface JMeterFlowOperation {
     varName: string;
     regex: string;
   }>;
+  expectedTexts?: string[];
+  rejectLoginLikeContent?: boolean;
   rejectTexts?: string[];
 }
 
