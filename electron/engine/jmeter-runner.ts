@@ -7,6 +7,12 @@ import type { JMeterConfig, JMeterSummary } from "./jmeter-types";
 
 const OUTPUT_PREVIEW_LIMIT = 4_000;
 
+interface JMeterCommand {
+  command: string;
+  args: string[];
+  label: string;
+}
+
 function ensureDir(dirPath: string): void {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
@@ -27,7 +33,23 @@ function truncateOutput(text: string): string | undefined {
   return `${trimmed.slice(-OUTPUT_PREVIEW_LIMIT)}...`;
 }
 
-function resolveJMeterBinary(): string | null {
+function toCommand(candidate: string): JMeterCommand {
+  if (/\.(bat|cmd)$/i.test(candidate)) {
+    return {
+      command: "cmd.exe",
+      args: ["/c", candidate],
+      label: candidate,
+    };
+  }
+
+  return {
+    command: candidate,
+    args: [],
+    label: candidate,
+  };
+}
+
+function resolveJMeterBinary(): JMeterCommand | null {
   const candidates = [
     process.env.JMETER_PATH,
     path.join(process.env.LOCALAPPDATA || "", "Programs", "JMeter", "bin", "jmeter.bat"),
@@ -41,12 +63,13 @@ function resolveJMeterBinary(): string | null {
   );
 
   for (const candidate of candidates) {
+    const command = toCommand(candidate);
     try {
-      execFileSync(candidate, ["-v"], {
+      execFileSync(command.command, [...command.args, "-v"], {
         stdio: "ignore",
         windowsHide: true,
       });
-      return candidate;
+      return command;
     } catch {
       // try next
     }
@@ -55,9 +78,9 @@ function resolveJMeterBinary(): string | null {
   return null;
 }
 
-function getJMeterVersion(binary: string): string {
+function getJMeterVersion(binary: JMeterCommand): string {
   try {
-    return execFileSync(binary, ["-v"], {
+    return execFileSync(binary.command, [...binary.args, "-v"], {
       encoding: "utf8",
       windowsHide: true,
     }).trim();
@@ -177,8 +200,9 @@ export async function runJMeter(
     let stderr = "";
 
     const proc = spawn(
-      binary,
+      binary.command,
       [
+        ...binary.args,
         "-n",
         "-t",
         planPath,
@@ -247,7 +271,7 @@ export async function runJMeter(
         const summary = parseJtl(resultsPath, config.duration, config.vus);
         summary.duration = Number(((Date.now() - startedAt) / 1000).toFixed(2));
         summary.vus = config.vus;
-        summary.executable = binary;
+        summary.executable = binary.label;
         summary.version = getJMeterVersion(binary);
         summary.artifactsDir = artifactsDir;
         summary.scriptPath = planPath;

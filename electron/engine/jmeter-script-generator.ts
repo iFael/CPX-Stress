@@ -9,6 +9,10 @@ function xmlEscape(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
+function toJMeterVarSyntax(value: string): string {
+  return value.replace(/\{\{(\w+)\}\}/g, "${$1}");
+}
+
 function splitUrl(urlText: string) {
   const parsed = new URL(urlText);
   return {
@@ -70,8 +74,8 @@ function buildSampler(
   operation: NonNullable<JMeterConfig["flowOperations"]>[number],
   index: number,
 ): string {
-  const url = splitUrl(operation.url);
-  const body = operation.body ?? "";
+  const url = splitUrl(toJMeterVarSyntax(operation.url));
+  const body = operation.body ? toJMeterVarSyntax(operation.body) : "";
   const bodyArguments = body
     ? `<boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">${xmlEscape(
         body,
@@ -99,6 +103,22 @@ ${headerManager}
 ${regexExtractors ? `${regexExtractors}\n` : ""}          </hashTree>`;
 }
 
+function buildFlowController(
+  flowName: string,
+  operations: NonNullable<JMeterConfig["flowOperations"]>,
+): string {
+  const samplers = operations
+    .map((operation, index) => buildSampler(operation, index))
+    .join("\n");
+
+  return `        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="${xmlEscape(
+    flowName,
+  )}" enabled="true"></GenericController>
+        <hashTree>
+${samplers}
+        </hashTree>`;
+}
+
 export function generateJMeterPlan(config: JMeterConfig): string {
   const operations = config.flowOperations?.length
     ? config.flowOperations
@@ -113,9 +133,57 @@ export function generateJMeterPlan(config: JMeterConfig): string {
       ];
 
   const rampTime = Math.max(1, config.rampUpSeconds || config.vus);
-  const samplers = operations
+  const firstModuleIndex = operations.findIndex(
+    (operation) =>
+      typeof operation.moduleGroup === "string" &&
+      operation.moduleGroup.trim() !== "",
+  );
+  const authOps =
+    firstModuleIndex >= 0 ? operations.slice(0, firstModuleIndex) : operations;
+  const moduleOps =
+    firstModuleIndex >= 0 ? operations.slice(firstModuleIndex) : [];
+  const moduleFlows: NonNullable<JMeterConfig["flowOperations"]>[] = [];
+
+  for (const operation of moduleOps) {
+    const groupName = operation.moduleGroup || operation.name;
+    const currentFlow = moduleFlows[moduleFlows.length - 1];
+    const currentGroupName =
+      currentFlow && currentFlow.length > 0
+        ? currentFlow[0].moduleGroup || currentFlow[0].name
+        : null;
+
+    if (currentFlow && currentGroupName === groupName) {
+      currentFlow.push(operation);
+    } else {
+      moduleFlows.push([operation]);
+    }
+  }
+
+  const authSamplers = authOps
     .map((operation, index) => buildSampler(operation, index))
     .join("\n");
+  const randomFlows = moduleFlows
+    .map((flow) =>
+      buildFlowController(
+        `${flow[0].moduleGroup || flow[0].name} Flow`,
+        flow,
+      ),
+    )
+    .join("\n");
+  const fallbackSamplers = operations
+    .map((operation, index) => buildSampler(operation, index))
+    .join("\n");
+  const threadTree =
+    moduleFlows.length > 0
+      ? `        <OnceOnlyController guiclass="OnceOnlyControllerGui" testclass="OnceOnlyController" testname="Authenticate Once" enabled="true"></OnceOnlyController>
+        <hashTree>
+${authSamplers}
+        </hashTree>
+        <RandomController guiclass="LogicControllerGui" testclass="RandomController" testname="Random Module Flow" enabled="true"></RandomController>
+        <hashTree>
+${randomFlows}
+        </hashTree>`
+      : fallbackSamplers;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
@@ -148,7 +216,7 @@ export function generateJMeterPlan(config: JMeterConfig): string {
           <boolProp name="CookieManager.clearEachIteration">false</boolProp>
         </CookieManager>
         <hashTree/>
-${samplers}
+${threadTree}
       </hashTree>
     </hashTree>
   </hashTree>
