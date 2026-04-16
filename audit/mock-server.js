@@ -75,6 +75,30 @@ function renderLoginPage() {
 </html>`;
 }
 
+function renderAuthGatePage() {
+  return `<!doctype html>
+<html lang="pt-BR">
+  <body>
+    <h1>Sessao expirada</h1>
+    <div>Autenticacao necessaria para continuar</div>
+    <div>CTRL=${LOGIN_CTRL}</div>
+  </body>
+</html>`;
+}
+
+function renderModulePage(moduleName, ctrl, extraLines = []) {
+  const extraHtml = extraLines.join("\n    ");
+  return `<!doctype html>
+<html lang="pt-BR">
+  <body>
+    <h1>${moduleName} concluido</h1>
+    <div>Modulo ${moduleName} executado com sucesso</div>
+    <div>CTRL=${ctrl}</div>
+    ${extraHtml}
+  </body>
+</html>`;
+}
+
 function createParitySession() {
   const sessionId = `sess-${nextSessionId++}`;
   const ctrl = String(7000 + nextSessionId);
@@ -172,6 +196,10 @@ const server = http.createServer((req, res) => {
       return sendHtml(res, 200, renderLoginPage());
     }
 
+    if (req.method !== "POST") {
+      return sendHtml(res, 200, renderAuthGatePage());
+    }
+
     const session = createParitySession();
     return sendHtml(
       res,
@@ -197,6 +225,15 @@ const server = http.createServer((req, res) => {
     }
 
     const variant = (url.searchParams.get("variant") || "stable").toLowerCase();
+    if (path === "/parity/module/beta" && variant === "timeout") {
+      return;
+    }
+
+    if (path === "/parity/module/beta" && variant === "expired-beta") {
+      paritySessions.delete(session.id);
+      return sendHtml(res, 200, renderLoginPage());
+    }
+
     if (path === "/parity/module/beta" && variant === "invalid-beta") {
       return sendHtml(
         res,
@@ -213,18 +250,12 @@ const server = http.createServer((req, res) => {
     }
 
     const moduleName = path.endsWith("alpha") ? "Alpha" : "Beta";
-    return sendHtml(
-      res,
-      200,
-      `<!doctype html>
-<html lang="pt-BR">
-  <body>
-    <h1>${moduleName} concluido</h1>
-    <div>Modulo ${moduleName} executado com sucesso</div>
-    <div>CTRL=${session.ctrl}</div>
-  </body>
-</html>`,
-    );
+    const extraLines =
+      path === "/parity/module/alpha" && variant !== "missing-extractor"
+        ? [`<div>ALPHA_TOKEN=${70000 + nextSessionId}</div>`]
+        : [];
+
+    return sendHtml(res, 200, renderModulePage(moduleName, session.ctrl, extraLines));
   }
 
   if (path === "/stats") {
@@ -257,8 +288,9 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`  GET /status/:code             → código HTTP específico`);
   console.log(`  GET /parity/login             → página de login com CTRL estático`);
   console.log(`  POST /parity/auth?CTRL=9001   → autenticação mock com cookie + CTRL`);
-  console.log(`  GET /parity/module/alpha      → módulo Alpha válido`);
-  console.log(`  GET /parity/module/beta       → módulo Beta válido ou inválido por variant`);
+  console.log(`  GET /parity/auth?CTRL=9001    → gate de autenticação para simular sessão expirada`);
+  console.log(`  GET /parity/module/alpha      → módulo Alpha com variant stable ou missing-extractor`);
+  console.log(`  GET /parity/module/beta       → módulo Beta com variant stable, invalid-beta, expired-beta ou timeout`);
   console.log(`  GET /parity/reset             → limpa estado de sessão do fluxo mock`);
   console.log(`  GET /stats                    → estatísticas gerais do mock`);
 });

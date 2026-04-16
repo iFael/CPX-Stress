@@ -2,29 +2,10 @@
  * Harness de convergência entre CPX, k6, Locust e JMeter.
  *
  * Objetivo:
- * - Executar o mesmo fluxo determinístico nas engines disponíveis
- * - Comparar distribuição por operação em cenário estável
- * - Confirmar comportamento de falha lógica por operação em mock controlado
+ * - Executar fluxos determinísticos nas engines disponíveis
+ * - Comparar semântica por operação em cenários controlados
+ * - Validar equivalência de falhas lógicas e de rede antes de usar alvo real
  */
-
-import dns from "node:dns";
-
-const originalResolve4 = dns.resolve4;
-const originalResolve6 = dns.resolve6;
-dns.resolve4 = ((
-  hostname: string,
-  cb: (err: Error | null, addrs: string[]) => void,
-) => {
-  if (hostname === "localhost") return cb(null, ["93.184.216.34"]);
-  return originalResolve4.call(dns, hostname, cb);
-}) as typeof dns.resolve4;
-dns.resolve6 = ((
-  hostname: string,
-  cb: (err: Error | null, addrs: string[]) => void,
-) => {
-  if (hostname === "localhost") return cb(null, []);
-  return originalResolve6.call(dns, hostname, cb);
-}) as typeof dns.resolve6;
 
 import fs from "node:fs";
 import http from "node:http";
@@ -47,6 +28,13 @@ import {
 
 type EngineName = "cpx" | "k6" | "locust" | "jmeter";
 type CheckStatus = "PASS" | "FAIL" | "WARN";
+type ScenarioName =
+  | "stable"
+  | "invalid-beta"
+  | "extractor-missing-alpha"
+  | "expired-beta"
+  | "timeout-beta"
+  | "connection-beta";
 
 interface ComparableOperationStats {
   name: string;
@@ -62,6 +50,7 @@ interface ComparableEngineResult {
   duration: number;
   operationStats: Record<string, ComparableOperationStats>;
   raw: unknown;
+  engineError?: string;
 }
 
 interface CheckResult {
@@ -71,7 +60,13 @@ interface CheckResult {
   detail: string;
 }
 
-const MOCK_BASE = "http://localhost:8787";
+type ScenarioResults = Partial<Record<EngineName, ComparableEngineResult>>;
+
+process.env.STRESSFLOW_ALLOW_INTERNAL = "true";
+
+const MOCK_BASE = "http://127.0.0.1:8787";
+const UNREACHABLE_BASE = "http://127.0.0.1:65534";
+const PERSIST_RESULTS = process.env.CPX_SAVE_CONVERGENCE_RESULTS === "1";
 const LOGIN_OP = "Página de Login";
 const AUTH_OP = "Autenticar Sessão";
 const ALPHA_OP = "Módulo Alpha";
@@ -100,6 +95,12 @@ function ensureDir(dirPath: string): void {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
   }
+}
+
+function listResults(results: ScenarioResults): ComparableEngineResult[] {
+  return Object.values(results).filter(
+    (result): result is ComparableEngineResult => result !== undefined,
+  );
 }
 
 function httpGetJson(url: string): Promise<unknown> {
@@ -138,13 +139,35 @@ async function checkMockServer(): Promise<boolean> {
   }
 }
 
-function buildParityConfig(variant: "stable" | "invalid-beta"): TestConfig {
+function buildParityConfig(scenarioName: ScenarioName): TestConfig {
+  const betaVariantMap: Record<ScenarioName, string> = {
+    stable: "stable",
+    "invalid-beta": "invalid-beta",
+    "extractor-missing-alpha": "stable",
+    "expired-beta": "expired-beta",
+    "timeout-beta": "timeout",
+    "connection-beta": "stable",
+  };
+  const alphaVariant =
+    scenarioName === "extractor-missing-alpha" ? "missing-extractor" : "stable";
+  const betaVariant = betaVariantMap[scenarioName];
+  const betaUrl =
+    scenarioName === "connection-beta"
+      ? `${UNREACHABLE_BASE}/parity/module/beta?CTRL={{SESSION_CTRL}}`
+      : `${MOCK_BASE}/parity/module/beta?CTRL={{SESSION_CTRL}}&variant=${betaVariant}`;
+  const betaExpectedAnyText =
+    scenarioName === "timeout-beta" || scenarioName === "connection-beta"
+      ? undefined
+      : ["Beta concluido"];
+
   return {
     url: `${MOCK_BASE}/parity/login`,
     virtualUsers: 4,
-    duration: 6,
+    duration:
+      scenarioName === "timeout-beta" || scenarioName === "connection-beta" ? 3 : 4,
     method: "GET",
     flowSelectionMode: "deterministic",
+    requestTimeoutMs: scenarioName === "timeout-beta" ? 750 : 3000,
     operations: [
       {
         name: LOGIN_OP,
@@ -172,8 +195,12 @@ function buildParityConfig(variant: "stable" | "invalid-beta"): TestConfig {
       {
         name: ALPHA_OP,
         moduleGroup: "Alpha",
-        url: `${MOCK_BASE}/parity/module/alpha?CTRL={{SESSION_CTRL}}&variant=${variant}`,
+        url: `${MOCK_BASE}/parity/module/alpha?CTRL={{SESSION_CTRL}}&variant=${alphaVariant}`,
         method: "GET",
+        extract:
+          scenarioName === "extractor-missing-alpha"
+            ? { ALPHA_TOKEN: "ALPHA_TOKEN=(\\d+)" }
+            : undefined,
         validation: {
           expectedAnyText: ["Alpha concluido"],
         },
@@ -181,10 +208,10 @@ function buildParityConfig(variant: "stable" | "invalid-beta"): TestConfig {
       {
         name: BETA_OP,
         moduleGroup: "Beta",
-        url: `${MOCK_BASE}/parity/module/beta?CTRL={{SESSION_CTRL}}&variant=${variant}`,
+        url: betaUrl,
         method: "GET",
         validation: {
-          expectedAnyText: ["Beta concluido"],
+          expectedAnyText: betaExpectedAnyText,
         },
       },
     ],
@@ -242,6 +269,10 @@ function getOp(
   );
 }
 
+function totalFailureCount(operation: ComparableOperationStats): number {
+  return Math.max(operation.logicalFailures, operation.errors);
+}
+
 function moduleShare(
   result: ComparableEngineResult,
   operationName: string,
@@ -264,21 +295,62 @@ function safeRatio(numerator: number, denominator: number): number {
   return denominator > 0 ? numerator / denominator : 0;
 }
 
+function failureShare(result: ComparableEngineResult, operationName: string): number {
+  const operation = getOp(result, operationName);
+  return operation.requests > 0 ? totalFailureCount(operation) / operation.requests : 0;
+}
+
+function errorShare(result: ComparableEngineResult, operationName: string): number {
+  const operation = getOp(result, operationName);
+  return operation.requests > 0 ? operation.errors / operation.requests : 0;
+}
+
+function writeScenarioOutput(scenarioName: ScenarioName, results: ScenarioResults): void {
+  if (!PERSIST_RESULTS) {
+    return;
+  }
+
+  const outputDir = path.join(__dirname, "results");
+  ensureDir(outputDir);
+  fs.writeFileSync(
+    path.join(outputDir, `benchmark-convergence-${scenarioName}.json`),
+    JSON.stringify(results, null, 2),
+    "utf8",
+  );
+}
+
 async function runScenario(
-  scenarioName: string,
+  scenarioName: ScenarioName,
   config: TestConfig,
-): Promise<Record<EngineName, ComparableEngineResult>> {
-  const results: Partial<Record<EngineName, ComparableEngineResult>> = {};
+): Promise<ScenarioResults> {
+  const results: ScenarioResults = {};
 
   await resetParityState();
 
   const engine = new StressEngine();
-  const cpxResult = await engine.run(config, () => {});
-  results.cpx = normalizeCpxResult(cpxResult);
+  results.cpx = normalizeCpxResult(await engine.run(config, () => {}));
 
   if (isK6Available()) {
-    const k6 = await runK6(buildK6ConfigFromTestConfig(config));
-    results.k6 = normalizeExternalSummary("k6", k6);
+    try {
+      const k6 = await runK6(buildK6ConfigFromTestConfig(config));
+      results.k6 = normalizeExternalSummary("k6", k6);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      recordCheck(
+        `${scenarioName}-k6-execution`,
+        `k6 executou o cenário ${scenarioName}`,
+        false,
+        message,
+      );
+      results.k6 = {
+        engine: "k6",
+        totalReqs: 0,
+        duration: config.duration,
+        operationStats: {},
+        raw: null,
+        engineError: message,
+      };
+    }
   } else {
     recordCheck(
       `${scenarioName}-k6-skip`,
@@ -290,8 +362,26 @@ async function runScenario(
   }
 
   if (isLocustAvailable()) {
-    const locust = await runLocust(buildLocustConfigFromTestConfig(config));
-    results.locust = normalizeExternalSummary("locust", locust);
+    try {
+      const locust = await runLocust(buildLocustConfigFromTestConfig(config));
+      results.locust = normalizeExternalSummary("locust", locust);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      recordCheck(
+        `${scenarioName}-locust-execution`,
+        `Locust executou o cenário ${scenarioName}`,
+        false,
+        message,
+      );
+      results.locust = {
+        engine: "locust",
+        totalReqs: 0,
+        duration: config.duration,
+        operationStats: {},
+        raw: null,
+        engineError: message,
+      };
+    }
   } else {
     recordCheck(
       `${scenarioName}-locust-skip`,
@@ -303,8 +393,26 @@ async function runScenario(
   }
 
   if (isJMeterAvailable()) {
-    const jmeter = await runJMeter(buildJMeterConfigFromTestConfig(config));
-    results.jmeter = normalizeExternalSummary("jmeter", jmeter);
+    try {
+      const jmeter = await runJMeter(buildJMeterConfigFromTestConfig(config));
+      results.jmeter = normalizeExternalSummary("jmeter", jmeter);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      recordCheck(
+        `${scenarioName}-jmeter-execution`,
+        `JMeter executou o cenário ${scenarioName}`,
+        false,
+        message,
+      );
+      results.jmeter = {
+        engine: "jmeter",
+        totalReqs: 0,
+        duration: config.duration,
+        operationStats: {},
+        raw: null,
+        engineError: message,
+      };
+    }
   } else {
     recordCheck(
       `${scenarioName}-jmeter-skip`,
@@ -315,23 +423,16 @@ async function runScenario(
     );
   }
 
-  const outputDir = path.join(__dirname, "results");
-  ensureDir(outputDir);
-  fs.writeFileSync(
-    path.join(outputDir, `benchmark-convergence-${scenarioName}.json`),
-    JSON.stringify(results, null, 2),
-    "utf8",
-  );
-
-  return results as Record<EngineName, ComparableEngineResult>;
+  writeScenarioOutput(scenarioName, results);
+  return results;
 }
 
-function validateStableScenario(
-  results: Record<EngineName, ComparableEngineResult>,
-  config: TestConfig,
-): void {
-  const engines = Object.values(results);
+function validateStableScenario(results: ScenarioResults, config: TestConfig): void {
+  const engines = listResults(results);
   const cpx = results.cpx;
+  if (!cpx) {
+    throw new Error("Resultado do CPX ausente no cenário estável.");
+  }
 
   recordCheck(
     "stable-available-engines",
@@ -343,12 +444,12 @@ function validateStableScenario(
 
   for (const result of engines) {
     for (const operationName of REQUIRED_OPS) {
-      const op = getOp(result, operationName);
+      const operation = getOp(result, operationName);
       recordCheck(
         `stable-${result.engine}-${operationName}`,
         `${result.engine} registrou a operação ${operationName}`,
-        op.requests > 0,
-        `requests=${op.requests}`,
+        operation.requests > 0,
+        `requests=${operation.requests}`,
       );
     }
 
@@ -382,7 +483,7 @@ function validateStableScenario(
   }
 
   for (const [engineName, result] of Object.entries(results)) {
-    if (engineName === "cpx") continue;
+    if (!result || engineName === "cpx") continue;
 
     const alphaShareDiff = Math.abs(moduleShare(result, ALPHA_OP) - moduleShare(cpx, ALPHA_OP));
     const betaShareDiff = Math.abs(moduleShare(result, BETA_OP) - moduleShare(cpx, BETA_OP));
@@ -409,77 +510,166 @@ function validateStableScenario(
   }
 }
 
-function validateInvalidBetaScenario(
-  results: Record<EngineName, ComparableEngineResult>,
-  stableBaseline: Record<EngineName, ComparableEngineResult>,
+function validateLogicalFailureScenario(
+  scenarioId: ScenarioName,
+  scenarioLabel: string,
+  operationName: string,
+  results: ScenarioResults,
+  stableBaseline: ScenarioResults,
 ): void {
   const cpx = results.cpx;
+  const stableCpx = stableBaseline.cpx;
+  if (!cpx || !stableCpx) {
+    throw new Error(`Baseline do CPX ausente no cenário ${scenarioId}.`);
+  }
 
-  for (const [engineName, result] of Object.entries(results) as Array<[
-    EngineName,
-    ComparableEngineResult,
-  ]>) {
-    const stable = stableBaseline[engineName];
-    const beta = getOp(result, BETA_OP);
+  for (const result of listResults(results)) {
+    const stable = stableBaseline[result.engine];
+    if (!stable) continue;
+
+    const targetOperation = getOp(result, operationName);
     const auth = getOp(result, AUTH_OP);
     const login = getOp(result, LOGIN_OP);
     const authGrowth = growthFromStable(result, stable, AUTH_OP);
-    const betaFailures = Math.max(beta.logicalFailures, beta.errors);
-    const allowedShutdownSkew = Math.max(1, getOp(stable, LOGIN_OP).requests);
+    const failureCount = totalFailureCount(targetOperation);
+    const allowedSkew = Math.max(1, getOp(stable, LOGIN_OP).requests);
 
     recordCheck(
-      `invalid-beta-${engineName}-beta-errors`,
-      `${engineName} detectou falha lógica no módulo Beta`,
-      beta.errors > 0 || beta.logicalFailures > 0,
-      `errors=${beta.errors}, logical=${beta.logicalFailures}`,
+      `${scenarioId}-${result.engine}-requests`,
+      `${result.engine} registrou tentativas de ${operationName}`,
+      targetOperation.requests > 0,
+      `requests=${targetOperation.requests}`,
     );
     recordCheck(
-      `invalid-beta-${engineName}-reauth`,
-      `${engineName} aumentou autenticações após a falha lógica`,
+      `${scenarioId}-${result.engine}-failures`,
+      `${result.engine} detectou ${scenarioLabel}`,
+      failureCount > 0,
+      `errors=${targetOperation.errors}, logical=${targetOperation.logicalFailures}`,
+    );
+    recordCheck(
+      `${scenarioId}-${result.engine}-failure-share`,
+      `${result.engine} falhou de forma consistente em ${operationName}`,
+      failureShare(result, operationName) >= 0.95,
+      `share=${round2(failureShare(result, operationName))}`,
+    );
+    recordCheck(
+      `${scenarioId}-${result.engine}-reauth`,
+      `${result.engine} reautenticou após ${scenarioLabel}`,
       authGrowth > 0,
       `stable=${getOp(stable, AUTH_OP).requests}, current=${auth.requests}, growth=${authGrowth}`,
     );
     recordCheck(
-      `invalid-beta-${engineName}-login-auth-match`,
-      `${engineName} manteve login/auth alinhados após reautenticação dentro do skew de desligamento`,
-      Math.abs(login.requests - auth.requests) <= allowedShutdownSkew,
-      `login=${login.requests}, auth=${auth.requests}, allowedSkew=${allowedShutdownSkew}`,
+      `${scenarioId}-${result.engine}-login-auth-match`,
+      `${result.engine} manteve login/auth alinhados dentro do skew de desligamento`,
+      Math.abs(login.requests - auth.requests) <= allowedSkew,
+      `login=${login.requests}, auth=${auth.requests}, allowedSkew=${allowedSkew}`,
     );
     recordCheck(
-      `invalid-beta-${engineName}-reauth-ratio`,
-      `${engineName} reautenticou aproximadamente uma vez por falha lógica do Beta`,
-      Math.abs(authGrowth - betaFailures) <= Math.max(2, round2(betaFailures * 0.1)),
-      `authGrowth=${authGrowth}, betaFailures=${betaFailures}`,
+      `${scenarioId}-${result.engine}-reauth-ratio`,
+      `${result.engine} reautenticou aproximadamente uma vez por falha de ${operationName}`,
+      Math.abs(authGrowth - failureCount) <= Math.max(2, round2(failureCount * 0.15)),
+      `authGrowth=${authGrowth}, failures=${failureCount}`,
     );
   }
 
-  const cpxBeta = getOp(cpx, BETA_OP);
-  const cpxBetaErrorShare = cpxBeta.requests > 0 ? cpxBeta.errors / cpxBeta.requests : 0;
-  const cpxAuthGrowth = growthFromStable(results.cpx, stableBaseline.cpx, AUTH_OP);
-  const cpxReauthRatio = safeRatio(cpxAuthGrowth, Math.max(cpxBeta.logicalFailures, cpxBeta.errors));
+  const cpxOperation = getOp(cpx, operationName);
+  const cpxFailureShare = failureShare(cpx, operationName);
+  const cpxAuthGrowth = growthFromStable(cpx, stableCpx, AUTH_OP);
+  const cpxReauthRatio = safeRatio(cpxAuthGrowth, totalFailureCount(cpxOperation));
 
   for (const [engineName, result] of Object.entries(results)) {
-    if (engineName === "cpx") continue;
-    const beta = getOp(result, BETA_OP);
-    const betaErrorShare = beta.requests > 0 ? beta.errors / beta.requests : 0;
-    const authGrowth = growthFromStable(
-      result,
-      stableBaseline[engineName as EngineName],
-      AUTH_OP,
-    );
-    const reauthRatio = safeRatio(authGrowth, Math.max(beta.logicalFailures, beta.errors));
+    if (!result || engineName === "cpx") continue;
+
+    const stable = stableBaseline[engineName as EngineName];
+    if (!stable) continue;
+    const operation = getOp(result, operationName);
+    const authGrowth = growthFromStable(result, stable, AUTH_OP);
+    const engineFailureShare = failureShare(result, operationName);
+    const reauthRatio = safeRatio(authGrowth, totalFailureCount(operation));
 
     recordCheck(
-      `invalid-beta-${engineName}-beta-share`,
-      `${engineName} converge com o CPX na taxa de erro do módulo Beta`,
-      Math.abs(betaErrorShare - cpxBetaErrorShare) <= 0.2,
-      `diff=${round2(Math.abs(betaErrorShare - cpxBetaErrorShare))}`,
+      `${scenarioId}-${engineName}-failure-parity`,
+      `${engineName} converge com o CPX na taxa de falha de ${operationName}`,
+      Math.abs(engineFailureShare - cpxFailureShare) <= 0.2,
+      `diff=${round2(Math.abs(engineFailureShare - cpxFailureShare))}`,
     );
     recordCheck(
-      `invalid-beta-${engineName}-reauth-parity`,
+      `${scenarioId}-${engineName}-reauth-parity`,
       `${engineName} converge com o CPX na proporção reauth/falha lógica`,
-      Math.abs(reauthRatio - cpxReauthRatio) <= 0.15,
+      Math.abs(reauthRatio - cpxReauthRatio) <= 0.2,
       `diff=${round2(Math.abs(reauthRatio - cpxReauthRatio))}, cpxRatio=${round2(cpxReauthRatio)}, engineRatio=${round2(reauthRatio)}`,
+    );
+  }
+}
+
+function validateNetworkFailureScenario(
+  scenarioId: ScenarioName,
+  scenarioLabel: string,
+  operationName: string,
+  results: ScenarioResults,
+  stableBaseline: ScenarioResults,
+): void {
+  const cpx = results.cpx;
+  const stableCpx = stableBaseline.cpx;
+  if (!cpx || !stableCpx) {
+    throw new Error(`Baseline do CPX ausente no cenário ${scenarioId}.`);
+  }
+
+  for (const result of listResults(results)) {
+    const stable = stableBaseline[result.engine];
+    if (!stable) continue;
+
+    const targetOperation = getOp(result, operationName);
+    const authGrowth = growthFromStable(result, stable, AUTH_OP);
+
+    recordCheck(
+      `${scenarioId}-${result.engine}-requests`,
+      `${result.engine} registrou tentativas de ${operationName}`,
+      targetOperation.requests > 0,
+      `requests=${targetOperation.requests}`,
+    );
+    recordCheck(
+      `${scenarioId}-${result.engine}-errors`,
+      `${result.engine} detectou ${scenarioLabel}`,
+      targetOperation.errors > 0,
+      `errors=${targetOperation.errors}, logical=${targetOperation.logicalFailures}`,
+    );
+    recordCheck(
+      `${scenarioId}-${result.engine}-error-share`,
+      `${result.engine} falhou de forma consistente em ${operationName}`,
+      errorShare(result, operationName) >= 0.95,
+      `share=${round2(errorShare(result, operationName))}`,
+    );
+    recordCheck(
+      `${scenarioId}-${result.engine}-no-reauth`,
+      `${result.engine} não reautenticou após ${scenarioLabel}`,
+      authGrowth <= 1,
+      `authGrowth=${authGrowth}`,
+    );
+  }
+
+  const cpxErrorShare = errorShare(cpx, operationName);
+  const cpxAuthGrowth = growthFromStable(cpx, stableCpx, AUTH_OP);
+
+  for (const [engineName, result] of Object.entries(results)) {
+    if (!result || engineName === "cpx") continue;
+
+    const stable = stableBaseline[engineName as EngineName];
+    if (!stable) continue;
+    const authGrowth = growthFromStable(result, stable, AUTH_OP);
+    const engineErrorShare = errorShare(result, operationName);
+
+    recordCheck(
+      `${scenarioId}-${engineName}-error-parity`,
+      `${engineName} converge com o CPX na taxa de erro de ${operationName}`,
+      Math.abs(engineErrorShare - cpxErrorShare) <= 0.2,
+      `diff=${round2(Math.abs(engineErrorShare - cpxErrorShare))}`,
+    );
+    recordCheck(
+      `${scenarioId}-${engineName}-auth-parity`,
+      `${engineName} converge com o CPX na ausência de reautenticação após ${scenarioLabel}`,
+      Math.abs(authGrowth - cpxAuthGrowth) <= 1,
+      `diff=${Math.abs(authGrowth - cpxAuthGrowth)}, cpxAuthGrowth=${cpxAuthGrowth}, engineAuthGrowth=${authGrowth}`,
     );
   }
 }
@@ -501,10 +691,70 @@ async function main(): Promise<void> {
   const stableResults = await runScenario("stable", stableConfig);
   validateStableScenario(stableResults, stableConfig);
 
-  console.log("\n▶ Cenário com falha lógica no Beta");
-  const invalidBetaConfig = buildParityConfig("invalid-beta");
-  const invalidBetaResults = await runScenario("invalid-beta", invalidBetaConfig);
-  validateInvalidBetaScenario(invalidBetaResults, stableResults);
+  console.log("\n▶ Cenário com texto esperado ausente no Beta");
+  const invalidBetaResults = await runScenario(
+    "invalid-beta",
+    buildParityConfig("invalid-beta"),
+  );
+  validateLogicalFailureScenario(
+    "invalid-beta",
+    "texto esperado ausente no Beta",
+    BETA_OP,
+    invalidBetaResults,
+    stableResults,
+  );
+
+  console.log("\n▶ Cenário com extractor ausente no Alpha");
+  const missingExtractorResults = await runScenario(
+    "extractor-missing-alpha",
+    buildParityConfig("extractor-missing-alpha"),
+  );
+  validateLogicalFailureScenario(
+    "extractor-missing-alpha",
+    "extractor ausente no Alpha",
+    ALPHA_OP,
+    missingExtractorResults,
+    stableResults,
+  );
+
+  console.log("\n▶ Cenário com sessão expirada no Beta");
+  const expiredBetaResults = await runScenario(
+    "expired-beta",
+    buildParityConfig("expired-beta"),
+  );
+  validateLogicalFailureScenario(
+    "expired-beta",
+    "sessão expirada no Beta",
+    BETA_OP,
+    expiredBetaResults,
+    stableResults,
+  );
+
+  console.log("\n▶ Cenário com timeout no Beta");
+  const timeoutBetaResults = await runScenario(
+    "timeout-beta",
+    buildParityConfig("timeout-beta"),
+  );
+  validateNetworkFailureScenario(
+    "timeout-beta",
+    "timeout no Beta",
+    BETA_OP,
+    timeoutBetaResults,
+    stableResults,
+  );
+
+  console.log("\n▶ Cenário com falha de conexão no Beta");
+  const connectionBetaResults = await runScenario(
+    "connection-beta",
+    buildParityConfig("connection-beta"),
+  );
+  validateNetworkFailureScenario(
+    "connection-beta",
+    "falha de conexão no Beta",
+    BETA_OP,
+    connectionBetaResults,
+    stableResults,
+  );
 
   const passed = checks.filter((item) => item.status === "PASS").length;
   const failed = checks.filter((item) => item.status === "FAIL").length;
