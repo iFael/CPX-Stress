@@ -23,8 +23,6 @@ import { app, BrowserWindow, ipcMain, dialog, shell, session, nativeImage } from
 import path from "node:path";
 import fs from "node:fs";
 import { StressEngine, validateTestConfig } from "./engine/stress-engine";
-import { isArtilleryAvailable, runArtillery } from "./engine/artillery-runner";
-import type { ArtilleryConfig } from "./engine/artillery-types";
 import { isK6Available, runK6 } from "./engine/k6-runner";
 import type { K6Config } from "./engine/k6-types";
 import { isLocustAvailable, runLocust } from "./engine/locust-runner";
@@ -464,9 +462,6 @@ function traduzirErro(error: unknown): string {
     return "O endereço informado não é válido. Verifique se começa com http:// ou https:// — exemplo: https://www.meusite.com.br";
   if (mensagem.includes("Credenciais obrigatórias ausentes"))
     return mensagem;
-  if (mensagem.includes("Artillery não foi encontrado") || mensagem.includes("binário do Artillery")) {
-    return "O binário do Artillery não foi encontrado. Instale o Artillery ou configure ARTILLERY_PATH para habilitar a comparação.";
-  }
   if (mensagem.includes("k6 não encontrado") || mensagem.includes("binário do k6")) {
     return "O binário do k6 não foi encontrado. Instale o k6 ou configure o caminho do executável para habilitar a comparação.";
   }
@@ -926,37 +921,6 @@ if (canUseElectronMainApis) {
     });
   } catch (error) {
     console.error("[CPX-Stress] Erro ao executar comparação com k6:", error);
-    throw new Error(traduzirErro(error));
-  }
-  });
-
-/**
- * Canal: artillery:check
- * Verifica se o binário do Artillery está disponível para execução.
- */
-  ipcMain.handle("artillery:check", () => {
-  try {
-    return isArtilleryAvailable();
-  } catch (error) {
-    console.error("[CPX-Stress] Erro ao verificar disponibilidade do Artillery:", error);
-    return false;
-  }
-  });
-
-/**
- * Canal: artillery:run
- * Executa um benchmark com Artillery usando o mesmo config do teste atual.
- */
-  ipcMain.handle("artillery:run", async (_event, config: ArtilleryConfig) => {
-  try {
-    if (!config || typeof config !== "object") {
-      throw new Error("Configuração do Artillery inválida.");
-    }
-    return await runArtillery(config, (line) => {
-      mainWindow?.webContents.send("artillery:progress", line);
-    });
-  } catch (error) {
-    console.error("[CPX-Stress] Erro ao executar comparação com Artillery:", error);
     throw new Error(traduzirErro(error));
   }
   });

@@ -32,7 +32,6 @@ import type {
   ProgressData,
   TestResult,
 } from "./engine/stress-engine";
-import type { ArtilleryConfig, ArtillerySummary } from "./engine/artillery-types";
 import type { K6Config, K6Summary } from "./engine/k6-types";
 import type { LocustConfig, LocustSummary } from "./engine/locust-types";
 import type { JMeterConfig, JMeterSummary } from "./engine/jmeter-types";
@@ -71,8 +70,6 @@ const ALLOWED_INVOKE_CHANNELS = [
   "presets:delete",
   "k6:check",
   "k6:run",
-  "artillery:check",
-  "artillery:run",
   "locust:check",
   "locust:run",
   "jmeter:check",
@@ -83,7 +80,6 @@ const ALLOWED_INVOKE_CHANNELS = [
 const ALLOWED_RECEIVE_CHANNELS = [
   "test:progress",
   "k6:progress",
-  "artillery:progress",
   "locust:progress",
   "jmeter:progress",
 ] as const;
@@ -246,26 +242,6 @@ const api = {
   /** Escuta o progresso textual emitido pelo subprocesso k6. */
   onK6Progress: (callback: (line: string) => void): (() => void) =>
     safeOnReceive("k6:progress", callback as (data: unknown) => void),
-
-  // ---------------------------------------------------------------------------
-  // Artillery - benchmark externo para comparação de métricas
-  // ---------------------------------------------------------------------------
-  artillery: {
-    check: (): Promise<boolean> =>
-      safeInvoke("artillery:check") as Promise<boolean>,
-
-    run: (config: ArtilleryConfig): Promise<ArtillerySummary> =>
-      safeInvoke("artillery:run", config) as Promise<ArtillerySummary>,
-  },
-
-  artilleryCheck: (): Promise<boolean> =>
-    safeInvoke("artillery:check") as Promise<boolean>,
-
-  artilleryRun: (config: ArtilleryConfig): Promise<ArtillerySummary> =>
-    safeInvoke("artillery:run", config) as Promise<ArtillerySummary>,
-
-  onArtilleryProgress: (callback: (line: string) => void): (() => void) =>
-    safeOnReceive("artillery:progress", callback as (data: unknown) => void),
 
   // ---------------------------------------------------------------------------
   // Locust - benchmark externo para comparação de métricas

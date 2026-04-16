@@ -56,7 +56,6 @@ import type {
   ExternalBenchmarkEngine,
   ExternalBenchmarkStatus,
   ExternalBenchmarksState,
-  ArtillerySummary,
   JMeterSummary,
   K6Summary,
   LocustSummary,
@@ -261,7 +260,6 @@ interface TestActions {
     summary:
       | K6Summary
       | LocustSummary
-      | ArtillerySummary
       | JMeterSummary
       | null,
   ) => void;
@@ -332,13 +330,6 @@ const ESTADO_INICIAL: TestState = {
       summary: null,
     },
     locust: {
-      available: null,
-      status: "idle",
-      error: null,
-      progress: [],
-      summary: null,
-    },
-    artillery: {
       available: null,
       status: "idle",
       error: null,
@@ -496,13 +487,6 @@ export const useTestStore = create<TestStore>((set) => ({
         },
         locust: {
           ...state.benchmarks.locust,
-          error: null,
-          progress: [],
-          summary: null,
-          status: "idle",
-        },
-        artillery: {
-          ...state.benchmarks.artillery,
           error: null,
           progress: [],
           summary: null,

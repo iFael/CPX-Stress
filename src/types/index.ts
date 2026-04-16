@@ -31,12 +31,6 @@ import type {
   K6Summary,
 } from "../../electron/engine/k6-types";
 import type {
-  ArtilleryConfig,
-  ArtilleryFlowOperation,
-  ArtilleryStatus,
-  ArtillerySummary,
-} from "../../electron/engine/artillery-types";
-import type {
   LocustConfig,
   LocustFlowOperation,
   LocustStatus,
@@ -59,12 +53,6 @@ export type {
   ValidationDimensionStatus,
 } from "@/shared/mistert-validation";
 export type { K6Config, K6FlowOperation, K6Status, K6Summary };
-export type {
-  ArtilleryConfig,
-  ArtilleryFlowOperation,
-  ArtilleryStatus,
-  ArtillerySummary,
-};
 export type {
   LocustConfig,
   LocustFlowOperation,
@@ -884,7 +872,6 @@ export interface CredentialStatus {
 export type ExternalBenchmarkEngine =
   | "k6"
   | "locust"
-  | "artillery"
   | "jmeter";
 
 export type ExternalBenchmarkStatus =
@@ -907,7 +894,6 @@ export interface ExternalBenchmarksState {
   started: boolean;
   k6: ExternalBenchmarkEntry<K6Summary>;
   locust: ExternalBenchmarkEntry<LocustSummary>;
-  artillery: ExternalBenchmarkEntry<ArtillerySummary>;
   jmeter: ExternalBenchmarkEntry<JMeterSummary>;
 }
 
@@ -1090,18 +1076,6 @@ declare global {
       k6Run: (config: K6Config) => Promise<K6Summary>;
       /** Escuta o progresso textual do subprocesso k6. */
       onK6Progress: (cb: (line: string) => void) => () => void;
-
-      /**
-       * Integração com o benchmark externo Artillery.
-       */
-      artillery: {
-        check: () => Promise<boolean>;
-        run: (config: ArtilleryConfig) => Promise<ArtillerySummary>;
-      };
-
-      artilleryCheck: () => Promise<boolean>;
-      artilleryRun: (config: ArtilleryConfig) => Promise<ArtillerySummary>;
-      onArtilleryProgress: (cb: (line: string) => void) => () => void;
 
       /**
        * Integração com o benchmark externo Locust.
