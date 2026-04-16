@@ -1,5 +1,6 @@
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { app } from "electron";
 import { generateFlowScript, generateSimpleScript } from "./locust-script-generator";
@@ -21,7 +22,9 @@ function ensureDir(dirPath: string): void {
 
 function createArtifactsDir(): string {
   const runId = new Date().toISOString().replace(/[:.]/g, "-");
-  const dir = path.join(app.getPath("temp"), "cpx-stress-locust", runId);
+  const baseTempDir =
+    typeof app?.getPath === "function" ? app.getPath("temp") : os.tmpdir();
+  const dir = path.join(baseTempDir, "cpx-stress-locust", runId);
   ensureDir(dir);
   return dir;
 }

@@ -19,7 +19,20 @@ REQUEST_COUNT = 0
 STATUS_CODES = {}
 TOTAL_BYTES = 0
 LOGICAL_FAILURES = 0
+OPERATION_STATS = {}
 SUCCESS_STATUS_CODES = {"200", "201", "204", "301", "302", "303", "304"}
+
+def ensure_operation_stats(name):
+    operation_name = name or "Requisição Principal"
+    if operation_name not in OPERATION_STATS:
+        OPERATION_STATS[operation_name] = {
+            "name": operation_name,
+            "requests": 0,
+            "errors": 0,
+            "logicalFailures": 0,
+            "statusCodes": {},
+        }
+    return OPERATION_STATS[operation_name]
 
 def percentile(values, p):
     if not values:
@@ -33,11 +46,17 @@ def on_request(request_type, name, response_time, response_length, response=None
     global REQUEST_COUNT, TOTAL_BYTES
     REQUEST_COUNT += 1
     TOTAL_BYTES += int(response_length or 0)
+    operation_stats = ensure_operation_stats(name)
+    operation_stats["requests"] += 1
 
     status_code = 0
     if response is not None and getattr(response, "status_code", None) is not None:
         status_code = int(response.status_code)
     STATUS_CODES[str(status_code)] = STATUS_CODES.get(str(status_code), 0) + 1
+    operation_stats["statusCodes"][str(status_code)] = operation_stats["statusCodes"].get(str(status_code), 0) + 1
+
+    if exception is not None or str(status_code) not in SUCCESS_STATUS_CODES:
+        operation_stats["errors"] += 1
 
 @events.test_stop.add_listener
 def on_test_stop(environment, **kwargs):
@@ -63,6 +82,7 @@ def on_test_stop(environment, **kwargs):
         "vus": int(RUNTIME_CONFIG.get("vus") or 0),
         "totalBytes": int(stats_total.total_content_length or TOTAL_BYTES),
         "throughputBytesPerSec": float((stats_total.total_content_length or TOTAL_BYTES) / duration) if duration > 0 else 0.0,
+        "operationStats": OPERATION_STATS,
     }
 
     if SUMMARY_PATH:
@@ -110,6 +130,7 @@ SUMMARY_PATH = RUNTIME_CONFIG.get("summaryPath")
 REQUEST_TIMEOUT_SECONDS = 30
 
 FLOW_OPERATIONS = RUNTIME_CONFIG.get("flowOperations") or []
+FLOW_SELECTION_MODE = (RUNTIME_CONFIG.get("flowSelectionMode") or "random").lower()
 FIRST_MODULE_INDEX = next(
     (
         index
@@ -139,7 +160,24 @@ REQUEST_COUNT = 0
 STATUS_CODES = {}
 TOTAL_BYTES = 0
 LOGICAL_FAILURES = 0
+OPERATION_STATS = {}
 SUCCESS_STATUS_CODES = {"200", "201", "204", "301", "302", "303", "304"}
+
+def ensure_operation_stats(name):
+    operation_name = name or "request"
+    if operation_name not in OPERATION_STATS:
+        OPERATION_STATS[operation_name] = {
+            "name": operation_name,
+            "requests": 0,
+            "errors": 0,
+            "logicalFailures": 0,
+            "statusCodes": {},
+        }
+    return OPERATION_STATS[operation_name]
+
+def register_logical_failure(name):
+    stats = ensure_operation_stats(name)
+    stats["logicalFailures"] += 1
 
 def percentile(values, p):
     if not values:
@@ -209,11 +247,17 @@ def on_request(request_type, name, response_time, response_length, response=None
     global REQUEST_COUNT, TOTAL_BYTES
     REQUEST_COUNT += 1
     TOTAL_BYTES += int(response_length or 0)
+    operation_stats = ensure_operation_stats(name)
+    operation_stats["requests"] += 1
 
     status_code = 0
     if response is not None and getattr(response, "status_code", None) is not None:
         status_code = int(response.status_code)
     STATUS_CODES[str(status_code)] = STATUS_CODES.get(str(status_code), 0) + 1
+    operation_stats["statusCodes"][str(status_code)] = operation_stats["statusCodes"].get(str(status_code), 0) + 1
+
+    if exception is not None or str(status_code) not in SUCCESS_STATUS_CODES:
+        operation_stats["errors"] += 1
 
 @events.test_stop.add_listener
 def on_test_stop(environment, **kwargs):
@@ -241,6 +285,7 @@ def on_test_stop(environment, **kwargs):
         "vus": int(RUNTIME_CONFIG.get("vus") or 0),
         "totalBytes": int(stats_total.total_content_length or TOTAL_BYTES),
         "throughputBytesPerSec": float((stats_total.total_content_length or TOTAL_BYTES) / duration) if duration > 0 else 0.0,
+        "operationStats": OPERATION_STATS,
     }
 
     if SUMMARY_PATH:
@@ -254,6 +299,7 @@ class GeneratedUser(HttpUser):
     def on_start(self):
         self.variables = {}
         self.authenticated = False
+        self.next_flow_index = 0
         self.login_signature = build_url_signature(AUTH_OPS[0].get("url")) if AUTH_OPS else None
         if AUTH_OPS:
             self.authenticated = self.run_auth()
@@ -271,8 +317,18 @@ class GeneratedUser(HttpUser):
         self.variables = {}
         self.authenticated = False
 
+    def select_flow(self):
+        if not MODULE_FLOWS:
+            return None
+        if FLOW_SELECTION_MODE == "deterministic":
+            flow = MODULE_FLOWS[self.next_flow_index % len(MODULE_FLOWS)]
+            self.next_flow_index += 1
+            return flow
+        return random.choice(MODULE_FLOWS)
+
     def execute_operation(self, operation):
         global LOGICAL_FAILURES
+        operation_name = operation.get("name") or "request"
         url = resolve_template(operation.get("url"), self.variables)
         headers = resolve_headers(operation.get("headers"), self.variables)
         body = resolve_template(operation.get("body"), self.variables) if operation.get("body") is not None else None
@@ -316,6 +372,7 @@ class GeneratedUser(HttpUser):
                     if missing_extractors:
                         session_invalid = True
                         LOGICAL_FAILURES += 1
+                        register_logical_failure(operation_name)
                         response.failure(
                             "Extractor(es) ausente(s): " + ", ".join(
                                 str(name) for name in missing_extractors if name
@@ -327,6 +384,7 @@ class GeneratedUser(HttpUser):
                         if text and text in response.text:
                             session_invalid = True
                             LOGICAL_FAILURES += 1
+                            register_logical_failure(operation_name)
                             response.failure(f"Texto de sessão inválida detectado: {text}")
                             break
 
@@ -343,6 +401,7 @@ class GeneratedUser(HttpUser):
                 ):
                     session_invalid = True
                     LOGICAL_FAILURES += 1
+                    register_logical_failure(operation_name)
                     response.failure("A resposta parece a tela de login do MisterT")
 
                 expected_texts = operation.get("expectedTexts") or []
@@ -360,6 +419,7 @@ class GeneratedUser(HttpUser):
                     if not matched:
                         session_invalid = True
                         LOGICAL_FAILURES += 1
+                        register_logical_failure(operation_name)
                         response.failure("Nenhum texto esperado foi encontrado na resposta")
 
                 final_signature = build_url_signature(response.url or url)
@@ -373,6 +433,7 @@ class GeneratedUser(HttpUser):
                 ):
                     session_invalid = True
                     LOGICAL_FAILURES += 1
+                    register_logical_failure(operation_name)
                     response.failure("Sessão expirada ou redirecionada para login")
 
                 if not session_invalid:
@@ -393,7 +454,9 @@ class GeneratedUser(HttpUser):
                 self.execute_operation(operation)
             return
 
-        flow = random.choice(MODULE_FLOWS)
+        flow = self.select_flow()
+        if not flow:
+            return
         session_invalid = False
 
         for operation in flow:

@@ -1,9 +1,15 @@
+import type {
+  ExternalOperationStats,
+  FlowSelectionMode,
+} from "../../src/shared/benchmark-comparison";
+
 export interface LocustConfig {
   url: string;
   vus: number;
   duration: number;
   host?: string;
   method?: "GET" | "POST" | "PUT" | "DELETE";
+  flowSelectionMode?: FlowSelectionMode;
   headers?: Record<string, string>;
   body?: string;
   flowOperations?: LocustFlowOperation[];
@@ -50,6 +56,7 @@ export interface LocustSummary {
   scriptPath?: string;
   stdoutSnippet?: string;
   stderrSnippet?: string;
+  operationStats?: Record<string, ExternalOperationStats>;
 }
 
 export type LocustStatus = "idle" | "running" | "done" | "error";
