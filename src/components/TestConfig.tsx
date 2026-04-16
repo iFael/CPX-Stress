@@ -20,6 +20,7 @@ import { MistertOperationsPanel } from "@/components/MistertOperationsPanel";
 import { PresetModal } from "@/components/PresetModal";
 import { SavePresetDialog } from "@/components/SavePresetDialog";
 import type {
+  FlowSelectionMode,
   MistertValidationResult,
   ProgressData,
   TestPreset,
@@ -42,12 +43,37 @@ const LIMITS = {
   users: { min: 1, max: 10_000 },
   duration: { min: 5, max: 600 },
   rampUp: { min: 0 },
+  timeout: { min: 1 },
 } as const;
 
 /** Ambientes MisterT pre-configurados */
 const MISTERT_ENVIRONMENTS = [
   { label: "Desenvolvimento", url: "https://dev-mistert.compex.com.br", disabled: false },
   { label: "Produção", url: "https://mistert.compex.com.br", disabled: true },
+] as const;
+
+const BENCHMARK_PROFILES = [
+  {
+    id: "legacy",
+    label: "Uso real",
+    description: "Aleatório com timeout padrão da engine",
+    flowSelectionMode: "random" as FlowSelectionMode,
+    requestTimeoutMs: undefined,
+  },
+  {
+    id: "stable",
+    label: "Convergência estável",
+    description: "Round-robin determinístico com 3000 ms",
+    flowSelectionMode: "deterministic" as FlowSelectionMode,
+    requestTimeoutMs: 3000,
+  },
+  {
+    id: "timeout",
+    label: "Timeout curto",
+    description: "Round-robin determinístico com 750 ms",
+    flowSelectionMode: "deterministic" as FlowSelectionMode,
+    requestTimeoutMs: 750,
+  },
 ] as const;
 
 /* =====================================================================
@@ -62,6 +88,10 @@ const inputBaseClass =
 const labelClass = "flex items-center gap-2 text-sm text-sf-textSecondary mb-2";
 
 const helpTextClass = "text-xs text-sf-textMuted mt-1";
+
+const advancedInputClass =
+  "w-full px-4 py-3 bg-sf-bg border border-sf-border rounded-xl text-sf-text " +
+  "focus:outline-none focus:ring-2 focus:ring-sf-primary/30 transition-all";
 
 /* =====================================================================
    COMPONENTE PRINCIPAL — Configuração do Teste MisterT ERP
@@ -102,11 +132,21 @@ export function TestConfig() {
   const [usersStr, setUsersStr] = useState(String(config.virtualUsers));
   const [durationStr, setDurationStr] = useState(String(config.duration));
   const [rampUpStr, setRampUpStr] = useState(String(config.rampUp || 0));
+  const [timeoutStr, setTimeoutStr] = useState(
+    config.requestTimeoutMs ? String(config.requestTimeoutMs) : "",
+  );
 
   // Sincronizar se o store mudar por fora (ex: reset ou aplicação de preset)
   useEffect(() => setUsersStr(String(config.virtualUsers)), [config.virtualUsers]);
   useEffect(() => setDurationStr(String(config.duration)), [config.duration]);
   useEffect(() => setRampUpStr(String(config.rampUp || 0)), [config.rampUp]);
+  useEffect(
+    () =>
+      setTimeoutStr(
+        config.requestTimeoutMs ? String(config.requestTimeoutMs) : "",
+      ),
+    [config.requestTimeoutMs],
+  );
 
   // Carregar presets do banco na inicialização (para SavePresetDialog validar nomes)
   useEffect(() => {
@@ -147,6 +187,13 @@ export function TestConfig() {
   const hasValidationFailures =
     validationResult !== null && !validationResult.canRunStressTest;
   const isBusy = isValidating || isStarting;
+  const effectiveFlowSelectionMode = config.flowSelectionMode ?? "random";
+  const currentBenchmarkProfile =
+    BENCHMARK_PROFILES.find(
+      (profile) =>
+        profile.flowSelectionMode === effectiveFlowSelectionMode &&
+        profile.requestTimeoutMs === config.requestTimeoutMs,
+    ) ?? null;
 
   useEffect(() => {
     setValidationResult(null);
@@ -209,6 +256,23 @@ export function TestConfig() {
     const allOps = buildMistertOperations(currentBaseUrl);
     updateModuleSelection(allOps.slice(0, 3));
   }, [currentBaseUrl, updateModuleSelection]);
+
+  /** Aplica um perfil rápido de benchmark sem alterar a lista de operações. */
+  const handleBenchmarkProfileSelect = useCallback(
+    (profileId: (typeof BENCHMARK_PROFILES)[number]["id"]) => {
+      const profile = BENCHMARK_PROFILES.find((entry) => entry.id === profileId);
+      if (!profile) return;
+
+      setTimeoutStr(
+        profile.requestTimeoutMs ? String(profile.requestTimeoutMs) : "",
+      );
+      updateConfig({
+        flowSelectionMode: profile.flowSelectionMode,
+        requestTimeoutMs: profile.requestTimeoutMs,
+      });
+    },
+    [updateConfig],
+  );
 
   /* ---------------------------------------------------------------
      handleStart — Valida e inicia o teste de estresse MisterT.
@@ -517,9 +581,114 @@ export function TestConfig() {
                   updateConfig({ rampUp: clamped });
                 }}
                 min={LIMITS.rampUp.min}
-                className="w-full px-4 py-3 bg-sf-bg border border-sf-border rounded-xl text-sf-text focus:outline-none focus:ring-2 focus:ring-sf-primary/30 transition-all"
+                className={advancedInputClass}
               />
               <p className={helpTextClass}>0 = todos de uma vez</p>
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-sf-border bg-sf-bg/40 p-3">
+              <div>
+                <p className="text-sm text-sf-textSecondary mb-1 flex items-center gap-2">
+                  Perfis rápidos de benchmark
+                  <InfoTooltip text="Ajusta seleção de fluxo e timeout para facilitar comparações externas. As operações escolhidas acima continuam as mesmas." />
+                </p>
+                <p className={helpTextClass}>
+                  Útil para alternar entre uso real e execuções mais auditáveis.
+                </p>
+              </div>
+
+              <div className="grid gap-2 md:grid-cols-3">
+                {BENCHMARK_PROFILES.map((profile) => {
+                  const isSelected = currentBenchmarkProfile?.id === profile.id;
+                  return (
+                    <button
+                      key={profile.id}
+                      type="button"
+                      onClick={() => handleBenchmarkProfileSelect(profile.id)}
+                      className={`rounded-xl border px-3 py-3 text-left transition-all ${
+                        isSelected
+                          ? "border-sf-primary bg-sf-primary/10 text-sf-text ring-1 ring-sf-primary/30"
+                          : "border-sf-border bg-sf-surface text-sf-textSecondary hover:border-sf-textMuted"
+                      }`}
+                    >
+                      <div className="text-sm font-medium">{profile.label}</div>
+                      <div className="mt-1 text-[11px] opacity-80">
+                        {profile.description}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="select-flow-mode"
+                  className="text-sm text-sf-textSecondary mb-2 flex items-center gap-2"
+                >
+                  Seleção de fluxo
+                  <InfoTooltip text="No modo determinístico, cada usuário virtual alterna os módulos em round-robin. Isso reduz ruído ao comparar CPX, k6, Locust e JMeter." />
+                </label>
+                <select
+                  id="select-flow-mode"
+                  value={effectiveFlowSelectionMode}
+                  onChange={(e) =>
+                    updateConfig({
+                      flowSelectionMode: e.target.value as FlowSelectionMode,
+                    })
+                  }
+                  className={advancedInputClass}
+                >
+                  <option value="random">Aleatório</option>
+                  <option value="deterministic">Determinístico</option>
+                </select>
+                <p className={helpTextClass}>
+                  Aleatório preserva o comportamento legado. Determinístico é o
+                  modo mais estável para convergência entre engines.
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="input-request-timeout"
+                  className="text-sm text-sf-textSecondary mb-2 flex items-center gap-2"
+                >
+                  Timeout por requisição
+                  <InfoTooltip text="Sobrescreve o timeout individual das requisições em todas as engines. Ajuda a reproduzir cenários controlados de timeout e convergência." />
+                </label>
+                <input
+                  id="input-request-timeout"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Padrão da engine"
+                  value={timeoutStr}
+                  onChange={(e) => setTimeoutStr(e.target.value)}
+                  onBlur={() => {
+                    const trimmed = timeoutStr.trim();
+                    if (!trimmed) {
+                      setTimeoutStr("");
+                      updateConfig({ requestTimeoutMs: undefined });
+                      return;
+                    }
+
+                    const parsed = Number(trimmed);
+                    const normalized =
+                      Number.isFinite(parsed) && parsed > 0
+                        ? Math.round(parsed)
+                        : 3000;
+
+                    setTimeoutStr(String(normalized));
+                    updateConfig({ requestTimeoutMs: normalized });
+                  }}
+                  min={LIMITS.timeout.min}
+                  className={advancedInputClass}
+                />
+                <p className={helpTextClass}>
+                  Deixe vazio para usar o padrão interno. Para convergência
+                  estável, use 3000 ms. Para timeout curto, 750 ms.
+                </p>
+              </div>
             </div>
           </div>
         )}

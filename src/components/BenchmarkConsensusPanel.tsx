@@ -563,6 +563,16 @@ export function BenchmarkConsensusPanel({
   const waitingForMainTest = !allowRuns && Boolean(runKey);
   const runModeText =
     executionMode === "sequential" ? "em sequência" : "em paralelo";
+  const flowSelectionMode = k6Config.flowSelectionMode ?? "random";
+  const flowSelectionLabel =
+    flowSelectionMode === "deterministic"
+      ? "Determinístico"
+      : "Aleatório";
+  const requestTimeoutMs =
+    k6Config.requestTimeoutMs ??
+    locustConfig.requestTimeoutMs ??
+    jmeterConfig.requestTimeoutMs ??
+    null;
 
   return (
     <div className="bg-sf-surface border border-sf-border rounded-xl p-4 space-y-4">
@@ -620,7 +630,21 @@ export function BenchmarkConsensusPanel({
         <span className="px-2.5 py-0.5 rounded-full bg-sf-shellBg border border-sf-shellBorder text-sf-textSecondary">
           Métricas com consenso: {analyzedMetricCount}/{rows.length}
         </span>
+        <span className="px-2.5 py-0.5 rounded-full bg-sf-shellBg border border-sf-shellBorder text-sf-textSecondary">
+          Fluxo: {flowSelectionLabel}
+        </span>
+        <span className="px-2.5 py-0.5 rounded-full bg-sf-shellBg border border-sf-shellBorder text-sf-textSecondary">
+          Timeout: {requestTimeoutMs === null ? "padrão da engine" : formatMs(requestTimeoutMs)}
+        </span>
       </div>
+
+      {flowSelectionMode !== "deterministic" && (
+        <p className="text-[11px] text-sf-warning">
+          Para auditorias de convergência, prefira fluxo determinístico com
+          timeout explícito. Isso reduz variação entre CPX, k6, Locust e
+          JMeter.
+        </p>
+      )}
 
       <div className="grid gap-3 lg:grid-cols-3">
         <EngineControlCard
