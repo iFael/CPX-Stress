@@ -1,11 +1,36 @@
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { app } from "electron";
 import type { K6Config, K6Summary } from "./k6-types";
 import { generateFlowScript, generateSimpleScript } from "./k6-script-generator";
 
 const OUTPUT_PREVIEW_LIMIT = 4_000;
+
+function toMetricSlug(name: string, index: number): string {
+  const normalized = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40);
+
+  return `${normalized || "operation"}_${index + 1}`;
+}
+
+function buildOperationMetricNames(config: K6Config) {
+  return (config.flowOperations || []).map((operation, index) => {
+    const metricKey = toMetricSlug(operation.name, index);
+    return {
+      name: operation.name,
+      requestMetric: `cpx_op_requests__${metricKey}`,
+      errorMetric: `cpx_op_errors__${metricKey}`,
+      logicalMetric: `cpx_op_logical__${metricKey}`,
+    };
+  });
+}
 
 function ensureDir(dirPath: string): void {
   if (!fs.existsSync(dirPath)) {
@@ -15,7 +40,9 @@ function ensureDir(dirPath: string): void {
 
 function createArtifactsDir(): string {
   const runId = new Date().toISOString().replace(/[:.]/g, "-");
-  const dir = path.join(app.getPath("temp"), "cpx-stress-k6", runId);
+  const baseTempDir =
+    typeof app?.getPath === "function" ? app.getPath("temp") : os.tmpdir();
+  const dir = path.join(baseTempDir, "cpx-stress-k6", runId);
   ensureDir(dir);
   return dir;
 }
@@ -35,6 +62,7 @@ function tryExec(command: string, args: string[]): boolean {
 function resolveK6Binary(): string | null {
   const candidates: string[] = [];
   const isWindows = process.platform === "win32";
+  const isElectronPackaged = app?.isPackaged === true;
   const pushCandidate = (candidate?: string) => {
     if (typeof candidate === "string" && candidate.trim() !== "") {
       candidates.push(candidate);
@@ -45,7 +73,7 @@ function resolveK6Binary(): string | null {
     pushCandidate(process.env.K6_PATH.trim());
   }
 
-  if (app.isPackaged) {
+  if (isElectronPackaged) {
     pushCandidate(path.join(process.resourcesPath, `k6${isWindows ? ".exe" : ""}`));
   }
 
@@ -203,8 +231,32 @@ function parseK6Summary(raw: unknown, config: K6Config): K6Summary {
   );
   const logicalFailures = logicalFailureValues.count ?? 0;
   const totalReqs = requestValues.count ?? 0;
+  const operationStats: NonNullable<K6Summary["operationStats"]> = {};
 
-  return {
+  for (const metricNames of buildOperationMetricNames(config)) {
+    const requests = summary.metrics?.[metricNames.requestMetric]?.values?.count ?? 0;
+    const errors = summary.metrics?.[metricNames.errorMetric]?.values?.count ?? 0;
+    const opLogicalFailures =
+      summary.metrics?.[metricNames.logicalMetric]?.values?.count ?? 0;
+
+    if (requests === 0 && errors === 0 && opLogicalFailures === 0) {
+      continue;
+    }
+
+    const current = operationStats[metricNames.name] ?? {
+      name: metricNames.name,
+      requests: 0,
+      errors: 0,
+      logicalFailures: 0,
+      statusCodes: {},
+    };
+    current.requests += requests;
+    current.errors += errors;
+    current.logicalFailures += opLogicalFailures;
+    operationStats[metricNames.name] = current;
+  }
+
+  const result: K6Summary = {
     avgLatency: durationValues.avg ?? 0,
     minLatency: durationValues.min ?? 0,
     p50Latency: durationValues["p(50)"] ?? durationValues.med ?? 0,
@@ -222,6 +274,12 @@ function parseK6Summary(raw: unknown, config: K6Config): K6Summary {
     duration: config.duration,
     vus: config.vus,
   };
+
+  if (Object.keys(operationStats).length > 0) {
+    result.operationStats = operationStats;
+  }
+
+  return result;
 }
 
 export async function runK6(

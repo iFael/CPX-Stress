@@ -4,6 +4,29 @@ function buildScriptRuntime(config: K6Config): string {
   return JSON.stringify(config, null, 2);
 }
 
+function toMetricSlug(name: string, index: number): string {
+  const normalized = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40);
+
+  return `${normalized || "operation"}_${index + 1}`;
+}
+
+function buildOperationMetricDefinitions(config: K6Config): string {
+  return JSON.stringify(
+    (config.flowOperations || []).map((operation, index) => ({
+      name: operation.name,
+      metricKey: toMetricSlug(operation.name, index),
+    })),
+    null,
+    2,
+  );
+}
+
 export function generateSimpleScript(config: K6Config): string {
   const runtimeConfig = buildScriptRuntime(config);
 
@@ -81,15 +104,31 @@ export function generateFlowScript(config: K6Config): string {
   }
 
   const runtimeConfig = buildScriptRuntime(config);
+  const operationMetricDefinitions = buildOperationMetricDefinitions(config);
 
   return `import http from 'k6/http';
 import { check } from 'k6';
 import { Counter } from 'k6/metrics';
 
 const RUNTIME_CONFIG = ${runtimeConfig};
+const FLOW_OPERATION_METRIC_DEFS = ${operationMetricDefinitions};
 const DEFAULT_TIMEOUT = '30s';
 const DEFAULT_REDIRECTS = 5;
-const FLOW_OPERATIONS = RUNTIME_CONFIG.flowOperations || [];
+const FLOW_SELECTION_MODE = (RUNTIME_CONFIG.flowSelectionMode || 'deterministic').toLowerCase();
+const OPERATION_METRICS = Object.fromEntries(
+  FLOW_OPERATION_METRIC_DEFS.map((definition) => [
+    definition.metricKey,
+    {
+      requests: new Counter(\`cpx_op_requests__\${definition.metricKey}\`),
+      errors: new Counter(\`cpx_op_errors__\${definition.metricKey}\`),
+      logicalFailures: new Counter(\`cpx_op_logical__\${definition.metricKey}\`),
+    },
+  ]),
+);
+const FLOW_OPERATIONS = (RUNTIME_CONFIG.flowOperations || []).map((operation, index) => ({
+  ...operation,
+  __metricKey: FLOW_OPERATION_METRIC_DEFS[index]?.metricKey || \`operation_\${index + 1}\`,
+}));
 const LOGICAL_FAILURES = new Counter('cpx_logical_failures');
 const STATUS_COUNTERS = {
   '0': new Counter('cpx_status_0'),
@@ -117,6 +156,21 @@ function countStatus(status) {
   const key = String(status || 0);
   const metric = STATUS_COUNTERS[key] || STATUS_COUNTERS.other;
   metric.add(1);
+}
+
+function countOperation(operation, responseStatus, sessionInvalid) {
+  const metric = OPERATION_METRICS[operation.__metricKey];
+  if (!metric) return;
+
+  metric.requests.add(1);
+
+  if ((responseStatus || 0) >= 400 || sessionInvalid) {
+    metric.errors.add(1);
+  }
+
+  if (sessionInvalid) {
+    metric.logicalFailures.add(1);
+  }
 }
 
 export const options = {
@@ -192,10 +246,33 @@ function resolveHeaders(headers, vars) {
   return resolved;
 }
 
+function buildCookieHeader(cookies) {
+  const entries = Object.entries(cookies || {}).filter(([, value]) => typeof value === 'string' && value !== '');
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return entries.map(([name, value]) => name + '=' + value).join('; ');
+}
+
+function captureResponseCookies(response, state) {
+  if (!response || !response.cookies) {
+    return;
+  }
+
+  for (const [cookieName, cookieEntries] of Object.entries(response.cookies)) {
+    const firstCookie = Array.isArray(cookieEntries) ? cookieEntries[0] : null;
+    if (firstCookie && typeof firstCookie.value === 'string' && firstCookie.value !== '') {
+      state.cookies[cookieName] = firstCookie.value;
+    }
+  }
+}
+
 function ensureState() {
   if (!vuState) {
     vuState = {
       vars: {},
+      cookies: {},
       authenticated: false,
       nextFlowIndex: 0,
     };
@@ -203,12 +280,17 @@ function ensureState() {
   return vuState;
 }
 
-function buildParams(operation, headers) {
+function buildParams(operation, headers, state) {
   const requestHeaders = {
     Accept: '*/*',
     'User-Agent': 'CPX-Stress/1.0',
     ...(headers || {}),
   };
+  const cookieHeader = buildCookieHeader(state.cookies);
+
+  if (cookieHeader && !Object.keys(requestHeaders).some((header) => header.toLowerCase() === 'cookie')) {
+    requestHeaders.Cookie = cookieHeader;
+  }
 
   if (
     operation.body &&
@@ -223,6 +305,7 @@ function buildParams(operation, headers) {
     redirects: DEFAULT_REDIRECTS,
     timeout: DEFAULT_TIMEOUT,
     tags: {
+      name: operation.name,
       operation_name: operation.name,
       module_group: operation.moduleGroup || operation.name,
     },
@@ -272,11 +355,15 @@ function executeOperation(operation, state) {
     throw new Error('Fluxo k6 inválido: placeholder dinâmico não resolvido.');
   }
 
-  const params = buildParams(operation, headers);
+  const params = buildParams(operation, headers, state);
   const response =
     operation.method.toUpperCase() === 'GET'
       ? http.get(url, params)
       : http.request(operation.method.toUpperCase(), url, body, params);
+
+  if (operation.captureSession) {
+    captureResponseCookies(response, state);
+  }
 
   countStatus(response.status);
 
@@ -349,6 +436,8 @@ function executeOperation(operation, state) {
     LOGICAL_FAILURES.add(1);
   }
 
+  countOperation(operation, response.status, sessionInvalid);
+
   check(response, {
     [\`\${operation.name} ok\`]: (res) => res.status < 400 && !sessionInvalid,
   });
@@ -371,14 +460,20 @@ function runAuth(state) {
 
 function resetSession(state) {
   state.vars = {};
+  state.cookies = {};
   state.authenticated = false;
 }
 
 function selectNextFlow(state) {
   if (MODULE_FLOWS.length === 0) return null;
-  const flow = MODULE_FLOWS[state.nextFlowIndex % MODULE_FLOWS.length];
-  state.nextFlowIndex += 1;
-  return flow;
+
+  if (FLOW_SELECTION_MODE === 'deterministic') {
+    const flow = MODULE_FLOWS[state.nextFlowIndex % MODULE_FLOWS.length];
+    state.nextFlowIndex += 1;
+    return flow;
+  }
+
+  return MODULE_FLOWS[Math.floor(Math.random() * MODULE_FLOWS.length)];
 }
 
 export function handleSummary(data) {

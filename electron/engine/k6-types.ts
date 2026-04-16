@@ -1,8 +1,14 @@
+import type {
+  ExternalOperationStats,
+  FlowSelectionMode,
+} from "../../src/shared/benchmark-comparison";
+
 export interface K6Config {
   url: string;
   vus: number;
   duration: number;
   method?: "GET" | "POST" | "PUT" | "DELETE";
+  flowSelectionMode?: FlowSelectionMode;
   headers?: Record<string, string>;
   body?: string;
   flowOperations?: K6FlowOperation[];
@@ -45,6 +51,7 @@ export interface K6Summary {
   scriptPath?: string;
   stdoutSnippet?: string;
   stderrSnippet?: string;
+  operationStats?: Record<string, ExternalOperationStats>;
 }
 
 export type K6Status = "idle" | "running" | "done" | "error";
