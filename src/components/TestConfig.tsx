@@ -602,9 +602,17 @@ export function TestConfig() {
               </p>
               <p className="text-sm text-sf-textSecondary mt-1">
                 Técnico: {validationResult.summary.technicalPassed}/
-                {validationResult.summary.totalOperations} etapas. Funcional:{" "}
+                {validationResult.summary.totalOperations} etapas
+                {validationResult.summary.technicalBlocked > 0
+                  ? ` (${validationResult.summary.technicalBlocked} bloqueadas)`
+                  : ""}
+                . Funcional:{" "}
                 {validationResult.summary.functionalPassed}/
-                {validationResult.summary.totalOperations} etapas.
+                {validationResult.summary.totalOperations} etapas
+                {validationResult.summary.functionalBlocked > 0
+                  ? ` (${validationResult.summary.functionalBlocked} bloqueadas)`
+                  : ""}
+                .
               </p>
               {validationResult.missingEnvKeys.length > 0 && (
                 <p className="text-xs text-sf-warning mt-2">
@@ -623,6 +631,8 @@ export function TestConfig() {
               {validationResult.operations.map((operation) => {
                 const hasTechnicalFailure = operation.technicalStatus === "fail";
                 const hasFunctionalFailure = operation.functionalStatus === "fail";
+                const isTechnicalBlocked = operation.technicalStatus === "blocked";
+                const isFunctionalBlocked = operation.functionalStatus === "blocked";
 
                 return (
                   <div
@@ -646,19 +656,33 @@ export function TestConfig() {
                         className={`text-[10px] px-1.5 py-0.5 rounded ${
                           hasTechnicalFailure
                             ? "bg-sf-danger/10 text-sf-danger"
+                            : isTechnicalBlocked
+                              ? "bg-sf-warning/10 text-sf-warning"
                             : "bg-sf-success/10 text-sf-success"
                         }`}
                       >
-                        Técnico {hasTechnicalFailure ? "falhou" : "ok"}
+                        Técnico{" "}
+                        {hasTechnicalFailure
+                          ? "falhou"
+                          : isTechnicalBlocked
+                            ? "bloqueado"
+                            : "ok"}
                       </span>
                       <span
                         className={`text-[10px] px-1.5 py-0.5 rounded ${
                           hasFunctionalFailure
                             ? "bg-sf-danger/10 text-sf-danger"
+                            : isFunctionalBlocked
+                              ? "bg-sf-warning/10 text-sf-warning"
                             : "bg-sf-success/10 text-sf-success"
                         }`}
                       >
-                        Funcional {hasFunctionalFailure ? "falhou" : "ok"}
+                        Funcional{" "}
+                        {hasFunctionalFailure
+                          ? "falhou"
+                          : isFunctionalBlocked
+                            ? "bloqueado"
+                            : "ok"}
                       </span>
                     </div>
 
@@ -668,13 +692,21 @@ export function TestConfig() {
                     </p>
 
                     {operation.technicalReasons.length > 0 && (
-                      <p className="text-xs text-sf-danger mt-2">
+                      <p
+                        className={`text-xs mt-2 ${
+                          isTechnicalBlocked ? "text-sf-warning" : "text-sf-danger"
+                        }`}
+                      >
                         Técnico: {operation.technicalReasons.join(" ")}
                       </p>
                     )}
 
                     {operation.functionalReasons.length > 0 && (
-                      <p className="text-xs text-sf-danger mt-1">
+                      <p
+                        className={`text-xs mt-1 ${
+                          isFunctionalBlocked ? "text-sf-warning" : "text-sf-danger"
+                        }`}
+                      >
                         Funcional: {operation.functionalReasons.join(" ")}
                       </p>
                     )}

@@ -147,7 +147,15 @@ async function main(): Promise<void> {
     }`,
   );
   console.log(
-    `Tecnico ${validation.summary.technicalPassed}/${validation.summary.totalOperations} | Funcional ${validation.summary.functionalPassed}/${validation.summary.totalOperations}`,
+    `Tecnico ${validation.summary.technicalPassed}/${validation.summary.totalOperations}${
+      validation.summary.technicalBlocked > 0
+        ? ` (${validation.summary.technicalBlocked} bloqueadas)`
+        : ""
+    } | Funcional ${validation.summary.functionalPassed}/${validation.summary.totalOperations}${
+      validation.summary.functionalBlocked > 0
+        ? ` (${validation.summary.functionalBlocked} bloqueadas)`
+        : ""
+    }`,
   );
 
   if (validation.missingEnvKeys.length > 0) {

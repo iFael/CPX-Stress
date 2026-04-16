@@ -20,6 +20,10 @@ import type {
   OperationNavigationHints,
   OperationValidationHints,
 } from "../../src/shared/mistert-validation";
+import {
+  detectLoginLikeContent,
+  normalizeValidationText,
+} from "../../src/shared/mistert-validation";
 
 export interface TestOperation {
   name: string;
@@ -251,6 +255,30 @@ function percentile(sorted: number[], p: number): number {
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+function hasUnresolvedPlaceholders(value: string | undefined): boolean {
+  return !!value && /\{\{[^}]+\}\}/.test(value);
+}
+
+function getUnresolvedPlaceholderNames(value: string | undefined): string[] {
+  if (!value || !value.includes("{{")) return [];
+
+  const matches = value.matchAll(/\{\{([^}]+)\}\}/g);
+  return [...new Set([...matches].map((match) => match[1]).filter(Boolean))];
+}
+
+function getExpectedTextMatches(
+  bodyText: string,
+  validation: OperationValidationHints | undefined,
+): string[] {
+  const expectedAnyText = validation?.expectedAnyText;
+  if (!expectedAnyText || expectedAnyText.length === 0) return [];
+
+  const normalizedBody = normalizeValidationText(bodyText);
+  return expectedAnyText.filter((candidate) =>
+    normalizedBody.includes(normalizeValidationText(candidate)),
+  );
 }
 
 // Correção de segurança: lista de ranges de IP privados/reservados para prevenir SSRF.
@@ -1074,6 +1102,36 @@ export class StressEngine {
     const runtimeErrorTimeline: RuntimeErrorSecondMetrics[] = [];
     const rampUp = config.rampUp || 0;
 
+    // Publica um snapshot inicial assim que o preflight termina.
+    // Isso confirma para a UI que o CPX-Stress realmente entrou em execução,
+    // sem precisar esperar o primeiro tick de 1s.
+    onProgress({
+      currentSecond: 0,
+      totalSeconds: config.duration,
+      metrics: {
+        timestamp: Date.now(),
+        second: 0,
+        requests: 0,
+        errors: 0,
+        latencyAvg: 0,
+        latencyP50: 0,
+        latencyP90: 0,
+        latencyP95: 0,
+        latencyP99: 0,
+        latencyMax: 0,
+        latencyMin: 0,
+        statusCodes: {},
+        bytesReceived: 0,
+        activeUsers: rampUp > 0 ? 0 : config.virtualUsers,
+      },
+      cumulative: {
+        totalRequests: 0,
+        totalErrors: 0,
+        rps: 0,
+      },
+      liveActivity: this.buildLiveActivity(config.virtualUsers),
+    });
+
     const interval = setInterval(() => {
       if (this.cancelled) return;
       currentSecond++;
@@ -1162,6 +1220,7 @@ export class StressEngine {
       captureSession: boolean,
       sample?: ResponseSample,
       sessionInvalid: boolean = false,
+      failureMessage?: string,
     ) => {
       // Reservoir sampling: manter no máximo RESERVOIR_MAX amostras
       latencySampleCount++;
@@ -1179,40 +1238,41 @@ export class StressEngine {
       totalBytes += bytes;
       secBytes += bytes;
       this.noteOperationSecondCount(operationName, "request");
+      const isError = statusCode >= 400 || sessionInvalid;
       const code = String(statusCode);
       globalStatusCodes[code] = (globalStatusCodes[code] || 0) + 1;
       secStatusCodes[code] = (secStatusCodes[code] || 0) + 1;
-      if (statusCode >= 400) {
+      if (isError) {
+        totalErrors++;
+        secErrors++;
         this.noteOperationSecondCount(operationName, "error");
       }
 
       this.updateVuActivity(vuId, {
-        state: statusCode >= 400 ? "error" : "success",
+        state: isError ? "error" : "success",
         operationName,
         targetLabel,
         method,
         statusCode,
         latencyMs: round2(latency),
-        message:
-          statusCode >= 400
-            ? `Resposta HTTP ${statusCode}.`
-            : "Resposta concluída com sucesso.",
+        message: isError
+          ? failureMessage || `Resposta HTTP ${statusCode}.`
+          : "Resposta concluída com sucesso.",
       });
       this.updateVuResultSummary(vuId, {
-        finalState: statusCode >= 400 ? "error" : "success",
+        finalState: isError ? "error" : "success",
         lastOperationName: operationName,
         lastTargetLabel: targetLabel,
         lastMethod: method,
         lastStatusCode: statusCode,
         lastLatencyMs: round2(latency),
-        lastMessage:
-          statusCode >= 400
-            ? `Resposta HTTP ${statusCode}.`
-            : "Resposta concluída com sucesso.",
+        lastMessage: isError
+          ? failureMessage || `Resposta HTTP ${statusCode}.`
+          : "Resposta concluída com sucesso.",
         outcomeKey: String(statusCode),
         incrementTotalRequests: true,
-        incrementSuccess: statusCode < 400,
-        incrementFailure: statusCode >= 400,
+        incrementSuccess: !isError,
+        incrementFailure: isError,
       });
 
       // Métricas por operação
@@ -1228,6 +1288,9 @@ export class StressEngine {
           }
         }
         opMet.requests++;
+        if (isError) {
+          opMet.errors++;
+        }
         opMet.statusCodes[code] = (opMet.statusCodes[code] || 0) + 1;
 
         if (captureSession) {
@@ -1254,6 +1317,16 @@ export class StressEngine {
           statusCode,
           "http",
           `HTTP ${statusCode}`,
+          undefined,
+        );
+      } else if (sessionInvalid) {
+        this.runtimeErrorCounts.unknown++;
+        this.captureError(
+          testId,
+          operationName,
+          statusCode,
+          "unknown",
+          failureMessage || "Falha lógica do fluxo MisterT.",
           undefined,
         );
       }
@@ -1614,8 +1687,21 @@ export class StressEngine {
     const extractedVars = new Map<string, string>();
 
     // Helper: executa uma única operação (reutilizado nos modos sequencial e aleatório)
-    const executeOp = async (op: TestOperation): Promise<{ finalUrl?: URL; sessionInvalid: boolean }> => {
-      if (Date.now() >= opts.endTime || opts.signal.aborted) return { finalUrl: undefined, sessionInvalid: false };
+    const executeOp = async (
+      op: TestOperation,
+    ): Promise<{
+      finalUrl?: URL;
+      sessionInvalid: boolean;
+      requestFailed: boolean;
+      failureMessage?: string;
+    }> => {
+      if (Date.now() >= opts.endTime || opts.signal.aborted) {
+        return {
+          finalUrl: undefined,
+          sessionInvalid: false,
+          requestFailed: false,
+        };
+      }
 
       const resolvedUrl = this.resolveExtractVars(op.url, extractedVars);
       const resolvedBody = op.body
@@ -1624,12 +1710,47 @@ export class StressEngine {
       const resolvedHeaders = op.headers
         ? this.resolveExtractHeaders(op.headers, extractedVars)
         : undefined;
+      const unresolvedPlaceholders = [
+        ...getUnresolvedPlaceholderNames(resolvedUrl),
+        ...getUnresolvedPlaceholderNames(resolvedBody),
+        ...Object.values(resolvedHeaders ?? {}).flatMap(
+          getUnresolvedPlaceholderNames,
+        ),
+      ];
+
+      if (
+        hasUnresolvedPlaceholders(resolvedUrl) ||
+        hasUnresolvedPlaceholders(resolvedBody) ||
+        Object.values(resolvedHeaders ?? {}).some(hasUnresolvedPlaceholders)
+      ) {
+        const failureMessage = `Placeholders não resolvidos: ${[
+          ...new Set(unresolvedPlaceholders),
+        ].join(", ")}.`;
+        opts.onVuActivity({
+          vuId: opts.vuId,
+          state: "error",
+          operationName: op.name,
+          targetLabel: "Fluxo inválido",
+          method: op.method,
+          updatedAt: Date.now(),
+          message: failureMessage,
+        });
+        return {
+          finalUrl: undefined,
+          sessionInvalid: true,
+          requestFailed: false,
+          failureMessage,
+        };
+      }
 
       const opUrl = new URL(resolvedUrl);
       const opIsHttps = opUrl.protocol === "https:";
       const start = performance.now();
       const hasExtract = op.extract && Object.keys(op.extract).length > 0;
       const hasRejectTexts = !!op.validation?.rejectOnAnyText?.length;
+      const expectsAnyText = !!op.validation?.expectedAnyText?.length;
+      const rejectLoginLikeContent =
+        op.validation?.rejectLoginLikeContent ?? op.name !== "Página de Login";
 
       this.vuRequestCount++;
       const captureSample = this.vuRequestCount % 50 === 1;
@@ -1657,23 +1778,39 @@ export class StressEngine {
             body: resolvedBody,
             cookieJar,
             captureSession: op.captureSession !== false,
-            collectBody: hasExtract || hasRejectTexts,
+            collectBody:
+              hasExtract ||
+              hasRejectTexts ||
+              expectsAnyText ||
+              rejectLoginLikeContent,
           },
           captureSample,
         );
 
+        const failureReasons: string[] = [];
         if (hasExtract && result.bodyText) {
+          const missingExtractors: string[] = [];
           for (const [varName, pattern] of Object.entries(op.extract!)) {
             try {
               const regex = new RegExp(pattern);
               const match = regex.exec(result.bodyText);
               if (match && match[1]) {
                 extractedVars.set(varName, match[1]);
+              } else {
+                missingExtractors.push(varName);
               }
             } catch {
-              // Regex inválida — ignorar silenciosamente
+              missingExtractors.push(varName);
             }
           }
+
+          if (missingExtractors.length > 0) {
+            failureReasons.push(
+              `Extractor(es) ausente(s): ${missingExtractors.join(", ")}.`,
+            );
+          }
+        } else if (hasExtract) {
+          failureReasons.push("Corpo vazio ao tentar extrair variáveis dinâmicas.");
         }
 
         // Detectar página de erro de sessão via conteúdo (ex: "Este erro nunca deve ocorrer")
@@ -1682,12 +1819,41 @@ export class StressEngine {
           for (const text of op.validation!.rejectOnAnyText!) {
             if (result.bodyText.includes(text)) {
               sessionInvalid = true;
+              failureReasons.push(
+                `Texto proibido encontrado na resposta: ${text}.`,
+              );
               break;
             }
           }
         }
 
+        if (
+          rejectLoginLikeContent &&
+          result.bodyText &&
+          detectLoginLikeContent(result.bodyText)
+        ) {
+          sessionInvalid = true;
+          failureReasons.push(
+            "A resposta parece a tela de login do MisterT, não a aba esperada.",
+          );
+        }
+
+        if (expectsAnyText && result.bodyText) {
+          const expectedMatches = getExpectedTextMatches(
+            result.bodyText,
+            op.validation,
+          );
+          if (expectedMatches.length === 0) {
+            sessionInvalid = true;
+            failureReasons.push(
+              `Nenhum texto esperado foi encontrado: ${op.validation!.expectedAnyText!.join(", ")}.`,
+            );
+          }
+        }
+
         const latency = performance.now() - start;
+        const failureMessage =
+          failureReasons.length > 0 ? failureReasons.join(" ") : undefined;
         opts.onResponse(
           opts.vuId,
           latency,
@@ -1699,14 +1865,30 @@ export class StressEngine {
           op.captureSession !== false,
           result.sample,
           sessionInvalid,
+          failureMessage,
         );
-        return { finalUrl: result.finalUrl, sessionInvalid };
+        return {
+          finalUrl: result.finalUrl,
+          sessionInvalid,
+          requestFailed: false,
+          failureMessage,
+        };
       } catch (err) {
         if (!opts.signal.aborted) {
           const msg = err instanceof Error ? err.message : String(err);
           opts.onError(opts.vuId, msg, op.name, targetLabel, op.method);
+          return {
+            finalUrl: undefined,
+            sessionInvalid: false,
+            requestFailed: true,
+            failureMessage: msg,
+          };
         }
-        return { finalUrl: undefined, sessionInvalid: false };
+        return {
+          finalUrl: undefined,
+          sessionInvalid: false,
+          requestFailed: false,
+        };
       }
     };
 
@@ -1738,22 +1920,47 @@ export class StressEngine {
       }
     }
 
-    // Fase de autenticação inicial — executa UMA VEZ por VU, não a cada iteração
-    for (const op of authOps) {
-      await executeOp(op);
-    }
-
     // Determinar pathname da página de login para detecção de expiração de sessão
     // Quando um módulo retorna redirect para está pathname, a sessão expirou
     const loginUrl = authOps.length > 0 ? new URL(authOps[0].url) : null;
+    let authenticated = authOps.length === 0;
+
+    const runAuth = async (): Promise<boolean> => {
+      cookieJar.clear();
+      extractedVars.clear();
+
+      for (const op of authOps) {
+        const outcome = await executeOp(op);
+        if (outcome.requestFailed || outcome.sessionInvalid) {
+          return false;
+        }
+      }
+
+      return true;
+    };
+
+    if (authOps.length > 0) {
+      authenticated = await runAuth();
+    }
 
     // Loop principal — apenas operações de módulo (sem re-autenticação desnecessária)
     while (Date.now() < opts.endTime && !opts.signal.aborted) {
+      if (!authenticated) {
+        authenticated = await runAuth();
+        if (!authenticated) {
+          continue;
+        }
+      }
+
       if (moduleFlows.length === 0) {
         // Modo single-op ou auth-only: mantém comportamento original
         // (sem módulos, o loop continua executando authOps)
         for (const op of authOps) {
-          await executeOp(op);
+          const outcome = await executeOp(op);
+          if (outcome.requestFailed || outcome.sessionInvalid) {
+            authenticated = false;
+            break;
+          }
         }
         continue;
       }
@@ -1773,7 +1980,7 @@ export class StressEngine {
             finalUrl.pathname.toLowerCase() === loginUrl.pathname.toLowerCase() &&
             finalUrl.searchParams.toString() === loginUrl.searchParams.toString());
 
-        if (sessionExpired) {
+        if (sessionExpired || opResult.requestFailed) {
           break;
         }
       }
@@ -1789,12 +1996,7 @@ export class StressEngine {
           updatedAt: Date.now(),
           message: "Sessão expirada; refazendo autenticação.",
         });
-        cookieJar.clear();
-        extractedVars.clear();
-        // Re-autenticar: executar a cadeia de auth sequencialmente
-        for (const op of authOps) {
-          await executeOp(op);
-        }
+        authenticated = false;
       }
     }
   }
@@ -2100,6 +2302,7 @@ export class StressEngine {
   ): "timeout" | "connection" | "dns" | "unknown" {
     const msg = errorMsg.toLowerCase();
     if (msg.includes("timeout") || msg.includes("timed out")) return "timeout";
+    if (msg.includes("etimedout")) return "timeout";
     if (
       msg.includes("econnrefused") ||
       msg.includes("econnreset") ||

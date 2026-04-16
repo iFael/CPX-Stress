@@ -1,4 +1,4 @@
-export type ValidationDimensionStatus = "pass" | "fail";
+export type ValidationDimensionStatus = "pass" | "fail" | "blocked";
 
 export type OperationAccessMode = "url-driven" | "action-driven";
 
@@ -75,6 +75,8 @@ export interface OperationValidationResult {
   functionalStatus: ValidationDimensionStatus;
   technicalReasons: string[];
   functionalReasons: string[];
+  blockedByOperationName?: string;
+  blockedPlaceholderNames?: string[];
   loginLikeContentDetected: boolean;
   expectedTextMatches: string[];
   bodySnippet: string;
@@ -83,8 +85,11 @@ export interface OperationValidationResult {
 export interface MistertValidationSummary {
   totalOperations: number;
   technicalPassed: number;
+  technicalBlocked: number;
   functionalPassed: number;
+  functionalBlocked: number;
   failedOperations: string[];
+  blockedOperations: string[];
 }
 
 export interface MistertValidationResult {

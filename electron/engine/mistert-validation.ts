@@ -181,6 +181,13 @@ function hasUnresolvedPlaceholders(text: string | undefined): boolean {
   return !!text && /\{\{[^}]+\}\}/.test(text);
 }
 
+function getUnresolvedPlaceholderNames(text: string | undefined): string[] {
+  if (!text || !text.includes("{{")) return [];
+
+  const matches = text.matchAll(GENERIC_PLACEHOLDER_PATTERN);
+  return [...new Set([...matches].map((match) => match[1]).filter(Boolean))];
+}
+
 async function makeSingleRequest(
   opts: {
     url: URL;
@@ -433,6 +440,7 @@ export async function runMistertValidation(
   const extractedVars = new Map<string, string>();
   const loginUrl = operations.length > 0 ? new URL(operations[0].url) : null;
   const results: OperationValidationResult[] = [];
+  let lastFailedOperationName: string | null = null;
 
   for (const operation of operations) {
     const resolvedUrl = resolveExtractVars(operation.url, extractedVars);
@@ -460,13 +468,36 @@ export async function runMistertValidation(
       hasUnresolvedPlaceholders(resolvedBody) ||
       Object.values(resolvedHeaders ?? {}).some(hasUnresolvedPlaceholders)
     ) {
-      result.technicalReasons.push(
-        "A operação ainda contém placeholders não resolvidos antes da requisição.",
-      );
-      result.functionalReasons.push(
-        "Sem resposta funcional porque a URL, body ou headers não puderam ser resolvidos.",
-      );
-      result.bodySnippet = "Placeholders não resolvidos.";
+      const placeholderNames = [
+        ...getUnresolvedPlaceholderNames(resolvedUrl),
+        ...getUnresolvedPlaceholderNames(resolvedBody),
+        ...Object.values(resolvedHeaders ?? {}).flatMap(getUnresolvedPlaceholderNames),
+      ];
+      const uniquePlaceholderNames = [...new Set(placeholderNames)];
+
+      result.blockedPlaceholderNames = uniquePlaceholderNames;
+
+      if (lastFailedOperationName) {
+        result.blockedByOperationName = lastFailedOperationName;
+        result.technicalStatus = "blocked";
+        result.functionalStatus = "blocked";
+        result.technicalReasons.push(
+          `Etapa bloqueada porque "${lastFailedOperationName}" falhou e não produziu os valores dependentes (${uniquePlaceholderNames.join(", ")}).`,
+        );
+        result.functionalReasons.push(
+          "A validação funcional foi bloqueada por dependência de uma etapa anterior que falhou.",
+        );
+        result.bodySnippet = `Dependente de ${lastFailedOperationName}.`;
+      } else {
+        result.technicalReasons.push(
+          "A operação ainda contém placeholders não resolvidos antes da requisição.",
+        );
+        result.functionalReasons.push(
+          "Sem resposta funcional porque a URL, body ou headers não puderam ser resolvidos.",
+        );
+        result.bodySnippet = `Placeholders não resolvidos: ${uniquePlaceholderNames.join(", ")}.`;
+      }
+
       results.push(result);
       continue;
     }
@@ -561,19 +592,40 @@ export async function runMistertValidation(
     result.functionalStatus =
       result.functionalReasons.length === 0 ? "pass" : "fail";
 
+    if (
+      result.technicalStatus === "fail" ||
+      result.functionalStatus === "fail"
+    ) {
+      lastFailedOperationName = operation.name;
+    }
+
     results.push(result);
   }
 
   const technicalPassed = results.filter(
     (result) => result.technicalStatus === "pass",
   ).length;
+  const technicalBlocked = results.filter(
+    (result) => result.technicalStatus === "blocked",
+  ).length;
   const functionalPassed = results.filter(
     (result) => result.functionalStatus === "pass",
   ).length;
+  const functionalBlocked = results.filter(
+    (result) => result.functionalStatus === "blocked",
+  ).length;
   const overallTechnical: ValidationDimensionStatus =
-    technicalPassed === results.length ? "pass" : "fail";
+    technicalPassed === results.length
+      ? "pass"
+      : results.some((result) => result.technicalStatus === "fail")
+        ? "fail"
+        : "blocked";
   const overallFunctional: ValidationDimensionStatus =
-    functionalPassed === results.length ? "pass" : "fail";
+    functionalPassed === results.length
+      ? "pass"
+      : results.some((result) => result.functionalStatus === "fail")
+        ? "fail"
+        : "blocked";
 
   return {
     startedAt,
@@ -587,12 +639,21 @@ export async function runMistertValidation(
     summary: {
       totalOperations: results.length,
       technicalPassed,
+      technicalBlocked,
       functionalPassed,
+      functionalBlocked,
       failedOperations: results
         .filter(
           (result) =>
             result.technicalStatus === "fail" ||
             result.functionalStatus === "fail",
+        )
+        .map((result) => result.name),
+      blockedOperations: results
+        .filter(
+          (result) =>
+            result.technicalStatus === "blocked" ||
+            result.functionalStatus === "blocked",
         )
         .map((result) => result.name),
     },
