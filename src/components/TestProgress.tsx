@@ -31,7 +31,6 @@ import { InfoTooltip } from "@/components/InfoTooltip";
 import { METRIC_EXPLANATIONS } from "@/components/results-constants";
 import { formatMs } from "@/shared/test-analysis";
 import {
-  buildArtilleryConfigFromTestConfig,
   buildJMeterConfigFromTestConfig,
   buildK6ConfigFromTestConfig,
   buildLocustConfigFromTestConfig,
@@ -239,15 +238,10 @@ export function TestProgress() {
     () => buildLocustConfigFromTestConfig(config),
     [config],
   );
-  const artilleryConfig = useMemo(
-    () => buildArtilleryConfigFromTestConfig(config),
-    [config],
-  );
   const jmeterConfig = useMemo(
     () => buildJMeterConfigFromTestConfig(config),
     [config],
   );
-
   // ---------------------------------------------------------------------------
   // Renderização
   // ---------------------------------------------------------------------------
@@ -432,14 +426,14 @@ export function TestProgress() {
       <div className="mb-6 space-y-3">
         <div className="flex items-center gap-2 text-sm font-medium text-sf-textSecondary">
           <BarChart3 className="w-4 h-4 text-sf-primary" />
-          Benchmarks Paralelos
+          Benchmarks Externos
         </div>
         <BenchmarkConsensusPanel
           runKey={benchmarkRunKey}
-          autoStartOnMount
+          allowRuns={false}
+          executionMode="sequential"
           k6Config={k6Config}
           locustConfig={locustConfig}
-          artilleryConfig={artilleryConfig}
           jmeterConfig={jmeterConfig}
           cpxResult={{
             avgLatency: progress?.metrics.latencyAvg ?? 0,

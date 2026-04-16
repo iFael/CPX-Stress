@@ -55,7 +55,6 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toPng } from "html-to-image";
 import type {
-  ArtilleryConfig,
   K6Config,
   JMeterConfig,
   LocustConfig,
@@ -68,7 +67,6 @@ import {
   calculateHealthScore,
 } from "@/shared/test-analysis";
 import {
-  buildArtilleryConfigFromTestResult,
   buildJMeterConfigFromTestResult,
   buildK6ConfigFromTestResult,
   buildLocustConfigFromTestResult,
@@ -506,6 +504,9 @@ export function TestResults() {
   // ---------------------------------------------------------------------------
 
   const result = currentResult;
+  const benchmarkContextRunKey = benchmarkRunKey ?? `result-${result.id}`;
+  const shouldAutoStartBenchmarks =
+    benchmarkRunKey?.startsWith("live-") === true;
 
   // Usa timeline do resultado salvo, ou a timeline em tempo real como fallback.
   // useMemo evita recriar a referência do array a cada re-render, impedindo
@@ -519,10 +520,6 @@ export function TestResults() {
   // completa, múltiplos reduce e filtros. Sem memoização, cada mudança de
   // estado local (ex: expandir/colapsar seções) recalcularia tudo.
   const health = useMemo(() => getHealthInfo(result), [result]);
-  const artilleryConfig = useMemo(
-    () => buildArtilleryConfigFromTestResult(result),
-    [result],
-  );
   const k6Config = useMemo(() => buildK6ConfigFromTestResult(result), [result]);
   const jmeterConfig = useMemo(
     () => buildJMeterConfigFromTestResult(result),
@@ -732,10 +729,11 @@ export function TestResults() {
           Benchmarks Externos
         </div>
         <BenchmarkConsensusPanel
-          runKey={benchmarkRunKey}
+          runKey={benchmarkContextRunKey}
+          autoStartOnMount={shouldAutoStartBenchmarks}
+          executionMode="sequential"
           k6Config={k6Config}
           locustConfig={locustConfig}
-          artilleryConfig={artilleryConfig}
           jmeterConfig={jmeterConfig}
           cpxResult={{
             avgLatency: result.latency.avg,

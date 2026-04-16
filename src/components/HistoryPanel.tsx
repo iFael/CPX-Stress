@@ -170,6 +170,7 @@ export function HistoryPanel() {
   const history = useTestStore((s) => s.history);
   const setHistory = useTestStore((s) => s.setHistory);
   const setCurrentResult = useTestStore((s) => s.setCurrentResult);
+  const setBenchmarkRun = useTestStore((s) => s.setBenchmarkRun);
   const setView = useTestStore((s) => s.setView);
   const setStatus = useTestStore((s) => s.setStatus);
 
@@ -298,11 +299,12 @@ export function HistoryPanel() {
   /** Abre os detalhes de um teste específico */
   const handleView = useCallback(
     (result: TestResult) => {
+      setBenchmarkRun(`result-${result.id}`);
       setCurrentResult(result);
       setStatus("completed");
       setView("results");
     },
-    [setCurrentResult, setStatus, setView],
+    [setBenchmarkRun, setCurrentResult, setStatus, setView],
   );
 
   /** Exclui um teste individual (com confirmação inline) */

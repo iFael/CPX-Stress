@@ -9,8 +9,6 @@ import {
 import { useTestStore } from "@/stores/test-store";
 import { formatMs } from "@/shared/test-analysis";
 import type {
-  ArtilleryConfig,
-  ArtillerySummary,
   ExternalBenchmarkEngine,
   JMeterConfig,
   JMeterSummary,
@@ -34,13 +32,14 @@ interface BenchmarkConsensusPanelProps {
   cpxResult: ComparisonInput;
   k6Config: K6Config;
   locustConfig: LocustConfig;
-  artilleryConfig: ArtilleryConfig;
   jmeterConfig: JMeterConfig;
   runKey?: string | null;
   autoStartOnMount?: boolean;
+  allowRuns?: boolean;
+  executionMode?: "parallel" | "sequential";
 }
 
-type EngineName = "cpx" | "k6" | "locust" | "artillery" | "jmeter";
+type EngineName = "cpx" | "k6" | "locust" | "jmeter";
 type Tone = "aligned" | "warning" | "divergent" | "neutral";
 type MetricKind = "relative" | "absolute";
 
@@ -69,6 +68,7 @@ interface ConsensusRow {
   consensusValue: number | null;
   consensusTone: Tone;
   spread: number | null;
+  comparableCount: number;
   cells: Record<EngineName, EngineCell>;
 }
 
@@ -122,6 +122,9 @@ const METRICS: MetricDefinition[] = [
     warningThreshold: 20,
   },
 ];
+
+const CONSENSUS_ENGINES: EngineName[] = ["cpx", "k6", "locust", "jmeter"];
+const MIN_CONSENSUS_VALUES = 3;
 
 function formatValue(value: number | null, unit: string): string {
   if (value === null) return "—";
@@ -180,7 +183,7 @@ function toneLabel(tone: Tone): string {
   if (tone === "aligned") return "Convergente";
   if (tone === "warning") return "Oscilando";
   if (tone === "divergent") return "Divergente";
-  return "Sem dado";
+  return "Aguardando amostra";
 }
 
 function buildSpread(values: number[], metric: MetricDefinition): number {
@@ -194,7 +197,7 @@ function buildSpread(values: number[], metric: MetricDefinition): number {
 }
 
 function normalizeExternalMetrics(
-  summary: K6Summary | LocustSummary | ArtillerySummary | JMeterSummary | null,
+  summary: K6Summary | LocustSummary | JMeterSummary | null,
 ): Record<MetricDefinition["key"], number | null> {
   if (!summary) {
     return {
@@ -225,10 +228,11 @@ export function BenchmarkConsensusPanel({
   cpxResult,
   k6Config,
   locustConfig,
-  artilleryConfig,
   jmeterConfig,
   runKey = null,
   autoStartOnMount = false,
+  allowRuns = true,
+  executionMode = "parallel",
 }: BenchmarkConsensusPanelProps) {
   const benchmarks = useTestStore((s) => s.benchmarks);
   const setBenchmarkRun = useTestStore((s) => s.setBenchmarkRun);
@@ -239,20 +243,40 @@ export function BenchmarkConsensusPanel({
   const setBenchmarkError = useTestStore((s) => s.setBenchmarkError);
   const setBenchmarkSummary = useTestStore((s) => s.setBenchmarkSummary);
   const resetBenchmarkEngine = useTestStore((s) => s.resetBenchmarkEngine);
+  const isRunContextCurrent = useCallback((expectedRunKey: string | null) => {
+    if (!expectedRunKey) return true;
+    return useTestStore.getState().benchmarks.runKey === expectedRunKey;
+  }, []);
+
+  const commitForRunContext = useCallback(
+    (expectedRunKey: string | null, apply: () => void): boolean => {
+      if (!isRunContextCurrent(expectedRunKey)) return false;
+      apply();
+      return true;
+    },
+    [isRunContextCurrent],
+  );
 
   const runEngine = useCallback(
-    async (engine: ExternalBenchmarkEngine) => {
-      resetBenchmarkEngine(engine);
-      setBenchmarkStatus(engine, "checking");
-      setBenchmarkError(engine, null);
+    async (
+      engine: ExternalBenchmarkEngine,
+      expectedRunKey: string | null = runKey,
+    ) => {
+      if (!allowRuns) return;
+      if (
+        !commitForRunContext(expectedRunKey, () => {
+          resetBenchmarkEngine(engine);
+          setBenchmarkStatus(engine, "checking");
+          setBenchmarkError(engine, null);
+        })
+      ) {
+        return;
+      }
 
       let available = false;
       try {
         if (engine === "k6") available = await window.stressflow.k6Check();
         if (engine === "locust") available = await window.stressflow.locustCheck();
-        if (engine === "artillery") {
-          available = await window.stressflow.artilleryCheck();
-        }
         if (engine === "jmeter") {
           available = await window.stressflow.jmeterCheck();
         }
@@ -260,13 +284,21 @@ export function BenchmarkConsensusPanel({
         available = false;
       }
 
-      setBenchmarkAvailable(engine, available);
+      if (
+        !commitForRunContext(expectedRunKey, () => {
+          setBenchmarkAvailable(engine, available);
+        })
+      ) {
+        return;
+      }
       if (!available) {
-        setBenchmarkStatus(engine, "error");
-        setBenchmarkError(
-          engine,
-          `Engine ${engine} não disponível no ambiente atual.`,
-        );
+        commitForRunContext(expectedRunKey, () => {
+          setBenchmarkStatus(engine, "error");
+          setBenchmarkError(
+            engine,
+            `Engine ${engine} não disponível no ambiente atual.`,
+          );
+        });
         return;
       }
 
@@ -275,51 +307,66 @@ export function BenchmarkConsensusPanel({
           ? window.stressflow.onK6Progress
           : engine === "locust"
             ? window.stressflow.onLocustProgress
-            : engine === "artillery"
-              ? window.stressflow.onArtilleryProgress
-              : window.stressflow.onJMeterProgress;
+            : window.stressflow.onJMeterProgress;
 
       const unsubscribe = subscribe((line) => {
-        appendBenchmarkProgress(engine, line);
+        commitForRunContext(expectedRunKey, () => {
+          appendBenchmarkProgress(engine, line);
+        });
       });
 
       try {
-        setBenchmarkStatus(engine, "running");
+        if (
+          !commitForRunContext(expectedRunKey, () => {
+            setBenchmarkStatus(engine, "running");
+          })
+        ) {
+          return;
+        }
 
         if (engine === "k6") {
           const summary = await window.stressflow.k6Run(k6Config);
-          setBenchmarkSummary("k6", summary);
+          commitForRunContext(expectedRunKey, () => {
+            setBenchmarkSummary("k6", summary);
+          });
         } else if (engine === "locust") {
           const summary = await window.stressflow.locustRun(locustConfig);
-          setBenchmarkSummary("locust", summary);
-        } else if (engine === "artillery") {
-          const summary = await window.stressflow.artilleryRun(artilleryConfig);
-          setBenchmarkSummary("artillery", summary);
+          commitForRunContext(expectedRunKey, () => {
+            setBenchmarkSummary("locust", summary);
+          });
         } else if (engine === "jmeter") {
           const summary = await window.stressflow.jmeterRun(jmeterConfig);
-          setBenchmarkSummary("jmeter", summary);
+          commitForRunContext(expectedRunKey, () => {
+            setBenchmarkSummary("jmeter", summary);
+          });
         }
 
-        setBenchmarkStatus(engine, "done");
+        commitForRunContext(expectedRunKey, () => {
+          setBenchmarkStatus(engine, "done");
+        });
       } catch (cause) {
-        setBenchmarkStatus(engine, "error");
-        setBenchmarkError(
-          engine,
-          cause instanceof Error
-            ? cause.message
-            : `Falha ao executar ${engine}.`,
-        );
+        commitForRunContext(expectedRunKey, () => {
+          setBenchmarkStatus(engine, "error");
+          setBenchmarkError(
+            engine,
+            cause instanceof Error
+              ? cause.message
+              : `Falha ao executar ${engine}.`,
+          );
+        });
       } finally {
         unsubscribe();
       }
     },
     [
+      allowRuns,
       appendBenchmarkProgress,
-      artilleryConfig,
+      commitForRunContext,
       jmeterConfig,
       k6Config,
       locustConfig,
       resetBenchmarkEngine,
+      runKey,
       setBenchmarkAvailable,
       setBenchmarkError,
       setBenchmarkStatus,
@@ -328,20 +375,43 @@ export function BenchmarkConsensusPanel({
   );
 
   const runAll = useCallback(async () => {
-    if (runKey && benchmarks.runKey !== runKey) {
+    if (!allowRuns) return;
+
+    if (runKey && !isRunContextCurrent(runKey)) {
       setBenchmarkRun(runKey);
     }
+    const expectedRunKey = runKey ?? useTestStore.getState().benchmarks.runKey;
 
-    await Promise.allSettled([
-      runEngine("k6"),
-      runEngine("locust"),
-      runEngine("artillery"),
-      runEngine("jmeter"),
-    ]);
-  }, [benchmarks.runKey, runEngine, runKey, setBenchmarkRun]);
+    const engines: ExternalBenchmarkEngine[] = [
+      "k6",
+      "locust",
+      "jmeter",
+    ];
+
+    if (executionMode === "sequential") {
+      for (const engine of engines) {
+        if (!isRunContextCurrent(expectedRunKey)) {
+          break;
+        }
+        await runEngine(engine, expectedRunKey);
+      }
+      return;
+    }
+
+    await Promise.allSettled(
+      engines.map((engine) => runEngine(engine, expectedRunKey)),
+    );
+  }, [
+    allowRuns,
+    executionMode,
+    isRunContextCurrent,
+    runEngine,
+    runKey,
+    setBenchmarkRun,
+  ]);
 
   useEffect(() => {
-    if (!runKey || !autoStartOnMount) return;
+    if (!allowRuns || !runKey || !autoStartOnMount) return;
     if (benchmarks.runKey !== runKey) return;
     if (benchmarks.started) return;
 
@@ -359,7 +429,6 @@ export function BenchmarkConsensusPanel({
   const rows = useMemo<ConsensusRow[]>(() => {
     const k6Metrics = normalizeExternalMetrics(benchmarks.k6.summary);
     const locustMetrics = normalizeExternalMetrics(benchmarks.locust.summary);
-    const artilleryMetrics = normalizeExternalMetrics(benchmarks.artillery.summary);
     const jmeterMetrics = normalizeExternalMetrics(benchmarks.jmeter.summary);
 
     return METRICS.map((metric) => {
@@ -368,16 +437,23 @@ export function BenchmarkConsensusPanel({
           ? (cpxResult.totalRequests ?? null)
           : cpxResult[metric.key as keyof ComparisonInput] ?? null;
 
-      const values = [
-        cpxValue,
-        k6Metrics[metric.key],
-        locustMetrics[metric.key],
-        artilleryMetrics[metric.key],
-        jmeterMetrics[metric.key],
-      ].filter((value): value is number => typeof value === "number");
+      const valuesByEngine: Record<EngineName, number | null> = {
+        cpx: cpxValue,
+        k6: k6Metrics[metric.key],
+        locust: locustMetrics[metric.key],
+        jmeter: jmeterMetrics[metric.key],
+      };
 
-      const consensusValue = values.length > 0 ? median(values) : null;
-      const spread = values.length > 0 ? buildSpread(values, metric) : null;
+      const consensusValues = CONSENSUS_ENGINES.map(
+        (engine) => valuesByEngine[engine],
+      ).filter((value): value is number => typeof value === "number");
+
+      const consensusValue =
+        consensusValues.length >= MIN_CONSENSUS_VALUES
+          ? median(consensusValues)
+          : null;
+      const spread =
+        consensusValue !== null ? buildSpread(consensusValues, metric) : null;
       const consensusTone =
         spread === null
           ? "neutral"
@@ -398,6 +474,7 @@ export function BenchmarkConsensusPanel({
         consensusValue,
         consensusTone,
         spread,
+        comparableCount: consensusValues.length,
         cells: {
           cpx: {
             value: cpxValue,
@@ -411,14 +488,6 @@ export function BenchmarkConsensusPanel({
             value: locustMetrics[metric.key],
             tone: classifyMetric(
               locustMetrics[metric.key],
-              consensusValue,
-              metric,
-            ),
-          },
-          artillery: {
-            value: artilleryMetrics[metric.key],
-            tone: classifyMetric(
-              artilleryMetrics[metric.key],
               consensusValue,
               metric,
             ),
@@ -437,9 +506,18 @@ export function BenchmarkConsensusPanel({
   }, [benchmarks, cpxResult]);
 
   const consensusMeta = useMemo(() => {
-    const aligned = rows.filter((row) => row.consensusTone === "aligned").length;
-    const warning = rows.filter((row) => row.consensusTone === "warning").length;
-    const divergent = rows.filter((row) => row.consensusTone === "divergent").length;
+    const analyzedRows = rows.filter((row) => row.consensusTone !== "neutral");
+    const aligned = analyzedRows.filter((row) => row.consensusTone === "aligned").length;
+    const warning = analyzedRows.filter((row) => row.consensusTone === "warning").length;
+    const divergent = analyzedRows.filter((row) => row.consensusTone === "divergent").length;
+
+    if (analyzedRows.length === 0) {
+      return {
+        label: "Aguardando amostra",
+        className:
+          "bg-sf-shellBg text-sf-textSecondary border border-sf-shellBorder",
+      };
+    }
 
     if (divergent === 0 && warning <= 1) {
       return {
@@ -460,13 +538,16 @@ export function BenchmarkConsensusPanel({
       className: "bg-sf-danger/10 text-sf-danger border border-sf-danger/30",
     };
   }, [rows]);
+  const analyzedMetricCount = useMemo(
+    () => rows.filter((row) => row.consensusTone !== "neutral").length,
+    [rows],
+  );
 
   const availableCount = useMemo(
     () =>
       [
         benchmarks.k6.available,
         benchmarks.locust.available,
-        benchmarks.artillery.available,
         benchmarks.jmeter.available,
       ].filter(Boolean).length,
     [benchmarks],
@@ -474,11 +555,14 @@ export function BenchmarkConsensusPanel({
 
   const runningAny = useMemo(
     () =>
-      [benchmarks.k6, benchmarks.locust, benchmarks.artillery, benchmarks.jmeter].some(
+      [benchmarks.k6, benchmarks.locust, benchmarks.jmeter].some(
         (entry) => entry.status === "running" || entry.status === "checking",
       ),
     [benchmarks],
   );
+  const waitingForMainTest = !allowRuns && Boolean(runKey);
+  const runModeText =
+    executionMode === "sequential" ? "em sequência" : "em paralelo";
 
   return (
     <div className="bg-sf-surface border border-sf-border rounded-xl p-4 space-y-4">
@@ -489,15 +573,24 @@ export function BenchmarkConsensusPanel({
             Consenso Entre Engines
           </h3>
           <p className="text-xs text-sf-textMuted max-w-3xl">
-            Compara o `CPX-Stress` com `k6`, `Locust`, `Artillery` e `JMeter`,
+            Compara o `CPX-Stress` com `k6`, `Locust` e `JMeter`,
             destacando convergência e divergência entre as medições.
           </p>
+          <p className="text-[11px] text-sf-textMuted">
+            Nesta tela, os benchmarks externos rodam {runModeText}.
+          </p>
+          {waitingForMainTest && (
+            <p className="text-[11px] text-sf-textMuted">
+              Aguardando a conclusão do CPX-Stress para iniciar a sequência
+              oficial sem concorrência no mesmo alvo.
+            </p>
+          )}
         </div>
 
         <button
           type="button"
           onClick={() => void runAll()}
-          disabled={runningAny}
+          disabled={runningAny || !allowRuns}
           className="text-xs px-3 py-2 rounded-lg bg-sf-primary hover:bg-sf-primaryHover text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           {runningAny ? (
@@ -505,7 +598,13 @@ export function BenchmarkConsensusPanel({
           ) : (
             <Play className="w-3.5 h-3.5" />
           )}
-          {runningAny ? "Executando engines..." : "Rodar todas"}
+          {!allowRuns
+            ? "Aguardando CPX-Stress..."
+            : runningAny
+              ? "Executando engines..."
+              : executionMode === "sequential"
+                ? "Rodar todas em sequência"
+                : "Rodar todas em paralelo"}
         </button>
       </div>
 
@@ -516,32 +615,30 @@ export function BenchmarkConsensusPanel({
           {consensusMeta.label}
         </span>
         <span className="px-2.5 py-0.5 rounded-full bg-sf-shellBg border border-sf-shellBorder text-sf-textSecondary">
-          Engines externas disponíveis: {availableCount}/4
+          Engines externas disponíveis: {availableCount}/3
         </span>
         <span className="px-2.5 py-0.5 rounded-full bg-sf-shellBg border border-sf-shellBorder text-sf-textSecondary">
-          Métricas analisadas: {rows.length}
+          Métricas com consenso: {analyzedMetricCount}/{rows.length}
         </span>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-4">
+      <div className="grid gap-3 lg:grid-cols-3">
         <EngineControlCard
           title="k6"
           entry={benchmarks.k6}
+          canRun={allowRuns}
           onRun={() => runEngine("k6")}
         />
         <EngineControlCard
           title="Locust"
           entry={benchmarks.locust}
+          canRun={allowRuns}
           onRun={() => runEngine("locust")}
-        />
-        <EngineControlCard
-          title="Artillery"
-          entry={benchmarks.artillery}
-          onRun={() => runEngine("artillery")}
         />
         <EngineControlCard
           title="JMeter"
           entry={benchmarks.jmeter}
+          canRun={allowRuns}
           onRun={() => runEngine("jmeter")}
         />
       </div>
@@ -554,7 +651,6 @@ export function BenchmarkConsensusPanel({
               <th className="text-right py-1.5 px-2">CPX</th>
               <th className="text-right py-1.5 px-2">k6</th>
               <th className="text-right py-1.5 px-2">Locust</th>
-              <th className="text-right py-1.5 px-2">Artillery</th>
               <th className="text-right py-1.5 px-2">JMeter</th>
               <th className="text-right py-1.5 px-2">Consenso</th>
               <th className="text-right py-1.5 pl-3">Leitura</th>
@@ -569,7 +665,6 @@ export function BenchmarkConsensusPanel({
                 <BenchmarkCell row={row} engine="cpx" />
                 <BenchmarkCell row={row} engine="k6" />
                 <BenchmarkCell row={row} engine="locust" />
-                <BenchmarkCell row={row} engine="artillery" />
                 <BenchmarkCell row={row} engine="jmeter" />
                 <td
                   className={`py-2 px-2 text-right font-mono ${toneClass(
@@ -594,7 +689,7 @@ export function BenchmarkConsensusPanel({
         </table>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-4">
+      <div className="grid gap-3 lg:grid-cols-3">
         <ProgressCard
           title="k6"
           progress={benchmarks.k6.progress}
@@ -606,12 +701,6 @@ export function BenchmarkConsensusPanel({
           progress={benchmarks.locust.progress}
           artifactsDir={benchmarks.locust.summary?.artifactsDir}
           accentClass="text-sf-accent"
-        />
-        <ProgressCard
-          title="Artillery"
-          progress={benchmarks.artillery.progress}
-          artifactsDir={benchmarks.artillery.summary?.artifactsDir}
-          accentClass="text-orange-400"
         />
         <ProgressCard
           title="JMeter"
@@ -627,6 +716,7 @@ export function BenchmarkConsensusPanel({
 function EngineControlCard({
   title,
   entry,
+  canRun = true,
   onRun,
 }: {
   title: string;
@@ -636,6 +726,7 @@ function EngineControlCard({
     error: string | null;
     summary: { version?: string } | null;
   };
+  canRun?: boolean;
   onRun: () => Promise<void>;
 }) {
   return (
@@ -645,10 +736,17 @@ function EngineControlCard({
         <button
           type="button"
           onClick={() => void onRun()}
-          disabled={entry.available === false || entry.status === "running" || entry.status === "checking"}
+          disabled={
+            !canRun ||
+            entry.available === false ||
+            entry.status === "running" ||
+            entry.status === "checking"
+          }
           className="text-[11px] px-2.5 py-1 rounded-md bg-sf-surface hover:bg-sf-surfaceHover border border-sf-border text-sf-textSecondary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {entry.status === "running" || entry.status === "checking"
+          {!canRun
+            ? "Aguardando..."
+            : entry.status === "running" || entry.status === "checking"
             ? "Rodando..."
             : "Executar"}
         </button>
