@@ -1,11 +1,17 @@
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { app } from "electron";
 import { generateJMeterPlan } from "./jmeter-script-generator";
 import type { JMeterConfig, JMeterSummary } from "./jmeter-types";
 
 const OUTPUT_PREVIEW_LIMIT = 4_000;
+const CONTROL_SAMPLE_LABELS = new Set([
+  "Prepare Auth State",
+  "Finalize Auth State",
+  "Select Flow Deterministically",
+]);
 
 interface JMeterCommand {
   command: string;
@@ -21,7 +27,9 @@ function ensureDir(dirPath: string): void {
 
 function createArtifactsDir(): string {
   const runId = new Date().toISOString().replace(/[:.]/g, "-");
-  const dir = path.join(app.getPath("temp"), "cpx-stress-jmeter", runId);
+  const baseTempDir =
+    typeof app?.getPath === "function" ? app.getPath("temp") : os.tmpdir();
+  const dir = path.join(baseTempDir, "cpx-stress-jmeter", runId);
   ensureDir(dir);
   return dir;
 }
@@ -99,6 +107,50 @@ function percentile(sorted: number[], p: number): number {
   return sorted[index];
 }
 
+function parseCsvLine(line: string): string[] {
+  const values: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index++) {
+    const char = line[index];
+
+    if (char === '"') {
+      if (inQuotes && line[index + 1] === '"') {
+        current += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      values.push(current);
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  values.push(current);
+  return values;
+}
+
+function isLogicalFailure(responseCode: string, responseMessage: string): boolean {
+  const normalizedMessage = responseMessage.toLowerCase();
+
+  return (
+    normalizedMessage.includes("extractor(es) ausente(s)") ||
+    normalizedMessage.includes("texto de sessão inválida detectado") ||
+    normalizedMessage.includes("a resposta parece a tela de login do mistert") ||
+    normalizedMessage.includes("nenhum texto esperado foi encontrado na resposta") ||
+    normalizedMessage.includes("sessão expirada ou redirecionada para login") ||
+    /^2\d\d$/.test(responseCode)
+  );
+}
+
 function parseJtl(jtlPath: string, durationSeconds: number, vus: number): JMeterSummary {
   const content = fs.readFileSync(jtlPath, "utf8").trim();
   if (!content) {
@@ -124,37 +176,62 @@ function parseJtl(jtlPath: string, durationSeconds: number, vus: number): JMeter
   if (!header) {
     throw new Error("JTL CSV sem cabeçalho.");
   }
-  const columns = header.split(",");
+  const columns = parseCsvLine(header);
   const indexOf = (name: string) => columns.indexOf(name);
 
   const elapsedIndex = indexOf("elapsed");
+  const labelIndex = indexOf("label");
   const responseCodeIndex = indexOf("responseCode");
+  const responseMessageIndex = indexOf("responseMessage");
   const successIndex = indexOf("success");
   const bytesIndex = indexOf("bytes");
 
   const latencies: number[] = [];
   const statusCodes: Record<string, number> = {};
+  const operationStats: NonNullable<JMeterSummary["operationStats"]> = {};
   let errors = 0;
   let totalBytes = 0;
 
   for (const line of lines) {
     if (!line.trim()) continue;
-    const values = line.split(",");
+    const values = parseCsvLine(line);
+    const label = values[labelIndex] || "request";
+    if (CONTROL_SAMPLE_LABELS.has(label)) {
+      continue;
+    }
     const elapsed = Number(values[elapsedIndex] || 0);
     const responseCode = values[responseCodeIndex] || "0";
+    const responseMessage = values[responseMessageIndex] || "";
     const success = (values[successIndex] || "").toLowerCase() === "true";
     const bytes = Number(values[bytesIndex] || 0);
 
     latencies.push(elapsed);
     statusCodes[responseCode] = (statusCodes[responseCode] || 0) + 1;
-    if (!success) errors++;
+    const current = operationStats[label] ?? {
+      name: label,
+      requests: 0,
+      errors: 0,
+      logicalFailures: 0,
+      statusCodes: {},
+    };
+    current.requests += 1;
+    current.statusCodes[responseCode] =
+      (current.statusCodes[responseCode] || 0) + 1;
+    if (!success) {
+      errors++;
+      current.errors += 1;
+      if (isLogicalFailure(responseCode, responseMessage)) {
+        current.logicalFailures += 1;
+      }
+    }
+    operationStats[label] = current;
     totalBytes += Number.isFinite(bytes) ? bytes : 0;
   }
 
   latencies.sort((a, b) => a - b);
   const totalReqs = latencies.length;
 
-  return {
+  const summary: JMeterSummary = {
     avgLatency:
       totalReqs > 0 ? latencies.reduce((sum, value) => sum + value, 0) / totalReqs : 0,
     minLatency: latencies[0] ?? 0,
@@ -172,6 +249,12 @@ function parseJtl(jtlPath: string, durationSeconds: number, vus: number): JMeter
     totalBytes,
     throughputBytesPerSec: durationSeconds > 0 ? totalBytes / durationSeconds : 0,
   };
+
+  if (Object.keys(operationStats).length > 0) {
+    summary.operationStats = operationStats;
+  }
+
+  return summary;
 }
 
 export async function runJMeter(
@@ -216,7 +299,7 @@ export async function runJMeter(
         "-Jjmeter.save.saveservice.response_code=true",
         "-Jjmeter.save.saveservice.successful=true",
         "-Jjmeter.save.saveservice.bytes=true",
-        "-Jjmeter.save.saveservice.response_message=false",
+        "-Jjmeter.save.saveservice.response_message=true",
         "-Jjmeter.save.saveservice.thread_name=false",
         "-Jjmeter.save.saveservice.data_type=false",
         "-Jjmeter.save.saveservice.latency=false",

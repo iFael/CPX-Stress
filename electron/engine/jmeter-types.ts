@@ -1,8 +1,14 @@
+import type {
+  ExternalOperationStats,
+  FlowSelectionMode,
+} from "../../src/shared/benchmark-comparison";
+
 export interface JMeterConfig {
   url: string;
   vus: number;
   duration: number;
   method?: "GET" | "POST" | "PUT" | "DELETE";
+  flowSelectionMode?: FlowSelectionMode;
   headers?: Record<string, string>;
   body?: string;
   flowOperations?: JMeterFlowOperation[];
@@ -47,6 +53,7 @@ export interface JMeterSummary {
   scriptPath?: string;
   stdoutSnippet?: string;
   stderrSnippet?: string;
+  operationStats?: Record<string, ExternalOperationStats>;
 }
 
 export type JMeterStatus = "idle" | "running" | "done" | "error";

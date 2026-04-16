@@ -1,5 +1,11 @@
 import type { JMeterConfig } from "./jmeter-types";
 
+const CONTROL_SAMPLE_NAMES = {
+  authPrepare: "Prepare Auth State",
+  authFinalize: "Finalize Auth State",
+  flowSelector: "Select Flow Deterministically",
+} as const;
+
 function xmlEscape(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -180,7 +186,7 @@ function buildValidationAssertion(
         .map((text) => toGroovyString(text))
         .join(", ")}].any { normalized.contains(it.toLowerCase()) }`,
       "if (!expectedMatch) {",
-      "  fail('Nenhum texto esperado foi encontrado na resposta', false)",
+      "  fail('Nenhum texto esperado foi encontrado na resposta', true)",
       "  return",
       "}",
     );
@@ -252,6 +258,38 @@ ${samplers}
         </hashTree>`;
 }
 
+function buildDeterministicFlowController(
+  flowName: string,
+  operations: NonNullable<JMeterConfig["flowOperations"]>,
+  flowIndex: number,
+): string {
+  return `        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="${xmlEscape(
+    `${flowName} When Selected`,
+  )}" enabled="true"><stringProp name="IfController.condition">${xmlEscape(
+    `\${__groovy(vars.get('CPX_SELECTED_FLOW') == '${flowIndex}')}`,
+  )}</stringProp><boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp></IfController>
+        <hashTree>
+${buildFlowController(flowName, operations)}
+        </hashTree>`;
+}
+
+function buildDeterministicFlowSelector(flowCount: number): string {
+  return buildAuthStateSampler(
+    CONTROL_SAMPLE_NAMES.flowSelector,
+    [
+      `def flowCount = ${flowCount}`,
+      "if (flowCount <= 0) {",
+      "  return",
+      "}",
+      "def nextIndex = (vars.get('CPX_NEXT_FLOW_INDEX') ?: '0') as int",
+      "def selected = Math.floorMod(nextIndex, flowCount)",
+      "vars.put('CPX_SELECTED_FLOW', String.valueOf(selected))",
+      "vars.put('CPX_NEXT_FLOW_INDEX', String.valueOf(Math.floorMod(nextIndex + 1, flowCount)))",
+    ].join("\n"),
+    "          ",
+  );
+}
+
 export function generateJMeterPlan(config: JMeterConfig): string {
   const operations = config.flowOperations?.length
     ? config.flowOperations
@@ -307,7 +345,7 @@ export function generateJMeterPlan(config: JMeterConfig): string {
     .map((operation, index) => buildSampler(operation, index))
     .join("\n");
   const authPrepareSampler = buildAuthStateSampler(
-    "Prepare Auth State",
+    CONTROL_SAMPLE_NAMES.authPrepare,
     [
       "vars.put('CPX_REAUTH', 'false')",
       "vars.put('CPX_AUTH_DONE', 'false')",
@@ -315,7 +353,7 @@ export function generateJMeterPlan(config: JMeterConfig): string {
     "          ",
   );
   const authFinalizeSampler = buildAuthStateSampler(
-    "Finalize Auth State",
+    CONTROL_SAMPLE_NAMES.authFinalize,
     [
       "if ('true'.equals(vars.get('CPX_REAUTH'))) {",
       "  vars.put('CPX_AUTH_DONE', 'false')",
@@ -325,6 +363,15 @@ export function generateJMeterPlan(config: JMeterConfig): string {
     ].join("\n"),
     "          ",
   );
+  const deterministicFlows = moduleFlows
+    .map((flow, index) =>
+      buildDeterministicFlowController(
+        `${flow[0].moduleGroup || flow[0].name} Flow`,
+        flow,
+        index,
+      ),
+    )
+    .join("\n");
   const threadTree =
     moduleFlows.length > 0
       ? `        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Authenticate If Needed" enabled="true"><stringProp name="IfController.condition">${xmlEscape("${__groovy(vars.get('CPX_AUTH_DONE') != 'true' || vars.get('CPX_REAUTH') == 'true')}")}</stringProp><boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp></IfController>
@@ -333,10 +380,11 @@ ${authPrepareSampler}
 ${authSamplers}
 ${authFinalizeSampler}
         </hashTree>
-        <RandomController guiclass="LogicControllerGui" testclass="RandomController" testname="Random Module Flow" enabled="true"></RandomController>
+${config.flowSelectionMode === "deterministic" ? `${buildDeterministicFlowSelector(moduleFlows.length)}
+${deterministicFlows}` : `        <RandomController guiclass="LogicControllerGui" testclass="RandomController" testname="Random Module Flow" enabled="true"></RandomController>
         <hashTree>
 ${randomFlows}
-        </hashTree>`
+        </hashTree>`}`
       : fallbackSamplers;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
