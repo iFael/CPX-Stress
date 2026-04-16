@@ -1,4 +1,4 @@
-import { execSync, spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { app } from "electron";
@@ -20,22 +20,94 @@ function createArtifactsDir(): string {
   return dir;
 }
 
-function getK6Binary(): string {
+function tryExec(command: string, args: string[]): boolean {
+  try {
+    execFileSync(command, args, {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function resolveK6Binary(): string | null {
+  const candidates: string[] = [];
+  const isWindows = process.platform === "win32";
+  const pushCandidate = (candidate?: string) => {
+    if (typeof candidate === "string" && candidate.trim() !== "") {
+      candidates.push(candidate);
+    }
+  };
+
   if (process.env.K6_PATH && process.env.K6_PATH.trim() !== "") {
-    return process.env.K6_PATH.trim();
+    pushCandidate(process.env.K6_PATH.trim());
   }
 
   if (app.isPackaged) {
-    const ext = process.platform === "win32" ? ".exe" : "";
-    return path.join(process.resourcesPath, `k6${ext}`);
+    pushCandidate(path.join(process.resourcesPath, `k6${isWindows ? ".exe" : ""}`));
   }
 
-  return "k6";
+  if (isWindows) {
+    pushCandidate(
+      process.env.ProgramFiles
+        ? path.join(process.env.ProgramFiles, "k6", "k6.exe")
+        : undefined,
+    );
+    pushCandidate(
+      process.env["ProgramFiles(x86)"]
+        ? path.join(process.env["ProgramFiles(x86)"], "k6", "k6.exe")
+        : undefined,
+    );
+    pushCandidate(
+      process.env.LOCALAPPDATA
+        ? path.join(process.env.LOCALAPPDATA, "Programs", "k6", "k6.exe")
+        : undefined,
+    );
+    pushCandidate(
+      process.env.LOCALAPPDATA
+        ? path.join(
+            process.env.LOCALAPPDATA,
+            "Microsoft",
+            "WinGet",
+            "Links",
+            "k6.exe",
+          )
+        : undefined,
+    );
+    pushCandidate(
+      process.env.USERPROFILE
+        ? path.join(process.env.USERPROFILE, "scoop", "shims", "k6.exe")
+        : undefined,
+    );
+    pushCandidate(
+      process.env.ChocolateyInstall
+        ? path.join(process.env.ChocolateyInstall, "bin", "k6.exe")
+        : undefined,
+    );
+    pushCandidate(
+      process.env.ProgramData
+        ? path.join(process.env.ProgramData, "chocolatey", "bin", "k6.exe")
+        : undefined,
+    );
+    pushCandidate("k6.exe");
+  }
+
+  pushCandidate("k6");
+
+  for (const candidate of candidates) {
+    if (tryExec(candidate, ["version"])) {
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
-function getK6Version(): string {
+function getK6Version(binary: string): string {
   try {
-    return execSync(`"${getK6Binary()}" version`, {
+    return execFileSync(binary, ["version"], {
       encoding: "utf8",
       windowsHide: true,
     }).trim();
@@ -45,15 +117,7 @@ function getK6Version(): string {
 }
 
 export function isK6Available(): boolean {
-  try {
-    execSync(`"${getK6Binary()}" version`, {
-      stdio: "ignore",
-      windowsHide: true,
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  return resolveK6Binary() !== null;
 }
 
 function truncateOutput(text: string): string | undefined {
@@ -113,7 +177,8 @@ function parseK6Summary(raw: unknown, config: K6Config): K6Summary {
 
   const durationValues = summary.metrics?.http_req_duration?.values ?? {};
   const requestValues = summary.metrics?.http_reqs?.values ?? {};
-  const failureValues = summary.metrics?.http_req_failed?.values ?? {};
+  const logicalFailureValues =
+    summary.metrics?.cpx_logical_failures?.values ?? {};
 
   const statusCodes: Record<string, number> = {};
   for (const [key, value] of Object.entries(summary.metrics ?? {})) {
@@ -122,6 +187,22 @@ function parseK6Summary(raw: unknown, config: K6Config): K6Summary {
       statusCodes[match[1]] = value.values?.count ?? 0;
     }
   }
+
+  const successStatusCodes = new Set([
+    "200",
+    "201",
+    "204",
+    "301",
+    "302",
+    "303",
+    "304",
+  ]);
+  const transportAndHttpFailures = Object.entries(statusCodes).reduce(
+    (sum, [code, count]) => (successStatusCodes.has(code) ? sum : sum + count),
+    0,
+  );
+  const logicalFailures = logicalFailureValues.count ?? 0;
+  const totalReqs = requestValues.count ?? 0;
 
   return {
     avgLatency: durationValues.avg ?? 0,
@@ -132,8 +213,11 @@ function parseK6Summary(raw: unknown, config: K6Config): K6Summary {
     p99Latency: durationValues["p(99)"] ?? 0,
     maxLatency: durationValues.max ?? 0,
     rps: requestValues.rate ?? 0,
-    totalReqs: requestValues.count ?? 0,
-    errorRate: failureValues.rate ?? 0,
+    totalReqs,
+    errorRate:
+      totalReqs > 0
+        ? Math.min(1, (transportAndHttpFailures + logicalFailures) / totalReqs)
+        : 0,
     statusCodes,
     duration: config.duration,
     vus: config.vus,
@@ -144,6 +228,13 @@ export async function runK6(
   config: K6Config,
   onProgress?: (line: string) => void,
 ): Promise<K6Summary> {
+  const binary = resolveK6Binary();
+  if (!binary) {
+    throw new Error(
+      "O binário do k6 não foi encontrado. Instale o k6 ou configure K6_PATH para habilitar a comparação.",
+    );
+  }
+
   const artifactsDir = createArtifactsDir();
   const scriptPath = path.join(artifactsDir, "cpx-k6-script.js");
   const stdoutPath = path.join(artifactsDir, "stdout.log");
@@ -162,7 +253,7 @@ export async function runK6(
     let stderr = "";
 
     const proc = spawn(
-      getK6Binary(),
+      binary,
       [
         "run",
         `--vus=${config.vus}`,
@@ -209,8 +300,8 @@ export async function runK6(
           ((Date.now() - startedAt) / 1000).toFixed(2),
         );
         summary.vus = config.vus;
-        summary.executable = getK6Binary();
-        summary.version = getK6Version();
+        summary.executable = binary;
+        summary.version = getK6Version(binary);
         summary.artifactsDir = artifactsDir;
         summary.scriptPath = scriptPath;
         summary.stdoutSnippet = truncateOutput(stdout);

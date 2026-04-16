@@ -12,6 +12,7 @@ import { check } from 'k6';
 import { Counter } from 'k6/metrics';
 
 const RUNTIME_CONFIG = ${runtimeConfig};
+const LOGICAL_FAILURES = new Counter('cpx_logical_failures');
 const STATUS_COUNTERS = {
   '0': new Counter('cpx_status_0'),
   '200': new Counter('cpx_status_200'),
@@ -41,8 +42,14 @@ function countStatus(status) {
 }
 
 export const options = {
-  vus: ${config.vus},
-  duration: '${config.duration}s',
+  scenarios: {
+    default: {
+      executor: 'constant-vus',
+      vus: ${config.vus},
+      duration: '${config.duration}s',
+      gracefulStop: '0s',
+    },
+  },
 };
 
 export function handleSummary(data) {
@@ -83,6 +90,7 @@ const RUNTIME_CONFIG = ${runtimeConfig};
 const DEFAULT_TIMEOUT = '30s';
 const DEFAULT_REDIRECTS = 5;
 const FLOW_OPERATIONS = RUNTIME_CONFIG.flowOperations || [];
+const LOGICAL_FAILURES = new Counter('cpx_logical_failures');
 const STATUS_COUNTERS = {
   '0': new Counter('cpx_status_0'),
   '200': new Counter('cpx_status_200'),
@@ -112,8 +120,14 @@ function countStatus(status) {
 }
 
 export const options = {
-  vus: ${config.vus},
-  duration: '${config.duration}s',
+  scenarios: {
+    default: {
+      executor: 'constant-vus',
+      vus: ${config.vus},
+      duration: '${config.duration}s',
+      gracefulStop: '0s',
+    },
+  },
   summaryTrendStats: ['avg', 'min', 'med', 'p(50)', 'p(90)', 'p(95)', 'p(99)', 'max', 'count'],
 };
 
@@ -215,6 +229,36 @@ function buildParams(operation, headers) {
   };
 }
 
+function normalizeValidationText(value) {
+  return String(value || '')
+    .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')
+    .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#34;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .normalize('NFD')
+    .replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/\\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function detectLoginLikeContent(value) {
+  const normalized = normalizeValidationText(value);
+  return (
+    normalized.includes('bem vindo') &&
+    normalized.includes('nome') &&
+    normalized.includes('senha')
+  );
+}
+
 function executeOperation(operation, state) {
   const url = resolveTemplate(operation.url, state.vars);
   const headers = resolveHeaders(operation.headers, state.vars);
@@ -236,10 +280,7 @@ function executeOperation(operation, state) {
 
   countStatus(response.status);
 
-  check(response, {
-    [\`\${operation.name} ok\`]: (res) => res.status < 400,
-  });
-
+  const failureReasons = [];
   if (Array.isArray(operation.extractors) && typeof response.body === 'string') {
     for (const extractor of operation.extractors) {
       try {
@@ -247,9 +288,11 @@ function executeOperation(operation, state) {
         const match = response.body.match(regex);
         if (match && typeof match[1] === 'string' && match[1] !== '') {
           state.vars[extractor.varName] = match[1];
+        } else {
+          failureReasons.push(\`Extractor ausente: \${extractor.varName}\`);
         }
       } catch {
-        // Regex inválida — ignora para não abortar todo o benchmark.
+        failureReasons.push(\`Regex inválida: \${extractor.varName}\`);
       }
     }
   }
@@ -259,8 +302,33 @@ function executeOperation(operation, state) {
     for (const text of operation.rejectTexts) {
       if (typeof text === 'string' && text !== '' && response.body.includes(text)) {
         sessionInvalid = true;
+        failureReasons.push(\`Texto proibido encontrado: \${text}\`);
         break;
       }
+    }
+  }
+
+  const rejectLoginLikeContent =
+    typeof operation.rejectLoginLikeContent === 'boolean'
+      ? operation.rejectLoginLikeContent
+      : operation.name !== 'Página de Login';
+  if (
+    rejectLoginLikeContent &&
+    typeof response.body === 'string' &&
+    detectLoginLikeContent(response.body)
+  ) {
+    sessionInvalid = true;
+    failureReasons.push('A resposta parece a tela de login do MisterT.');
+  }
+
+  if (Array.isArray(operation.expectedTexts) && operation.expectedTexts.length > 0) {
+    const normalizedBody = normalizeValidationText(response.body || '');
+    const expectedMatch = operation.expectedTexts.some((candidate) =>
+      normalizedBody.includes(normalizeValidationText(candidate)),
+    );
+    if (!expectedMatch) {
+      sessionInvalid = true;
+      failureReasons.push('Nenhum texto esperado foi encontrado na resposta.');
     }
   }
 
@@ -273,8 +341,17 @@ function executeOperation(operation, state) {
       operation.name !== AUTH_OPS[0].name
     ) {
       sessionInvalid = true;
+      failureReasons.push('Sessão expirada ou redirecionada para login.');
     }
   }
+
+  if (sessionInvalid) {
+    LOGICAL_FAILURES.add(1);
+  }
+
+  check(response, {
+    [\`\${operation.name} ok\`]: (res) => res.status < 400 && !sessionInvalid,
+  });
 
   return { response, sessionInvalid };
 }
