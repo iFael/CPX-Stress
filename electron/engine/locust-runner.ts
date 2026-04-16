@@ -210,16 +210,6 @@ export async function runLocust(
       fs.writeFileSync(stdoutPath, stdout, "utf8");
       fs.writeFileSync(stderrPath, stderr, "utf8");
 
-      if (code !== 0) {
-        return reject(
-          new Error(
-            truncateOutput(stderr) ||
-              truncateOutput(stdout) ||
-              `Locust encerrou com código ${code ?? "desconhecido"}.`,
-          ),
-        );
-      }
-
       if (!fs.existsSync(summaryPath)) {
         return reject(
           new Error(
@@ -242,6 +232,11 @@ export async function runLocust(
         summary.scriptPath = scriptPath;
         summary.stdoutSnippet = truncateOutput(stdout);
         summary.stderrSnippet = truncateOutput(stderr);
+        if (code !== 0) {
+          onProgress?.(
+            `Locust encerrou com código ${code}; usando o summary gerado para análise.\n`,
+          );
+        }
         resolve(summary);
       } catch (error) {
         reject(

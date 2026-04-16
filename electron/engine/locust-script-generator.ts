@@ -18,6 +18,7 @@ REQUEST_TIMEOUT_SECONDS = 30
 REQUEST_COUNT = 0
 STATUS_CODES = {}
 TOTAL_BYTES = 0
+LOGICAL_FAILURES = 0
 SUCCESS_STATUS_CODES = {"200", "201", "204", "301", "302", "303", "304"}
 
 def percentile(values, p):
@@ -137,6 +138,7 @@ for operation in MODULE_OPS:
 REQUEST_COUNT = 0
 STATUS_CODES = {}
 TOTAL_BYTES = 0
+LOGICAL_FAILURES = 0
 SUCCESS_STATUS_CODES = {"200", "201", "204", "301", "302", "303", "304"}
 
 def percentile(values, p):
@@ -173,6 +175,35 @@ def resolve_headers(headers, variables):
         return None
     return {key: resolve_template(value, variables) for key, value in headers.items()}
 
+def normalize_validation_text(value):
+    text = str(value or "")
+    text = re.sub(r"<script[\\s\\S]*?</script>", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"<style[\\s\\S]*?</style>", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"<[^>]+>", " ", text)
+    replacements = {
+        "&nbsp;": " ",
+        "&#160;": " ",
+        "&amp;": "&",
+        "&quot;": '"',
+        "&#34;": '"',
+        "&apos;": "'",
+        "&#39;": "'",
+        "&lt;": "<",
+        "&gt;": ">",
+    }
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    text = re.sub(r"\\s+", " ", text).strip().lower()
+    return text
+
+def detect_login_like_content(value):
+    normalized = normalize_validation_text(value)
+    return (
+        "bem vindo" in normalized and
+        "nome" in normalized and
+        "senha" in normalized
+    )
+
 @events.request.add_listener
 def on_request(request_type, name, response_time, response_length, response=None, exception=None, **kwargs):
     global REQUEST_COUNT, TOTAL_BYTES
@@ -186,12 +217,14 @@ def on_request(request_type, name, response_time, response_length, response=None
 
 @events.test_stop.add_listener
 def on_test_stop(environment, **kwargs):
+    global LOGICAL_FAILURES
     stats_total = environment.stats.total
     duration = float(RUNTIME_CONFIG.get("duration") or 0)
     request_count = int(REQUEST_COUNT)
-    failure_count = sum(
+    status_failure_count = sum(
         count for code, count in STATUS_CODES.items() if code not in SUCCESS_STATUS_CODES
     )
+    failure_count = int(status_failure_count + LOGICAL_FAILURES)
     summary = {
         "avgLatency": float(stats_total.avg_response_time or 0.0),
         "minLatency": float(stats_total.min_response_time or 0.0),
@@ -239,6 +272,7 @@ class GeneratedUser(HttpUser):
         self.authenticated = False
 
     def execute_operation(self, operation):
+        global LOGICAL_FAILURES
         url = resolve_template(operation.get("url"), self.variables)
         headers = resolve_headers(operation.get("headers"), self.variables)
         body = resolve_template(operation.get("body"), self.variables) if operation.get("body") is not None else None
@@ -281,6 +315,7 @@ class GeneratedUser(HttpUser):
 
                     if missing_extractors:
                         session_invalid = True
+                        LOGICAL_FAILURES += 1
                         response.failure(
                             "Extractor(es) ausente(s): " + ", ".join(
                                 str(name) for name in missing_extractors if name
@@ -291,8 +326,41 @@ class GeneratedUser(HttpUser):
                     for text in operation.get("rejectTexts") or []:
                         if text and text in response.text:
                             session_invalid = True
+                            LOGICAL_FAILURES += 1
                             response.failure(f"Texto de sessão inválida detectado: {text}")
                             break
+
+                reject_login_like_content = (
+                    operation.get("rejectLoginLikeContent")
+                    if operation.get("rejectLoginLikeContent") is not None
+                    else operation.get("name") != "Página de Login"
+                )
+                if (
+                    not session_invalid
+                    and reject_login_like_content
+                    and response.text
+                    and detect_login_like_content(response.text)
+                ):
+                    session_invalid = True
+                    LOGICAL_FAILURES += 1
+                    response.failure("A resposta parece a tela de login do MisterT")
+
+                expected_texts = operation.get("expectedTexts") or []
+                if (
+                    not session_invalid
+                    and expected_texts
+                    and response.text
+                ):
+                    normalized_body = normalize_validation_text(response.text)
+                    matched = any(
+                        normalize_validation_text(candidate) in normalized_body
+                        for candidate in expected_texts
+                        if candidate
+                    )
+                    if not matched:
+                        session_invalid = True
+                        LOGICAL_FAILURES += 1
+                        response.failure("Nenhum texto esperado foi encontrado na resposta")
 
                 final_signature = build_url_signature(response.url or url)
                 if (
@@ -304,6 +372,7 @@ class GeneratedUser(HttpUser):
                     and operation.get("name") != AUTH_OPS[0].get("name")
                 ):
                     session_invalid = True
+                    LOGICAL_FAILURES += 1
                     response.failure("Sessão expirada ou redirecionada para login")
 
                 if not session_invalid:
