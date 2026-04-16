@@ -13,7 +13,7 @@ from locust import HttpUser, task, constant, events
 
 RUNTIME_CONFIG = json.loads(r'''${runtimeConfig}''')
 SUMMARY_PATH = RUNTIME_CONFIG.get("summaryPath")
-REQUEST_TIMEOUT_SECONDS = 30
+REQUEST_TIMEOUT_SECONDS = max(float(RUNTIME_CONFIG.get("requestTimeoutMs") or 30000) / 1000.0, 0.1)
 
 REQUEST_COUNT = 0
 STATUS_CODES = {}
@@ -33,6 +33,16 @@ def ensure_operation_stats(name):
             "statusCodes": {},
         }
     return OPERATION_STATS[operation_name]
+
+def register_transport_exception(request_type, name, error):
+    events.request.fire(
+        request_type=request_type,
+        name=name,
+        response_time=0,
+        response_length=0,
+        response=None,
+        exception=error,
+    )
 
 def percentile(values, p):
     if not values:
@@ -95,20 +105,24 @@ class GeneratedUser(HttpUser):
 
     @task
     def execute_request(self):
-        with self.client.request(
-            method=(RUNTIME_CONFIG.get("method") or "GET").upper(),
-            url=RUNTIME_CONFIG["url"],
-            headers=RUNTIME_CONFIG.get("headers"),
-            data=RUNTIME_CONFIG.get("body"),
-            name="Requisição Principal",
-            timeout=REQUEST_TIMEOUT_SECONDS,
-            allow_redirects=True,
-            catch_response=True,
-        ) as response:
-            if response.status_code >= 400:
-                response.failure(f"HTTP {response.status_code}")
-            else:
-                response.success()
+        request_method = (RUNTIME_CONFIG.get("method") or "GET").upper()
+        try:
+            with self.client.request(
+                method=request_method,
+                url=RUNTIME_CONFIG["url"],
+                headers=RUNTIME_CONFIG.get("headers"),
+                data=RUNTIME_CONFIG.get("body"),
+                name="Requisição Principal",
+                timeout=REQUEST_TIMEOUT_SECONDS,
+                allow_redirects=True,
+                catch_response=True,
+            ) as response:
+                if response.status_code >= 400:
+                    response.failure(f"HTTP {response.status_code}")
+                else:
+                    response.success()
+        except Exception as error:
+            register_transport_exception(request_method, "Requisição Principal", error)
 `.trim();
 }
 
@@ -127,7 +141,7 @@ from locust import HttpUser, task, constant, events
 
 RUNTIME_CONFIG = json.loads(r'''${runtimeConfig}''')
 SUMMARY_PATH = RUNTIME_CONFIG.get("summaryPath")
-REQUEST_TIMEOUT_SECONDS = 30
+REQUEST_TIMEOUT_SECONDS = max(float(RUNTIME_CONFIG.get("requestTimeoutMs") or 30000) / 1000.0, 0.1)
 
 FLOW_OPERATIONS = RUNTIME_CONFIG.get("flowOperations") or []
 FLOW_SELECTION_MODE = (RUNTIME_CONFIG.get("flowSelectionMode") or "random").lower()
@@ -178,6 +192,16 @@ def ensure_operation_stats(name):
 def register_logical_failure(name):
     stats = ensure_operation_stats(name)
     stats["logicalFailures"] += 1
+
+def register_transport_exception(request_type, name, error):
+    events.request.fire(
+        request_type=request_type,
+        name=name,
+        response_time=0,
+        response_length=0,
+        response=None,
+        exception=error,
+    )
 
 def percentile(values, p):
     if not values:
@@ -440,7 +464,8 @@ class GeneratedUser(HttpUser):
                     response.success()
 
                 return {"session_invalid": session_invalid}
-        except Exception:
+        except Exception as error:
+            register_transport_exception(request_kwargs["method"], operation_name, error)
             return {"session_invalid": True}
 
     @task

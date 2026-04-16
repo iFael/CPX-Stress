@@ -51,6 +51,7 @@ export interface TestConfig {
   duration: number;
   method: "GET" | "POST" | "PUT" | "DELETE";
   flowSelectionMode?: FlowSelectionMode;
+  requestTimeoutMs?: number;
   headers?: Record<string, string>;
   body?: string;
   rampUp?: number;
@@ -632,6 +633,13 @@ export function validateTestConfig(config: TestConfig): void {
     );
   }
 
+  if (
+    config.requestTimeoutMs !== undefined &&
+    (!Number.isFinite(config.requestTimeoutMs) || config.requestTimeoutMs <= 0)
+  ) {
+    throw new Error("requestTimeoutMs deve ser um número positivo");
+  }
+
   validateBody(config.body, "Corpo da requisição");
   validateHeaders(config.headers, "Headers");
 
@@ -666,6 +674,7 @@ export function validateTestConfig(config: TestConfig): void {
  */
 const WORKER_THREAD_THRESHOLD = 256;
 const LIVE_VU_FALLBACK_THRESHOLD = 500;
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 export class StressEngine {
   private cancelled = false;
@@ -1037,16 +1046,18 @@ export class StressEngine {
     await this.preflight(url, isHttps, signal);
 
     const maxSockets = Math.min(config.virtualUsers * 2, 10000);
+    const requestTimeoutMs =
+      config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
     const agents = {
       http: new http.Agent({
         keepAlive: true,
         maxSockets,
-        timeout: 30000,
+        timeout: requestTimeoutMs,
       }),
       https: new https.Agent({
         keepAlive: true,
         maxSockets,
-        timeout: 30000,
+        timeout: requestTimeoutMs,
       }),
     };
     this.activeAgents = agents;
@@ -1362,6 +1373,8 @@ export class StressEngine {
       secRequests++;
       this.noteOperationSecondCount(operationName, "request");
       this.noteOperationSecondCount(operationName, "error");
+      globalStatusCodes["0"] = (globalStatusCodes["0"] || 0) + 1;
+      secStatusCodes["0"] = (secStatusCodes["0"] || 0) + 1;
       this.updateVuActivity(vuId, {
         state: "error",
         operationName,
@@ -1386,6 +1399,7 @@ export class StressEngine {
       if (opMet) {
         opMet.errors++;
         opMet.requests++;
+        opMet.statusCodes["0"] = (opMet.statusCodes["0"] || 0) + 1;
       }
 
       // Capturar erro detalhado
@@ -1791,6 +1805,7 @@ export class StressEngine {
             body: resolvedBody,
             cookieJar,
             captureSession: op.captureSession !== false,
+            timeoutMs: requestTimeoutMs,
             collectBody:
               hasExtract ||
               hasRejectTexts ||
@@ -1799,8 +1814,8 @@ export class StressEngine {
           },
           captureSample,
         );
-
         const failureReasons: string[] = [];
+        let sessionInvalid = false;
         if (hasExtract && result.bodyText) {
           const missingExtractors: string[] = [];
           for (const [varName, pattern] of Object.entries(op.extract!)) {
@@ -1818,16 +1833,17 @@ export class StressEngine {
           }
 
           if (missingExtractors.length > 0) {
+            sessionInvalid = true;
             failureReasons.push(
               `Extractor(es) ausente(s): ${missingExtractors.join(", ")}.`,
             );
           }
         } else if (hasExtract) {
+          sessionInvalid = true;
           failureReasons.push("Corpo vazio ao tentar extrair variáveis dinâmicas.");
         }
 
         // Detectar página de erro de sessão via conteúdo (ex: "Este erro nunca deve ocorrer")
-        let sessionInvalid = false;
         if (hasRejectTexts && result.bodyText) {
           for (const text of op.validation!.rejectOnAnyText!) {
             if (result.bodyText.includes(text)) {
@@ -1938,6 +1954,8 @@ export class StressEngine {
     const loginUrl = authOps.length > 0 ? new URL(authOps[0].url) : null;
     let authenticated = authOps.length === 0;
     let nextFlowIndex = 0;
+    const requestTimeoutMs =
+      opts.config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
     const selectModuleFlow = (): TestOperation[] | null => {
       if (moduleFlows.length === 0) {
@@ -2071,6 +2089,7 @@ export class StressEngine {
       body?: string;
       cookieJar: CookieJar;
       captureSession: boolean;
+      timeoutMs: number;
       /** Quando true, coleta o corpo da resposta para response extraction. */
       collectBody: boolean;
     },
@@ -2108,7 +2127,7 @@ export class StressEngine {
         method: opts.method || "GET",
         agent: opts.agent,
         headers: mergedHeaders,
-        timeout: 30000,
+        timeout: opts.timeoutMs,
       };
 
       if (opts.body && opts.method !== "GET") {
@@ -2722,6 +2741,7 @@ export class StressEngine {
       url: string;
       method: string;
       flowSelectionMode?: FlowSelectionMode;
+      requestTimeoutMs?: number;
       headers?: Record<string, string>;
       body?: string;
     },
@@ -2808,6 +2828,7 @@ export class StressEngine {
           testId: "",
           maxSockets: Math.ceil((config.virtualUsers * 2) / numWorkers),
           flowSelectionMode: config.flowSelectionMode,
+          requestTimeoutMs: config.requestTimeoutMs,
         },
       });
 

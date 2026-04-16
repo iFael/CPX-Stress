@@ -211,6 +211,7 @@ function buildAuthStateSampler(
 function buildSampler(
   operation: NonNullable<JMeterConfig["flowOperations"]>[number],
   index: number,
+  requestTimeoutMs: number,
 ): string {
   const url = splitUrl(toJMeterVarSyntax(operation.url));
   const body = operation.body ? toJMeterVarSyntax(operation.body) : "";
@@ -236,7 +237,7 @@ function buildSampler(
             url.path,
           )}</stringProp><stringProp name="HTTPSampler.method">${xmlEscape(
             operation.method.toUpperCase(),
-          )}</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.auto_redirects">false</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp><boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp><stringProp name="HTTPSampler.connect_timeout">30000</stringProp><stringProp name="HTTPSampler.response_timeout">30000</stringProp></HTTPSamplerProxy>
+          )}</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.auto_redirects">false</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp><boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp><stringProp name="HTTPSampler.connect_timeout">${requestTimeoutMs}</stringProp><stringProp name="HTTPSampler.response_timeout">${requestTimeoutMs}</stringProp></HTTPSamplerProxy>
           <hashTree>
 ${headerManager}
 ${regexExtractors ? `${regexExtractors}\n` : ""}${validationAssertion ? `${validationAssertion}\n` : ""}          </hashTree>`;
@@ -245,9 +246,10 @@ ${regexExtractors ? `${regexExtractors}\n` : ""}${validationAssertion ? `${valid
 function buildFlowController(
   flowName: string,
   operations: NonNullable<JMeterConfig["flowOperations"]>,
+  requestTimeoutMs: number,
 ): string {
   const samplers = operations
-    .map((operation, index) => buildSampler(operation, index))
+    .map((operation, index) => buildSampler(operation, index, requestTimeoutMs))
     .join("\n");
 
   return `        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="${xmlEscape(
@@ -262,6 +264,7 @@ function buildDeterministicFlowController(
   flowName: string,
   operations: NonNullable<JMeterConfig["flowOperations"]>,
   flowIndex: number,
+  requestTimeoutMs: number,
 ): string {
   return `        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="${xmlEscape(
     `${flowName} When Selected`,
@@ -269,7 +272,7 @@ function buildDeterministicFlowController(
     `\${__groovy(vars.get('CPX_SELECTED_FLOW') == '${flowIndex}')}`,
   )}</stringProp><boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp></IfController>
         <hashTree>
-${buildFlowController(flowName, operations)}
+${buildFlowController(flowName, operations, requestTimeoutMs)}
         </hashTree>`;
 }
 
@@ -291,6 +294,7 @@ function buildDeterministicFlowSelector(flowCount: number): string {
 }
 
 export function generateJMeterPlan(config: JMeterConfig): string {
+  const requestTimeoutMs = config.requestTimeoutMs ?? 30_000;
   const operations = config.flowOperations?.length
     ? config.flowOperations
     : [
@@ -331,18 +335,19 @@ export function generateJMeterPlan(config: JMeterConfig): string {
   }
 
   const authSamplers = authOps
-    .map((operation, index) => buildSampler(operation, index))
+    .map((operation, index) => buildSampler(operation, index, requestTimeoutMs))
     .join("\n");
   const randomFlows = moduleFlows
     .map((flow) =>
       buildFlowController(
         `${flow[0].moduleGroup || flow[0].name} Flow`,
         flow,
+        requestTimeoutMs,
       ),
     )
     .join("\n");
   const fallbackSamplers = operations
-    .map((operation, index) => buildSampler(operation, index))
+    .map((operation, index) => buildSampler(operation, index, requestTimeoutMs))
     .join("\n");
   const authPrepareSampler = buildAuthStateSampler(
     CONTROL_SAMPLE_NAMES.authPrepare,
@@ -369,6 +374,7 @@ export function generateJMeterPlan(config: JMeterConfig): string {
         `${flow[0].moduleGroup || flow[0].name} Flow`,
         flow,
         index,
+        requestTimeoutMs,
       ),
     )
     .join("\n");

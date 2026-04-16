@@ -112,7 +112,7 @@ import { Counter } from 'k6/metrics';
 
 const RUNTIME_CONFIG = ${runtimeConfig};
 const FLOW_OPERATION_METRIC_DEFS = ${operationMetricDefinitions};
-const DEFAULT_TIMEOUT = '30s';
+const REQUEST_TIMEOUT = String(RUNTIME_CONFIG.requestTimeoutMs || 30000) + 'ms';
 const DEFAULT_REDIRECTS = 5;
 const FLOW_SELECTION_MODE = (RUNTIME_CONFIG.flowSelectionMode || 'deterministic').toLowerCase();
 const OPERATION_METRICS = Object.fromEntries(
@@ -158,13 +158,13 @@ function countStatus(status) {
   metric.add(1);
 }
 
-function countOperation(operation, responseStatus, sessionInvalid) {
+function countOperation(operation, responseStatus, sessionInvalid, requestError) {
   const metric = OPERATION_METRICS[operation.__metricKey];
   if (!metric) return;
 
   metric.requests.add(1);
 
-  if ((responseStatus || 0) >= 400 || sessionInvalid) {
+  if ((responseStatus || 0) >= 400 || sessionInvalid || requestError) {
     metric.errors.add(1);
   }
 
@@ -303,7 +303,7 @@ function buildParams(operation, headers, state) {
   return {
     headers: requestHeaders,
     redirects: DEFAULT_REDIRECTS,
-    timeout: DEFAULT_TIMEOUT,
+    timeout: REQUEST_TIMEOUT,
     tags: {
       name: operation.name,
       operation_name: operation.name,
@@ -368,6 +368,7 @@ function executeOperation(operation, state) {
   countStatus(response.status);
 
   const failureReasons = [];
+  let extractorFailed = false;
   if (Array.isArray(operation.extractors) && typeof response.body === 'string') {
     for (const extractor of operation.extractors) {
       try {
@@ -376,15 +377,17 @@ function executeOperation(operation, state) {
         if (match && typeof match[1] === 'string' && match[1] !== '') {
           state.vars[extractor.varName] = match[1];
         } else {
+          extractorFailed = true;
           failureReasons.push(\`Extractor ausente: \${extractor.varName}\`);
         }
       } catch {
+        extractorFailed = true;
         failureReasons.push(\`Regex inválida: \${extractor.varName}\`);
       }
     }
   }
 
-  let sessionInvalid = false;
+  let sessionInvalid = extractorFailed;
   if (Array.isArray(operation.rejectTexts) && typeof response.body === 'string') {
     for (const text of operation.rejectTexts) {
       if (typeof text === 'string' && text !== '' && response.body.includes(text)) {
@@ -436,7 +439,12 @@ function executeOperation(operation, state) {
     LOGICAL_FAILURES.add(1);
   }
 
-  countOperation(operation, response.status, sessionInvalid);
+  countOperation(
+    operation,
+    response.status,
+    sessionInvalid,
+    Boolean(response.error) || Boolean(response.error_code) || (response.status || 0) === 0,
+  );
 
   check(response, {
     [\`\${operation.name} ok\`]: (res) => res.status < 400 && !sessionInvalid,

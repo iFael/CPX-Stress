@@ -52,6 +52,7 @@ interface WorkerConfig {
   testId: string;
   maxSockets: number;
   flowSelectionMode?: FlowSelectionMode;
+  requestTimeoutMs?: number;
 }
 
 interface ResponseSample {
@@ -118,17 +119,19 @@ port.on("message", (msg: { type: string }) => {
   }
 });
 
+const requestTimeoutMs = config.requestTimeoutMs ?? 30_000;
+
 // HTTP Agents exclusivos deste worker
 const agents = {
   http: new http.Agent({
     keepAlive: true,
     maxSockets: config.maxSockets,
-    timeout: 30000,
+    timeout: requestTimeoutMs,
   }),
   https: new https.Agent({
     keepAlive: true,
     maxSockets: config.maxSockets,
-    timeout: 30000,
+    timeout: requestTimeoutMs,
   }),
 };
 
@@ -203,6 +206,7 @@ function makeSingleRequest(
     body?: string;
     cookieJar: CookieJar;
     captureSession: boolean;
+    timeoutMs: number;
     collectBody: boolean;
   },
   captureSample: boolean,
@@ -232,7 +236,7 @@ function makeSingleRequest(
       method: opts.method || "GET",
       agent: opts.isHttps ? agents.https : agents.http,
       headers: mergedHeaders,
-      timeout: 30000,
+      timeout: opts.timeoutMs,
     };
 
     if (opts.body && opts.method !== "GET") {
@@ -522,28 +526,37 @@ async function runVU(delay: number, vuId: number): Promise<void> {
           body: resolvedBody,
           cookieJar,
           captureSession: op.captureSession !== false,
+          timeoutMs: requestTimeoutMs,
           collectBody: hasExtract || hasRejectTexts,
         },
         captureSample,
       );
 
       // Aplicar response extraction
+      let sessionInvalid = false;
       if (hasExtract && result.bodyText) {
+        const missingExtractors: string[] = [];
         for (const [varName, pattern] of Object.entries(op.extract!)) {
           try {
             const regex = new RegExp(pattern);
             const match = regex.exec(result.bodyText);
             if (match && match[1]) {
               extractedVars.set(varName, match[1]);
+            } else {
+              missingExtractors.push(varName);
             }
           } catch {
-            // Regex inválida — ignorar
+            missingExtractors.push(varName);
           }
         }
+        if (missingExtractors.length > 0) {
+          sessionInvalid = true;
+        }
+      } else if (hasExtract) {
+        sessionInvalid = true;
       }
 
       // Detectar página de erro de sessão via conteúdo (ex: "Este erro nunca deve ocorrer")
-      let sessionInvalid = false;
       if (hasRejectTexts && result.bodyText) {
         for (const text of op.rejectOnAnyText!) {
           if (result.bodyText.includes(text)) {
