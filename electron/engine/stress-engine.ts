@@ -20,6 +20,7 @@ import type {
   OperationNavigationHints,
   OperationValidationHints,
 } from "../../src/shared/mistert-validation";
+import type { FlowSelectionMode } from "../../src/shared/benchmark-comparison";
 import {
   detectLoginLikeContent,
   normalizeValidationText,
@@ -49,6 +50,7 @@ export interface TestConfig {
   virtualUsers: number;
   duration: number;
   method: "GET" | "POST" | "PUT" | "DELETE";
+  flowSelectionMode?: FlowSelectionMode;
   headers?: Record<string, string>;
   body?: string;
   rampUp?: number;
@@ -618,6 +620,16 @@ export function validateTestConfig(config: TestConfig): void {
   // Validar method
   if (!ALLOWED_METHODS.includes(config.method)) {
     throw new Error(`Método HTTP inválido: ${config.method}`);
+  }
+
+  if (
+    config.flowSelectionMode !== undefined &&
+    config.flowSelectionMode !== "random" &&
+    config.flowSelectionMode !== "deterministic"
+  ) {
+    throw new Error(
+      'flowSelectionMode deve ser "random" ou "deterministic"',
+    );
   }
 
   validateBody(config.body, "Corpo da requisição");
@@ -1925,6 +1937,21 @@ export class StressEngine {
     // Quando um módulo retorna redirect para está pathname, a sessão expirou
     const loginUrl = authOps.length > 0 ? new URL(authOps[0].url) : null;
     let authenticated = authOps.length === 0;
+    let nextFlowIndex = 0;
+
+    const selectModuleFlow = (): TestOperation[] | null => {
+      if (moduleFlows.length === 0) {
+        return null;
+      }
+
+      if (opts.config.flowSelectionMode === "deterministic") {
+        const selectedFlow = moduleFlows[nextFlowIndex % moduleFlows.length];
+        nextFlowIndex += 1;
+        return selectedFlow;
+      }
+
+      return moduleFlows[Math.floor(Math.random() * moduleFlows.length)];
+    };
 
     const runAuth = async (): Promise<boolean> => {
       cookieJar.clear();
@@ -1966,11 +1993,13 @@ export class StressEngine {
         continue;
       }
 
-      const randomFlow =
-        moduleFlows[Math.floor(Math.random() * moduleFlows.length)];
+      const selectedFlow = selectModuleFlow();
+      if (!selectedFlow) {
+        continue;
+      }
       let sessionExpired = false;
 
-      for (const operation of randomFlow) {
+      for (const operation of selectedFlow) {
         const opResult = await executeOp(operation);
         const finalUrl = opResult.finalUrl;
 
@@ -2692,6 +2721,7 @@ export class StressEngine {
       operations?: TestOperation[];
       url: string;
       method: string;
+      flowSelectionMode?: FlowSelectionMode;
       headers?: Record<string, string>;
       body?: string;
     },
@@ -2777,6 +2807,7 @@ export class StressEngine {
           rampUpDelays,
           testId: "",
           maxSockets: Math.ceil((config.virtualUsers * 2) / numWorkers),
+          flowSelectionMode: config.flowSelectionMode,
         },
       });
 

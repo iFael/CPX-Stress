@@ -24,6 +24,7 @@ import type {
   OperationValidationResult,
   ValidationDimensionStatus,
 } from "@/shared/mistert-validation";
+import type { FlowSelectionMode } from "@/shared/benchmark-comparison";
 import type {
   K6Config,
   K6FlowOperation,
@@ -65,6 +66,7 @@ export type {
   JMeterStatus,
   JMeterSummary,
 };
+export type { FlowSelectionMode } from "@/shared/benchmark-comparison";
 
 // ============================================================================
 // 1. CONFIGURAÇÃO DO TESTE
@@ -255,6 +257,13 @@ export interface TestConfig {
    * - DELETE: remover dados
    */
   method: HttpMethod;
+
+  /**
+   * Estratégia de seleção do próximo fluxo de módulo.
+   * - random: preserva a seleção aleatória padrão
+   * - deterministic: alterna fluxos em round-robin por VU
+   */
+  flowSelectionMode?: FlowSelectionMode;
 
   /**
    * Cabecalhos HTTP adicionais (opcional).

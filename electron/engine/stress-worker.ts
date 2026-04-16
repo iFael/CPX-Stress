@@ -19,6 +19,7 @@ import http from "node:http";
 import https from "node:https";
 import { setMaxListeners } from "node:events";
 import { CookieJar } from "./cookie-jar";
+import type { FlowSelectionMode } from "../../src/shared/benchmark-comparison";
 
 if (!parentPort) {
   throw new Error(
@@ -50,6 +51,7 @@ interface WorkerConfig {
   rampUpDelays: number[];
   testId: string;
   maxSockets: number;
+  flowSelectionMode?: FlowSelectionMode;
 }
 
 interface ResponseSample {
@@ -637,6 +639,21 @@ async function runVU(delay: number, vuId: number): Promise<void> {
 
   // Determinar pathname da página de login para detecção de expiração de sessão
   const loginUrl = authOps.length > 0 ? new URL(authOps[0].url) : null;
+  let nextFlowIndex = 0;
+
+  const selectModuleFlow = (): WorkerOperation[] | null => {
+    if (moduleFlows.length === 0) {
+      return null;
+    }
+
+    if (config.flowSelectionMode === "deterministic") {
+      const selectedFlow = moduleFlows[nextFlowIndex % moduleFlows.length];
+      nextFlowIndex += 1;
+      return selectedFlow;
+    }
+
+    return moduleFlows[Math.floor(Math.random() * moduleFlows.length)];
+  };
 
   // Loop principal — apenas operações de módulo
   while (Date.now() < config.endTime && !signal.aborted) {
@@ -648,11 +665,13 @@ async function runVU(delay: number, vuId: number): Promise<void> {
       continue;
     }
 
-    const randomFlow =
-      moduleFlows[Math.floor(Math.random() * moduleFlows.length)];
+    const selectedFlow = selectModuleFlow();
+    if (!selectedFlow) {
+      continue;
+    }
     let sessionExpired = false;
 
-    for (const operation of randomFlow) {
+    for (const operation of selectedFlow) {
       const opResult = await executeOp(operation);
       const finalUrl = opResult.finalUrl;
 
