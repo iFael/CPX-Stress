@@ -77,6 +77,11 @@ export interface ErrorDetail {
   errorType: "http" | "timeout" | "connection" | "dns" | "unknown";
   message: string;
   responseSnippet?: string;
+  vuId?: number;
+  vuRequestSequence?: number;
+  targetLabel?: string;
+  requestMethod?: string;
+  finalTargetLabel?: string;
 }
 
 /** Métricas agregadas por operação. */
@@ -1281,6 +1286,8 @@ export class StressEngine {
       sessionInvalid: boolean = false,
       failureMessage?: string,
       responseSnippet?: string,
+      finalTargetLabel?: string,
+      vuRequestSequence?: number,
     ) => {
       // Reservoir sampling: manter no máximo RESERVOIR_MAX amostras
       latencySampleCount++;
@@ -1378,6 +1385,13 @@ export class StressEngine {
           "http",
           `HTTP ${statusCode}`,
           responseSnippet,
+          {
+            vuId,
+            vuRequestSequence,
+            targetLabel,
+            requestMethod: method,
+            finalTargetLabel: finalTargetLabel || targetLabel,
+          },
         );
       } else if (sessionInvalid) {
         this.runtimeErrorCounts.unknown++;
@@ -1388,6 +1402,13 @@ export class StressEngine {
           "unknown",
           failureMessage || "Falha lógica do fluxo MisterT.",
           responseSnippet,
+          {
+            vuId,
+            vuRequestSequence,
+            targetLabel,
+            requestMethod: method,
+            finalTargetLabel: finalTargetLabel || targetLabel,
+          },
         );
       }
 
@@ -1403,6 +1424,7 @@ export class StressEngine {
       operationName: string,
       targetLabel: string,
       method: string,
+      vuRequestSequence?: number,
     ) => {
       totalErrors++;
       secErrors++;
@@ -1451,6 +1473,13 @@ export class StressEngine {
         errorType,
         errorMsg,
         undefined,
+        {
+          vuId,
+          vuRequestSequence,
+          targetLabel,
+          requestMethod: method,
+          finalTargetLabel: targetLabel,
+        },
       );
     };
 
@@ -1719,6 +1748,8 @@ export class StressEngine {
         sessionInvalid?: boolean,
         failureMessage?: string,
         responseSnippet?: string,
+        finalTargetLabel?: string,
+        vuRequestSequence?: number,
       ) => void;
       onError: (
         vuId: number,
@@ -1726,6 +1757,7 @@ export class StressEngine {
         operationName: string,
         targetLabel: string,
         method: string,
+        vuRequestSequence?: number,
       ) => void;
       onVuActivity: (activity: LiveVuActivitySnapshot) => void;
     },
@@ -1752,6 +1784,7 @@ export class StressEngine {
     const extractedVars = new Map<string, string>();
     const requestTimeoutMs =
       opts.config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+    let vuRequestSequence = 0;
 
     // Alguns alvos legados parecem associar contexto parcialmente ao canal.
     // Isolar o pool keep-alive por VU evita bleed entre sessões concorrentes.
@@ -1833,6 +1866,8 @@ export class StressEngine {
       const expectsAnyText = !!op.validation?.expectedAnyText?.length;
       const rejectLoginLikeContent =
         op.validation?.rejectLoginLikeContent ?? op.name !== "Página de Login";
+      vuRequestSequence += 1;
+      const currentVuRequestSequence = vuRequestSequence;
 
       this.vuRequestCount++;
       const captureSample = this.vuRequestCount % 50 === 1;
@@ -1939,6 +1974,9 @@ export class StressEngine {
         const failureMessage =
           failureReasons.length > 0 ? failureReasons.join(" ") : undefined;
         const responseSnippet = result.bodyText || result.sample?.bodySnippet;
+        const finalTargetLabel = result.finalUrl
+          ? this.sanitizeTargetLabel(result.finalUrl)
+          : targetLabel;
         opts.onResponse(
           opts.vuId,
           latency,
@@ -1952,6 +1990,8 @@ export class StressEngine {
           sessionInvalid,
           failureMessage,
           responseSnippet,
+          finalTargetLabel,
+          currentVuRequestSequence,
         );
         return {
           finalUrl: result.finalUrl,
@@ -1962,7 +2002,14 @@ export class StressEngine {
       } catch (err) {
         if (!opts.signal.aborted) {
           const msg = err instanceof Error ? err.message : String(err);
-          opts.onError(opts.vuId, msg, op.name, targetLabel, op.method);
+          opts.onError(
+            opts.vuId,
+            msg,
+            op.name,
+            targetLabel,
+            op.method,
+            currentVuRequestSequence,
+          );
           return {
             finalUrl: undefined,
             sessionInvalid: false,
@@ -2339,6 +2386,7 @@ export class StressEngine {
       body?: string;
       cookieJar: CookieJar;
       captureSession: boolean;
+      timeoutMs: number;
       collectBody: boolean;
     },
     captureSample: boolean = false,
@@ -2766,6 +2814,13 @@ export class StressEngine {
     errorType: "http" | "timeout" | "connection" | "dns" | "unknown",
     message: string,
     responseSnippet?: string,
+    context?: {
+      vuId?: number;
+      vuRequestSequence?: number;
+      targetLabel?: string;
+      requestMethod?: string;
+      finalTargetLabel?: string;
+    },
   ): void {
     if (this.errorBuffer.length >= this.MAX_ERROR_BUFFER) {
       this.flushErrors();
@@ -2780,6 +2835,11 @@ export class StressEngine {
       errorType,
       message: message.substring(0, 500),
       responseSnippet: responseSnippet?.substring(0, 1024),
+      vuId: context?.vuId,
+      vuRequestSequence: context?.vuRequestSequence,
+      targetLabel: context?.targetLabel?.substring(0, 255),
+      requestMethod: context?.requestMethod?.substring(0, 16),
+      finalTargetLabel: context?.finalTargetLabel?.substring(0, 255),
     });
 
     // Flush a cada 1000 erros para não acumular demais em memória
@@ -2827,6 +2887,9 @@ export class StressEngine {
       sample?: ResponseSample,
       sessionInvalid?: boolean,
       failureMessage?: string,
+      responseSnippet?: string,
+      finalTargetLabel?: string,
+      vuRequestSequence?: number,
     ) => void,
     onError: (
       vuId: number,
@@ -2834,6 +2897,7 @@ export class StressEngine {
       opName: string,
       targetLabel: string,
       method: string,
+      vuRequestSequence?: number,
     ) => void,
     onVuActivity: (activity: LiveVuActivitySnapshot) => void,
     signal: AbortSignal,
@@ -2925,6 +2989,8 @@ export class StressEngine {
                 sessionInvalid?: boolean;
                 failureMessage?: string;
                 responseSnippet?: string;
+                finalTargetLabel?: string;
+                vuRequestSequence?: number;
               }>;
               networkErrors?: Array<{
                 vuId: number;
@@ -2932,6 +2998,7 @@ export class StressEngine {
                 opName: string;
                 targetLabel: string;
                 method: string;
+                vuRequestSequence?: number;
               }>;
               activityEvents?: LiveVuActivitySnapshot[];
             }) => {
@@ -2951,6 +3018,8 @@ export class StressEngine {
                       r.sessionInvalid,
                       r.failureMessage,
                       r.responseSnippet,
+                      r.finalTargetLabel,
+                      r.vuRequestSequence,
                     );
                   }
                 }
@@ -2962,6 +3031,7 @@ export class StressEngine {
                       e.opName,
                       e.targetLabel,
                       e.method,
+                      e.vuRequestSequence,
                     );
                   }
                 }

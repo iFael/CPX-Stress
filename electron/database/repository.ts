@@ -78,6 +78,11 @@ export interface ErrorRow {
   error_type: string;
   message: string;
   response_snippet: string | null;
+  vu_id: number | null;
+  vu_request_sequence: number | null;
+  target_label: string | null;
+  request_method: string | null;
+  final_target_label: string | null;
 }
 
 // ============================================================================
@@ -310,8 +315,9 @@ export function saveErrorBatch(errors: ErrorRow[]): void {
   const stmt = db.prepare(`
     INSERT OR IGNORE INTO test_errors (
       id, test_id, timestamp, operation_name, status_code,
-      error_type, message, response_snippet
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      error_type, message, response_snippet, vu_id,
+      vu_request_sequence, target_label, request_method, final_target_label
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   db.transaction(() => {
@@ -325,6 +331,11 @@ export function saveErrorBatch(errors: ErrorRow[]): void {
         e.error_type,
         e.message,
         e.response_snippet || null,
+        e.vu_id ?? null,
+        e.vu_request_sequence ?? null,
+        e.target_label ?? null,
+        e.request_method ?? null,
+        e.final_target_label ?? null,
       );
     }
   })();

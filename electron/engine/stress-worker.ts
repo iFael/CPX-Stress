@@ -88,6 +88,8 @@ interface ResponseItem {
   sessionInvalid?: boolean;
   failureMessage?: string;
   responseSnippet?: string;
+  finalTargetLabel?: string;
+  vuRequestSequence?: number;
 }
 
 interface NetworkError {
@@ -96,6 +98,7 @@ interface NetworkError {
   opName: string;
   targetLabel: string;
   method: string;
+  vuRequestSequence?: number;
 }
 
 type WorkerVuActivityState =
@@ -510,6 +513,7 @@ async function runVU(delay: number, vuId: number): Promise<void> {
 
   const cookieJar = new CookieJar();
   const extractedVars = new Map<string, string>();
+  let vuRequestSequence = 0;
 
   // Helper: executa uma única operação (reutilizado nos modos sequencial e aleatório)
   const executeOp = async (op: WorkerOperation): Promise<{ finalUrl?: URL; sessionInvalid: boolean }> => {
@@ -532,6 +536,8 @@ async function runVU(delay: number, vuId: number): Promise<void> {
     const expectsAnyText = !!op.expectedAnyText?.length;
     const rejectLoginLikeContent =
       op.rejectLoginLikeContent ?? op.name !== "Página de Login";
+    vuRequestSequence += 1;
+    const currentVuRequestSequence = vuRequestSequence;
     requestCount++;
     const captureSample = requestCount % 50 === 1;
 
@@ -648,6 +654,10 @@ async function runVU(delay: number, vuId: number): Promise<void> {
         sessionInvalid,
         failureMessage,
         responseSnippet: result.bodyText || result.sample?.bodySnippet,
+        finalTargetLabel: result.finalUrl
+          ? sanitizeTargetLabel(result.finalUrl)
+          : targetLabel,
+        vuRequestSequence: currentVuRequestSequence,
       });
       setVuActivity({
         vuId,
@@ -673,6 +683,7 @@ async function runVU(delay: number, vuId: number): Promise<void> {
           opName: op.name,
           targetLabel,
           method: op.method,
+          vuRequestSequence: currentVuRequestSequence,
         });
         setVuActivity({
           vuId,

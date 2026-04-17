@@ -385,7 +385,40 @@ export function ErrorExplorer({ testId }: ErrorExplorerProps) {
                       {new Date(err.timestamp).toLocaleTimeString("pt-BR")}
                     </td>
                     <td className="px-3 py-2 text-xs text-sf-textSecondary">
-                      {err.operationName}
+                      <div className="space-y-0.5">
+                        <div>{err.operationName}</div>
+                        {(err.vuId !== undefined ||
+                          err.vuRequestSequence !== undefined ||
+                          err.requestMethod) && (
+                          <div className="text-[11px] text-sf-textMuted font-mono">
+                            {[
+                              err.vuId !== undefined ? `VU ${err.vuId}` : null,
+                              err.vuRequestSequence !== undefined
+                                ? `SEQ ${err.vuRequestSequence}`
+                                : null,
+                              err.requestMethod || null,
+                            ]
+                              .filter(Boolean)
+                              .join(" | ")}
+                          </div>
+                        )}
+                        {(err.targetLabel || err.finalTargetLabel) && (
+                          <div
+                            className="text-[11px] text-sf-textMuted truncate"
+                            title={
+                              err.finalTargetLabel &&
+                              err.finalTargetLabel !== err.targetLabel
+                                ? `${err.targetLabel || ""} -> ${err.finalTargetLabel}`
+                                : err.targetLabel || err.finalTargetLabel
+                            }
+                          >
+                            {err.finalTargetLabel &&
+                            err.finalTargetLabel !== err.targetLabel
+                              ? `${err.targetLabel || "-"} -> ${err.finalTargetLabel}`
+                              : err.targetLabel || err.finalTargetLabel}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="text-center px-3 py-2">
                       <span

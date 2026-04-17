@@ -627,6 +627,33 @@ function applyMigrations(database: Database.Database): void {
         .run(6);
     })();
   }
+
+  if (version < 7) {
+    database.transaction(() => {
+      database.exec(`
+        ALTER TABLE test_errors ADD COLUMN vu_id INTEGER
+      `);
+      database.exec(`
+        ALTER TABLE test_errors ADD COLUMN vu_request_sequence INTEGER
+      `);
+      database.exec(`
+        ALTER TABLE test_errors ADD COLUMN target_label TEXT
+      `);
+      database.exec(`
+        ALTER TABLE test_errors ADD COLUMN request_method TEXT
+      `);
+      database.exec(`
+        ALTER TABLE test_errors ADD COLUMN final_target_label TEXT
+      `);
+      database.exec(`
+        CREATE INDEX IF NOT EXISTS idx_test_errors_vu_sequence
+        ON test_errors(test_id, vu_id, vu_request_sequence)
+      `);
+      database
+        .prepare("INSERT INTO schema_version (version) VALUES (?)")
+        .run(7);
+    })();
+  }
 }
 
 /**

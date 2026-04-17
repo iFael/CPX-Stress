@@ -184,6 +184,21 @@ export interface ErrorRecord {
 
   /** Primeiros bytes da resposta do servidor (para diagnóstico). */
   responseSnippet?: string;
+
+  /** Identificador do usuário virtual (VU) que observou o erro. */
+  vuId?: number;
+
+  /** Ordem sequencial da requisição dentro do VU. */
+  vuRequestSequence?: number;
+
+  /** Alvo solicitado, sanitizado para diagnóstico. */
+  targetLabel?: string;
+
+  /** Método HTTP usado na requisição. */
+  requestMethod?: string;
+
+  /** Alvo final observado após redirecionamentos ou reancoragem. */
+  finalTargetLabel?: string;
 }
 
 /**

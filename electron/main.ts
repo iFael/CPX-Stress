@@ -532,6 +532,11 @@ if (canUseElectronMainApis) {
       error_type: string;
       message: string;
       response_snippet: string | null;
+      vu_id: number | null;
+      vu_request_sequence: number | null;
+      target_label: string | null;
+      request_method: string | null;
+      final_target_label: string | null;
     }> = [];
 
     activeTestPromise = activeEngine.run(
@@ -552,6 +557,11 @@ if (canUseElectronMainApis) {
             error_type: e.errorType,
             message: e.message,
             response_snippet: e.responseSnippet || null,
+            vu_id: e.vuId ?? null,
+            vu_request_sequence: e.vuRequestSequence ?? null,
+            target_label: e.targetLabel || null,
+            request_method: e.requestMethod || null,
+            final_target_label: e.finalTargetLabel || null,
           })),
         );
       },
@@ -1250,7 +1260,25 @@ if (canUseElectronMainApis) {
       if (!params || typeof params !== "object") {
         return { records: [], total: 0 };
       }
-      return searchErrors(params);
+      const { records, total } = searchErrors(params);
+      return {
+        total,
+        records: records.map((row) => ({
+          id: row.id,
+          testId: row.test_id,
+          timestamp: row.timestamp,
+          operationName: row.operation_name,
+          statusCode: row.status_code,
+          errorType: row.error_type,
+          message: row.message,
+          responseSnippet: row.response_snippet || undefined,
+          vuId: row.vu_id ?? undefined,
+          vuRequestSequence: row.vu_request_sequence ?? undefined,
+          targetLabel: row.target_label || undefined,
+          requestMethod: row.request_method || undefined,
+          finalTargetLabel: row.final_target_label || undefined,
+        })),
+      };
     } catch (error) {
       console.error("[CPX-Stress] Erro ao buscar erros:", error);
       throw new Error("Não foi possível buscar os erros detalhados.");
