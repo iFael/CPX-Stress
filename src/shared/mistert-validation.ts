@@ -1,3 +1,5 @@
+export const MISTERT_FLOW_BODY_LIMIT_BYTES = 2_097_152;
+
 export type ValidationDimensionStatus = "pass" | "fail" | "blocked";
 
 export type OperationAccessMode = "url-driven" | "action-driven";

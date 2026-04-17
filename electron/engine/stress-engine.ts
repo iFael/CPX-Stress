@@ -12,6 +12,9 @@ import { v4 as uuidv4 } from "uuid";
 import { ProtectionDetector } from "./protection-detector";
 import type { ResponseSample } from "./protection-detector";
 import { CookieJar } from "./cookie-jar";
+import type { K6Summary } from "./k6-types";
+import type { LocustSummary } from "./locust-types";
+import type { JMeterSummary } from "./jmeter-types";
 import type {
   MeasurementReliability,
   MeasurementReliabilitySignals,
@@ -20,9 +23,14 @@ import type {
   OperationNavigationHints,
   OperationValidationHints,
 } from "../../src/shared/mistert-validation";
-import type { FlowSelectionMode } from "../../src/shared/benchmark-comparison";
+import {
+  getDeterministicFlowStartIndex,
+  type DeterministicStartOffsetStrategy,
+  type FlowSelectionMode,
+} from "../../src/shared/benchmark-comparison";
 import {
   detectLoginLikeContent,
+  MISTERT_FLOW_BODY_LIMIT_BYTES,
   normalizeValidationText,
 } from "../../src/shared/mistert-validation";
 
@@ -51,6 +59,7 @@ export interface TestConfig {
   duration: number;
   method: "GET" | "POST" | "PUT" | "DELETE";
   flowSelectionMode?: FlowSelectionMode;
+  deterministicStartOffsetStrategy?: DeterministicStartOffsetStrategy;
   requestTimeoutMs?: number;
   headers?: Record<string, string>;
   body?: string;
@@ -248,6 +257,22 @@ export interface TestResult {
     unknown: number;
   };
   vuResults?: VuResultSummary[];
+  externalBenchmarks?: PersistedExternalBenchmarks;
+}
+
+export interface PersistedExternalBenchmarkEntry<TSummary = unknown> {
+  available: boolean | null;
+  status: "idle" | "checking" | "running" | "done" | "error";
+  error: string | null;
+  progress: string[];
+  summary: TSummary | null;
+}
+
+export interface PersistedExternalBenchmarks {
+  started: boolean;
+  k6: PersistedExternalBenchmarkEntry<K6Summary>;
+  locust: PersistedExternalBenchmarkEntry<LocustSummary>;
+  jmeter: PersistedExternalBenchmarkEntry<JMeterSummary>;
 }
 
 function percentile(sorted: number[], p: number): number {
@@ -634,6 +659,16 @@ export function validateTestConfig(config: TestConfig): void {
   }
 
   if (
+    config.deterministicStartOffsetStrategy !== undefined &&
+    config.deterministicStartOffsetStrategy !== "none" &&
+    config.deterministicStartOffsetStrategy !== "per-vu"
+  ) {
+    throw new Error(
+      'deterministicStartOffsetStrategy deve ser "none" ou "per-vu"',
+    );
+  }
+
+  if (
     config.requestTimeoutMs !== undefined &&
     (!Number.isFinite(config.requestTimeoutMs) || config.requestTimeoutMs <= 0)
   ) {
@@ -675,6 +710,7 @@ export function validateTestConfig(config: TestConfig): void {
 const WORKER_THREAD_THRESHOLD = 256;
 const LIVE_VU_FALLBACK_THRESHOLD = 500;
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+const EXTRACT_BODY_LIMIT_BYTES = MISTERT_FLOW_BODY_LIMIT_BYTES;
 
 export class StressEngine {
   private cancelled = false;
@@ -1244,6 +1280,7 @@ export class StressEngine {
       sample?: ResponseSample,
       sessionInvalid: boolean = false,
       failureMessage?: string,
+      responseSnippet?: string,
     ) => {
       // Reservoir sampling: manter no máximo RESERVOIR_MAX amostras
       latencySampleCount++;
@@ -1340,7 +1377,7 @@ export class StressEngine {
           statusCode,
           "http",
           `HTTP ${statusCode}`,
-          undefined,
+          responseSnippet,
         );
       } else if (sessionInvalid) {
         this.runtimeErrorCounts.unknown++;
@@ -1350,7 +1387,7 @@ export class StressEngine {
           statusCode,
           "unknown",
           failureMessage || "Falha lógica do fluxo MisterT.",
-          undefined,
+          responseSnippet,
         );
       }
 
@@ -1681,6 +1718,7 @@ export class StressEngine {
         sample?: ResponseSample,
         sessionInvalid?: boolean,
         failureMessage?: string,
+        responseSnippet?: string,
       ) => void;
       onError: (
         vuId: number,
@@ -1712,6 +1750,23 @@ export class StressEngine {
     // Variáveis extraídas de respostas anteriores (Response Extraction)
     // Ex: { "CTRL": "1048389603" } — usado em {{CTRL}} nas operações seguintes
     const extractedVars = new Map<string, string>();
+    const requestTimeoutMs =
+      opts.config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+
+    // Alguns alvos legados parecem associar contexto parcialmente ao canal.
+    // Isolar o pool keep-alive por VU evita bleed entre sessões concorrentes.
+    const vuAgents = {
+      http: new http.Agent({
+        keepAlive: true,
+        maxSockets: 2,
+        timeout: requestTimeoutMs,
+      }),
+      https: new https.Agent({
+        keepAlive: true,
+        maxSockets: 2,
+        timeout: requestTimeoutMs,
+      }),
+    };
 
     // Helper: executa uma única operação (reutilizado nos modos sequencial e aleatório)
     const executeOp = async (
@@ -1798,7 +1853,7 @@ export class StressEngine {
           {
             url: opUrl,
             isHttps: opIsHttps,
-            agent: opIsHttps ? opts.agents.https : opts.agents.http,
+            agents: vuAgents,
             signal: opts.signal,
             method: op.method,
             headers: resolvedHeaders,
@@ -1883,6 +1938,7 @@ export class StressEngine {
         const latency = performance.now() - start;
         const failureMessage =
           failureReasons.length > 0 ? failureReasons.join(" ") : undefined;
+        const responseSnippet = result.bodyText || result.sample?.bodySnippet;
         opts.onResponse(
           opts.vuId,
           latency,
@@ -1895,6 +1951,7 @@ export class StressEngine {
           result.sample,
           sessionInvalid,
           failureMessage,
+          responseSnippet,
         );
         return {
           finalUrl: result.finalUrl,
@@ -1953,9 +2010,11 @@ export class StressEngine {
     // Quando um módulo retorna redirect para está pathname, a sessão expirou
     const loginUrl = authOps.length > 0 ? new URL(authOps[0].url) : null;
     let authenticated = authOps.length === 0;
-    let nextFlowIndex = 0;
-    const requestTimeoutMs =
-      opts.config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+    let nextFlowIndex = getDeterministicFlowStartIndex(
+      opts.vuId,
+      moduleFlows.length,
+      opts.config.deterministicStartOffsetStrategy,
+    );
 
     const selectModuleFlow = (): TestOperation[] | null => {
       if (moduleFlows.length === 0) {
@@ -1985,67 +2044,72 @@ export class StressEngine {
       return true;
     };
 
-    if (authOps.length > 0) {
-      authenticated = await runAuth();
-    }
-
-    // Loop principal — apenas operações de módulo (sem re-autenticação desnecessária)
-    while (Date.now() < opts.endTime && !opts.signal.aborted) {
-      if (!authenticated) {
+    try {
+      if (authOps.length > 0) {
         authenticated = await runAuth();
-        if (!authenticated) {
-          continue;
-        }
       }
 
-      if (moduleFlows.length === 0) {
-        // Modo single-op ou auth-only: mantém comportamento original
-        // (sem módulos, o loop continua executando authOps)
-        for (const op of authOps) {
-          const outcome = await executeOp(op);
-          if (outcome.requestFailed || outcome.sessionInvalid) {
-            authenticated = false;
+      // Loop principal — apenas operações de módulo (sem re-autenticação desnecessária)
+      while (Date.now() < opts.endTime && !opts.signal.aborted) {
+        if (!authenticated) {
+          authenticated = await runAuth();
+          if (!authenticated) {
+            continue;
+          }
+        }
+
+        if (moduleFlows.length === 0) {
+          // Modo single-op ou auth-only: mantém comportamento original
+          // (sem módulos, o loop continua executando authOps)
+          for (const op of authOps) {
+            const outcome = await executeOp(op);
+            if (outcome.requestFailed || outcome.sessionInvalid) {
+              authenticated = false;
+              break;
+            }
+          }
+          continue;
+        }
+
+        const selectedFlow = selectModuleFlow();
+        if (!selectedFlow) {
+          continue;
+        }
+        let sessionExpired = false;
+
+        for (const operation of selectedFlow) {
+          const opResult = await executeOp(operation);
+          const finalUrl = opResult.finalUrl;
+
+          sessionExpired =
+            opResult.sessionInvalid ||
+            (loginUrl !== null &&
+              finalUrl !== undefined &&
+              finalUrl.pathname.toLowerCase() === loginUrl.pathname.toLowerCase() &&
+              finalUrl.searchParams.toString() === loginUrl.searchParams.toString());
+
+          if (sessionExpired || opResult.requestFailed) {
             break;
           }
         }
-        continue;
-      }
 
-      const selectedFlow = selectModuleFlow();
-      if (!selectedFlow) {
-        continue;
-      }
-      let sessionExpired = false;
-
-      for (const operation of selectedFlow) {
-        const opResult = await executeOp(operation);
-        const finalUrl = opResult.finalUrl;
-
-        sessionExpired =
-          opResult.sessionInvalid ||
-          (loginUrl !== null &&
-            finalUrl !== undefined &&
-            finalUrl.pathname.toLowerCase() === loginUrl.pathname.toLowerCase() &&
-            finalUrl.searchParams.toString() === loginUrl.searchParams.toString());
-
-        if (sessionExpired || opResult.requestFailed) {
-          break;
+        if (sessionExpired) {
+          // Limpar estado de sessão antiga antes de re-autenticar
+          opts.onVuActivity({
+            vuId: opts.vuId,
+            state: "reauthenticating",
+            operationName: "Reautenticando sessão",
+            targetLabel: "Fluxo de login",
+            method: "POST",
+            updatedAt: Date.now(),
+            message: "Sessão expirada; refazendo autenticação.",
+          });
+          authenticated = false;
         }
       }
-
-      if (sessionExpired) {
-        // Limpar estado de sessão antiga antes de re-autenticar
-        opts.onVuActivity({
-          vuId: opts.vuId,
-          state: "reauthenticating",
-          operationName: "Reautenticando sessão",
-          targetLabel: "Fluxo de login",
-          method: "POST",
-          updatedAt: Date.now(),
-          message: "Sessão expirada; refazendo autenticação.",
-        });
-        authenticated = false;
-      }
+    } finally {
+      vuAgents.http.destroy();
+      vuAgents.https.destroy();
     }
   }
 
@@ -2164,10 +2228,10 @@ export class StressEngine {
         let bodyCollected = 0;
         const BODY_LIMIT = 2048;
 
-        // Buffer separado para response extraction (maior, até 64KB)
+        // Buffer separado para response extraction/validacao de fluxo.
+        // Algumas telas do MisterT devolvem HTML/script pesado antes dos marcadores úteis.
         const extractChunks: Buffer[] = [];
         let extractCollected = 0;
-        const EXTRACT_LIMIT = 65536;
         const needExtractBody = opts.collectBody;
 
         // Capturar Set-Cookie headers para manter sessão entre operações
@@ -2183,8 +2247,8 @@ export class StressEngine {
             bodyChunks.push(chunk.subarray(0, remaining));
             bodyCollected += Math.min(chunk.length, remaining);
           }
-          if (needExtractBody && extractCollected < EXTRACT_LIMIT) {
-            const remaining = EXTRACT_LIMIT - extractCollected;
+          if (needExtractBody && extractCollected < EXTRACT_BODY_LIMIT_BYTES) {
+            const remaining = EXTRACT_BODY_LIMIT_BYTES - extractCollected;
             extractChunks.push(chunk.subarray(0, remaining));
             extractCollected += Math.min(chunk.length, remaining);
           }
@@ -2265,7 +2329,10 @@ export class StressEngine {
     opts: {
       url: URL;
       isHttps: boolean;
-      agent: http.Agent | https.Agent;
+      agents: {
+        http: http.Agent;
+        https: https.Agent;
+      };
       signal: AbortSignal;
       method: string;
       headers?: Record<string, string>;
@@ -2290,7 +2357,7 @@ export class StressEngine {
 
     // Selecionar agente correto por protocolo (pode mudar entre hops se scheme mudar)
     const selectAgent = (isHttps: boolean): http.Agent | https.Agent =>
-      isHttps ? this.activeAgents.https! : this.activeAgents.http!;
+      isHttps ? opts.agents.https : opts.agents.http;
 
     let lastResult: Awaited<ReturnType<typeof this.makeSingleRequest>> | null = null;
 
@@ -2741,6 +2808,7 @@ export class StressEngine {
       url: string;
       method: string;
       flowSelectionMode?: FlowSelectionMode;
+      deterministicStartOffsetStrategy?: DeterministicStartOffsetStrategy;
       requestTimeoutMs?: number;
       headers?: Record<string, string>;
       body?: string;
@@ -2821,6 +2889,8 @@ export class StressEngine {
             body: op.body,
             captureSession: op.captureSession,
             extract: op.extract,
+            expectedAnyText: op.validation?.expectedAnyText,
+            rejectLoginLikeContent: op.validation?.rejectLoginLikeContent,
             rejectOnAnyText: op.validation?.rejectOnAnyText,
           })),
           endTime,
@@ -2828,6 +2898,8 @@ export class StressEngine {
           testId: "",
           maxSockets: Math.ceil((config.virtualUsers * 2) / numWorkers),
           flowSelectionMode: config.flowSelectionMode,
+          deterministicStartOffsetStrategy:
+            config.deterministicStartOffsetStrategy,
           requestTimeoutMs: config.requestTimeoutMs,
         },
       });
@@ -2851,6 +2923,8 @@ export class StressEngine {
                 captureSession: boolean;
                 sample?: ResponseSample;
                 sessionInvalid?: boolean;
+                failureMessage?: string;
+                responseSnippet?: string;
               }>;
               networkErrors?: Array<{
                 vuId: number;
@@ -2875,6 +2949,8 @@ export class StressEngine {
                       r.captureSession,
                       r.sample,
                       r.sessionInvalid,
+                      r.failureMessage,
+                      r.responseSnippet,
                     );
                   }
                 }

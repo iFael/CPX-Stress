@@ -7,6 +7,7 @@ import { validateTargetHost } from "./stress-engine";
 import {
   buildValidationSnippet,
   detectLoginLikeContent,
+  MISTERT_FLOW_BODY_LIMIT_BYTES,
   normalizeValidationText,
   type MistertValidationResult,
   type OperationValidationResult,
@@ -15,9 +16,20 @@ import {
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 const MAX_REDIRECT_HOPS = 5;
-const BODY_LIMIT_BYTES = 2_097_152;
 const ENV_PLACEHOLDER_PATTERN = /\{\{(STRESSFLOW_\w+)\}\}/g;
 const GENERIC_PLACEHOLDER_PATTERN = /\{\{([^}]+)\}\}/g;
+const VALIDATION_MAX_NETWORK_ATTEMPTS = 2;
+const VALIDATION_RETRY_DELAY_MS = 250;
+const RETRYABLE_NETWORK_ERROR_PATTERNS = [
+  "ETIMEDOUT",
+  "ECONNRESET",
+  "ECONNABORTED",
+  "EAI_AGAIN",
+  "ENETUNREACH",
+  "EHOSTUNREACH",
+  "socket hang up",
+  "Request timeout",
+];
 
 export interface ResolvedConfigWithEnv {
   config: TestConfig;
@@ -245,9 +257,9 @@ async function makeSingleRequest(
         }
 
         res.on("data", (chunk: Buffer) => {
-          if (collectedBytes >= BODY_LIMIT_BYTES) return;
+          if (collectedBytes >= MISTERT_FLOW_BODY_LIMIT_BYTES) return;
 
-          const remaining = BODY_LIMIT_BYTES - collectedBytes;
+          const remaining = MISTERT_FLOW_BODY_LIMIT_BYTES - collectedBytes;
           const chunkSlice = chunk.subarray(0, remaining);
           bodyChunks.push(chunkSlice);
           collectedBytes += chunkSlice.length;
@@ -283,6 +295,19 @@ async function makeSingleRequest(
 
 function isRedirectStatus(statusCode: number): boolean {
   return statusCode >= 300 && statusCode <= 308 && statusCode !== 304;
+}
+
+function isRetryableNetworkError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return RETRYABLE_NETWORK_ERROR_PATTERNS.some((pattern) =>
+    message.includes(pattern)
+  );
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 async function makeRequest(
@@ -334,6 +359,29 @@ async function makeRequest(
     finalUrl: currentUrl,
     redirectCount,
   };
+}
+
+async function makeRequestWithRetry(
+  opts: Parameters<typeof makeRequest>[0],
+): Promise<RequestResult> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= VALIDATION_MAX_NETWORK_ATTEMPTS; attempt++) {
+    try {
+      return await makeRequest(opts);
+    } catch (error) {
+      lastError = error;
+      if (
+        !isRetryableNetworkError(error) ||
+        attempt === VALIDATION_MAX_NETWORK_ATTEMPTS
+      ) {
+        throw error;
+      }
+      await delay(VALIDATION_RETRY_DELAY_MS * attempt);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 function createSingleOperationConfig(config: TestConfig): TestOperation[] {
@@ -503,7 +551,7 @@ export async function runMistertValidation(
     }
 
     try {
-      const response = await makeRequest({
+      const response = await makeRequestWithRetry({
         url: new URL(resolvedUrl),
         method: operation.method,
         headers: resolvedHeaders,

@@ -24,7 +24,10 @@ import type {
   OperationValidationResult,
   ValidationDimensionStatus,
 } from "@/shared/mistert-validation";
-import type { FlowSelectionMode } from "@/shared/benchmark-comparison";
+import type {
+  DeterministicStartOffsetStrategy,
+  FlowSelectionMode,
+} from "@/shared/benchmark-comparison";
 import type {
   K6Config,
   K6FlowOperation,
@@ -66,7 +69,10 @@ export type {
   JMeterStatus,
   JMeterSummary,
 };
-export type { FlowSelectionMode } from "@/shared/benchmark-comparison";
+export type {
+  DeterministicStartOffsetStrategy,
+  FlowSelectionMode,
+} from "@/shared/benchmark-comparison";
 
 // ============================================================================
 // 1. CONFIGURAÇÃO DO TESTE
@@ -264,6 +270,13 @@ export interface TestConfig {
    * - deterministic: alterna fluxos em round-robin por VU
    */
   flowSelectionMode?: FlowSelectionMode;
+
+  /**
+   * Estratégia opcional de defasagem inicial quando o modo determinístico está ativo.
+   * - none: todos os VUs começam pelo primeiro fluxo
+   * - per-vu: cada VU inicia em um fluxo diferente conforme seu índice
+   */
+  deterministicStartOffsetStrategy?: DeterministicStartOffsetStrategy;
 
   /**
    * Timeout por requisição, em milissegundos.
@@ -626,6 +639,9 @@ export interface TestResult {
 
   /** Resumo final por VU com contagens e último acesso conhecido. */
   vuResults?: VuResultSummary[];
+
+  /** Snapshot persistido dos benchmarks externos já executados para este teste. */
+  externalBenchmarks?: PersistedExternalBenchmarks;
 }
 
 // ============================================================================
@@ -904,6 +920,13 @@ export interface ExternalBenchmarkEntry<TSummary = unknown> {
   summary: TSummary | null;
 }
 
+export interface PersistedExternalBenchmarks {
+  started: boolean;
+  k6: ExternalBenchmarkEntry<K6Summary>;
+  locust: ExternalBenchmarkEntry<LocustSummary>;
+  jmeter: ExternalBenchmarkEntry<JMeterSummary>;
+}
+
 export interface ExternalBenchmarksState {
   runKey: string | null;
   started: boolean;
@@ -922,8 +945,8 @@ export interface ExternalBenchmarksState {
 // 7. PRESET SYSTEM
 // ----------------------------------------------------------------------------
 // Presets são configurações de teste salvas para reutilizacao.
-// O preset built-in "MisterT Completo" vem pre-configurado com as 10 operações
-// padrão do ERP. Usuários podem salvar, carregar, renomear e deletar presets.
+// Presets built-in do MisterT vêm pre-configurados com cenários prontos de
+// carga. Usuários podem salvar, carregar, renomear e deletar seus próprios presets.
 // ============================================================================
 
 /** Informações resumidas do preset ativo (carregado no formulario). */
@@ -1035,6 +1058,12 @@ declare global {
 
         /** Busca um teste específico pelo seu identificador. Retorna null se não encontrado. */
         get: (id: string) => Promise<TestResult | null>;
+
+        /** Persiste o snapshot dos benchmarks externos executados para um teste salvo. */
+        saveBenchmarks: (
+          id: string,
+          benchmarks: PersistedExternalBenchmarks,
+        ) => Promise<boolean>;
 
         /** Remove um teste do histórico pelo seu identificador. */
         delete: (id: string) => Promise<boolean>;
@@ -1166,7 +1195,7 @@ declare global {
       /**
        * Módulo de gerenciamento de presets de teste.
        * Permite listar, salvar, renomear e deletar presets.
-       * O preset built-in "MisterT Completo" não pode ser renomeado ou deletado.
+      * Presets built-in não podem ser renomeados ou deletados.
        */
       presets: {
         /** Lista todos os presets (built-in + usuário). Built-in aparece primeiro. */
