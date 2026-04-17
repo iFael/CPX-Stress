@@ -19,7 +19,16 @@ import http from "node:http";
 import https from "node:https";
 import { setMaxListeners } from "node:events";
 import { CookieJar } from "./cookie-jar";
-import type { FlowSelectionMode } from "../../src/shared/benchmark-comparison";
+import {
+  getDeterministicFlowStartIndex,
+  type DeterministicStartOffsetStrategy,
+  type FlowSelectionMode,
+} from "../../src/shared/benchmark-comparison";
+import {
+  detectLoginLikeContent,
+  MISTERT_FLOW_BODY_LIMIT_BYTES,
+  normalizeValidationText,
+} from "../../src/shared/mistert-validation";
 
 if (!parentPort) {
   throw new Error(
@@ -40,6 +49,8 @@ interface WorkerOperation {
   body?: string;
   captureSession?: boolean;
   extract?: Record<string, string>;
+  expectedAnyText?: string[];
+  rejectLoginLikeContent?: boolean;
   rejectOnAnyText?: string[];
 }
 
@@ -52,6 +63,7 @@ interface WorkerConfig {
   testId: string;
   maxSockets: number;
   flowSelectionMode?: FlowSelectionMode;
+  deterministicStartOffsetStrategy?: DeterministicStartOffsetStrategy;
   requestTimeoutMs?: number;
 }
 
@@ -74,6 +86,8 @@ interface ResponseItem {
   captureSession: boolean;
   sample?: ResponseSample;
   sessionInvalid?: boolean;
+  failureMessage?: string;
+  responseSnippet?: string;
 }
 
 interface NetworkError {
@@ -120,6 +134,19 @@ port.on("message", (msg: { type: string }) => {
 });
 
 const requestTimeoutMs = config.requestTimeoutMs ?? 30_000;
+const EXTRACT_BODY_LIMIT_BYTES = MISTERT_FLOW_BODY_LIMIT_BYTES;
+
+function getExpectedTextMatches(
+  bodyText: string,
+  expectedAnyText?: string[],
+): string[] {
+  if (!expectedAnyText || expectedAnyText.length === 0) return [];
+
+  const normalizedBody = normalizeValidationText(bodyText);
+  return expectedAnyText.filter((candidate) =>
+    normalizedBody.includes(normalizeValidationText(candidate)),
+  );
+}
 
 // HTTP Agents exclusivos deste worker
 const agents = {
@@ -272,10 +299,10 @@ function makeSingleRequest(
       let bodyCollected = 0;
       const BODY_LIMIT = 2048;
 
-      // Buffer separado para extraction (até 64KB)
+      // Buffer separado para extraction/validacao de fluxo.
+      // Algumas telas do MisterT retornam HTML/script pesado antes dos marcadores úteis.
       const extractChunks: Buffer[] = [];
       let extractCollected = 0;
-      const EXTRACT_LIMIT = 65536;
       const needExtractBody = opts.collectBody;
 
       const setCookieHeaders = res.headers["set-cookie"];
@@ -290,8 +317,8 @@ function makeSingleRequest(
           bodyChunks.push(chunk.subarray(0, remaining));
           bodyCollected += Math.min(chunk.length, remaining);
         }
-        if (needExtractBody && extractCollected < EXTRACT_LIMIT) {
-          const remaining = EXTRACT_LIMIT - extractCollected;
+        if (needExtractBody && extractCollected < EXTRACT_BODY_LIMIT_BYTES) {
+          const remaining = EXTRACT_BODY_LIMIT_BYTES - extractCollected;
           extractChunks.push(chunk.subarray(0, remaining));
           extractCollected += Math.min(chunk.length, remaining);
         }
@@ -502,6 +529,9 @@ async function runVU(delay: number, vuId: number): Promise<void> {
     const start = performance.now();
     const hasExtract = op.extract && Object.keys(op.extract).length > 0;
     const hasRejectTexts = !!op.rejectOnAnyText?.length;
+    const expectsAnyText = !!op.expectedAnyText?.length;
+    const rejectLoginLikeContent =
+      op.rejectLoginLikeContent ?? op.name !== "Página de Login";
     requestCount++;
     const captureSample = requestCount % 50 === 1;
 
@@ -527,13 +557,18 @@ async function runVU(delay: number, vuId: number): Promise<void> {
           cookieJar,
           captureSession: op.captureSession !== false,
           timeoutMs: requestTimeoutMs,
-          collectBody: hasExtract || hasRejectTexts,
+          collectBody:
+            hasExtract ||
+            hasRejectTexts ||
+            expectsAnyText ||
+            rejectLoginLikeContent,
         },
         captureSample,
       );
 
       // Aplicar response extraction
       let sessionInvalid = false;
+      const failureReasons: string[] = [];
       if (hasExtract && result.bodyText) {
         const missingExtractors: string[] = [];
         for (const [varName, pattern] of Object.entries(op.extract!)) {
@@ -551,9 +586,13 @@ async function runVU(delay: number, vuId: number): Promise<void> {
         }
         if (missingExtractors.length > 0) {
           sessionInvalid = true;
+          failureReasons.push(
+            `Extractor(es) ausente(s): ${missingExtractors.join(", ")}.`,
+          );
         }
       } else if (hasExtract) {
         sessionInvalid = true;
+        failureReasons.push("Corpo vazio ao tentar extrair variáveis dinâmicas.");
       }
 
       // Detectar página de erro de sessão via conteúdo (ex: "Este erro nunca deve ocorrer")
@@ -561,10 +600,40 @@ async function runVU(delay: number, vuId: number): Promise<void> {
         for (const text of op.rejectOnAnyText!) {
           if (result.bodyText.includes(text)) {
             sessionInvalid = true;
+            failureReasons.push(
+              `Texto proibido encontrado na resposta: ${text}.`,
+            );
             break;
           }
         }
       }
+
+      if (
+        rejectLoginLikeContent &&
+        result.bodyText &&
+        detectLoginLikeContent(result.bodyText)
+      ) {
+        sessionInvalid = true;
+        failureReasons.push(
+          "A resposta parece a tela de login do MisterT, não a aba esperada.",
+        );
+      }
+
+      if (expectsAnyText && result.bodyText) {
+        const expectedMatches = getExpectedTextMatches(
+          result.bodyText,
+          op.expectedAnyText,
+        );
+        if (expectedMatches.length === 0) {
+          sessionInvalid = true;
+          failureReasons.push(
+            `Nenhum texto esperado foi encontrado: ${op.expectedAnyText!.join(", ")}.`,
+          );
+        }
+      }
+
+      const failureMessage =
+        failureReasons.length > 0 ? failureReasons.join(" ") : undefined;
 
       responseBatch.push({
         vuId,
@@ -577,6 +646,8 @@ async function runVU(delay: number, vuId: number): Promise<void> {
         captureSession: op.captureSession !== false,
         sample: result.sample,
         sessionInvalid,
+        failureMessage,
+        responseSnippet: result.bodyText || result.sample?.bodySnippet,
       });
       setVuActivity({
         vuId,
@@ -652,7 +723,11 @@ async function runVU(delay: number, vuId: number): Promise<void> {
 
   // Determinar pathname da página de login para detecção de expiração de sessão
   const loginUrl = authOps.length > 0 ? new URL(authOps[0].url) : null;
-  let nextFlowIndex = 0;
+  let nextFlowIndex = getDeterministicFlowStartIndex(
+    vuId,
+    moduleFlows.length,
+    config.deterministicStartOffsetStrategy,
+  );
 
   const selectModuleFlow = (): WorkerOperation[] | null => {
     if (moduleFlows.length === 0) {
