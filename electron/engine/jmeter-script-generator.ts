@@ -276,7 +276,10 @@ ${buildFlowController(flowName, operations, requestTimeoutMs)}
         </hashTree>`;
 }
 
-function buildDeterministicFlowSelector(flowCount: number): string {
+function buildDeterministicFlowSelector(
+  flowCount: number,
+  startOffsetStrategy?: JMeterConfig["deterministicStartOffsetStrategy"],
+): string {
   return buildAuthStateSampler(
     CONTROL_SAMPLE_NAMES.flowSelector,
     [
@@ -284,7 +287,12 @@ function buildDeterministicFlowSelector(flowCount: number): string {
       "if (flowCount <= 0) {",
       "  return",
       "}",
-      "def nextIndex = (vars.get('CPX_NEXT_FLOW_INDEX') ?: '0') as int",
+      ...(startOffsetStrategy === "per-vu"
+        ? [
+            "def seededIndex = Math.floorMod(ctx.getThreadNum(), flowCount)",
+            "def nextIndex = (vars.get('CPX_NEXT_FLOW_INDEX') ?: String.valueOf(seededIndex)) as int",
+          ]
+        : ["def nextIndex = (vars.get('CPX_NEXT_FLOW_INDEX') ?: '0') as int"]),
       "def selected = Math.floorMod(nextIndex, flowCount)",
       "vars.put('CPX_SELECTED_FLOW', String.valueOf(selected))",
       "vars.put('CPX_NEXT_FLOW_INDEX', String.valueOf(Math.floorMod(nextIndex + 1, flowCount)))",
@@ -386,7 +394,7 @@ ${authPrepareSampler}
 ${authSamplers}
 ${authFinalizeSampler}
         </hashTree>
-${config.flowSelectionMode === "deterministic" ? `${buildDeterministicFlowSelector(moduleFlows.length)}
+${config.flowSelectionMode === "deterministic" ? `${buildDeterministicFlowSelector(moduleFlows.length, config.deterministicStartOffsetStrategy)}
 ${deterministicFlows}` : `        <RandomController guiclass="LogicControllerGui" testclass="RandomController" testname="Random Module Flow" enabled="true"></RandomController>
         <hashTree>
 ${randomFlows}
