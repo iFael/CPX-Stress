@@ -1,4 +1,5 @@
 import type {
+  DeterministicStartOffsetStrategy,
   ExternalOperationStats,
   FlowSelectionMode,
 } from "../../src/shared/benchmark-comparison";
@@ -7,8 +8,10 @@ export interface K6Config {
   url: string;
   vus: number;
   duration: number;
+  rampUpSeconds?: number;
   method?: "GET" | "POST" | "PUT" | "DELETE";
   flowSelectionMode?: FlowSelectionMode;
+  deterministicStartOffsetStrategy?: DeterministicStartOffsetStrategy;
   requestTimeoutMs?: number;
   headers?: Record<string, string>;
   body?: string;

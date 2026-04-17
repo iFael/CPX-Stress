@@ -145,6 +145,9 @@ REQUEST_TIMEOUT_SECONDS = max(float(RUNTIME_CONFIG.get("requestTimeoutMs") or 30
 
 FLOW_OPERATIONS = RUNTIME_CONFIG.get("flowOperations") or []
 FLOW_SELECTION_MODE = (RUNTIME_CONFIG.get("flowSelectionMode") or "random").lower()
+DETERMINISTIC_START_OFFSET_STRATEGY = (
+    RUNTIME_CONFIG.get("deterministicStartOffsetStrategy") or "none"
+).lower()
 FIRST_MODULE_INDEX = next(
     (
         index
@@ -156,6 +159,7 @@ FIRST_MODULE_INDEX = next(
 AUTH_OPS = FLOW_OPERATIONS[:FIRST_MODULE_INDEX] if FIRST_MODULE_INDEX >= 0 else FLOW_OPERATIONS
 MODULE_OPS = FLOW_OPERATIONS[FIRST_MODULE_INDEX:] if FIRST_MODULE_INDEX >= 0 else []
 MODULE_FLOWS = []
+USER_SEQUENCE = 0
 
 for operation in MODULE_OPS:
     group_name = operation.get("moduleGroup") or operation.get("name")
@@ -209,6 +213,15 @@ def percentile(values, p):
     sorted_values = sorted(values)
     index = max(0, math.ceil((p / 100) * len(sorted_values)) - 1)
     return float(sorted_values[index])
+
+def get_initial_deterministic_flow_index(user_number, flow_count):
+    if DETERMINISTIC_START_OFFSET_STRATEGY != "per-vu" or flow_count <= 0:
+        return 0
+    try:
+        normalized_user_number = max(int(user_number) - 1, 0)
+    except Exception:
+        normalized_user_number = 0
+    return normalized_user_number % flow_count
 
 def build_url_signature(url_text):
     from urllib.parse import urlparse
@@ -321,9 +334,14 @@ class GeneratedUser(HttpUser):
     host = RUNTIME_CONFIG.get("host")
 
     def on_start(self):
+        global USER_SEQUENCE
+        USER_SEQUENCE += 1
         self.variables = {}
         self.authenticated = False
-        self.next_flow_index = 0
+        self.next_flow_index = get_initial_deterministic_flow_index(
+            USER_SEQUENCE,
+            len(MODULE_FLOWS),
+        )
         self.login_signature = build_url_signature(AUTH_OPS[0].get("url")) if AUTH_OPS else None
         if AUTH_OPS:
             self.authenticated = self.run_auth()

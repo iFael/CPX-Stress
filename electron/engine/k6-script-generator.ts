@@ -4,6 +4,45 @@ function buildScriptRuntime(config: K6Config): string {
   return JSON.stringify(config, null, 2);
 }
 
+function buildScenarioOptions(config: K6Config): string {
+  const rampUpSeconds =
+    typeof config.rampUpSeconds === "number" &&
+    Number.isFinite(config.rampUpSeconds) &&
+    config.rampUpSeconds > 0
+      ? Math.min(config.rampUpSeconds, config.duration)
+      : 0;
+
+  if (rampUpSeconds <= 0) {
+    return `scenarios: {
+    default: {
+      executor: 'constant-vus',
+      vus: ${config.vus},
+      duration: '${config.duration}s',
+      gracefulStop: '0s',
+    },
+  },`;
+  }
+
+  const steadySeconds = Math.max(config.duration - rampUpSeconds, 0);
+  const stages = [`{ duration: '${rampUpSeconds}s', target: ${config.vus} }`];
+
+  if (steadySeconds > 0) {
+    stages.push(`{ duration: '${steadySeconds}s', target: ${config.vus} }`);
+  }
+
+  return `scenarios: {
+    default: {
+      executor: 'ramping-vus',
+      startVUs: 0,
+      stages: [
+        ${stages.join(",\n        ")}
+      ],
+      gracefulRampDown: '0s',
+      gracefulStop: '0s',
+    },
+  },`;
+}
+
 function toMetricSlug(name: string, index: number): string {
   const normalized = name
     .normalize("NFD")
@@ -65,14 +104,7 @@ function countStatus(status) {
 }
 
 export const options = {
-  scenarios: {
-    default: {
-      executor: 'constant-vus',
-      vus: ${config.vus},
-      duration: '${config.duration}s',
-      gracefulStop: '0s',
-    },
-  },
+  ${buildScenarioOptions(config)}
 };
 
 export function handleSummary(data) {
@@ -115,6 +147,8 @@ const FLOW_OPERATION_METRIC_DEFS = ${operationMetricDefinitions};
 const REQUEST_TIMEOUT = String(RUNTIME_CONFIG.requestTimeoutMs || 30000) + 'ms';
 const DEFAULT_REDIRECTS = 5;
 const FLOW_SELECTION_MODE = (RUNTIME_CONFIG.flowSelectionMode || 'deterministic').toLowerCase();
+const DETERMINISTIC_START_OFFSET_STRATEGY =
+  (RUNTIME_CONFIG.deterministicStartOffsetStrategy || 'none').toLowerCase();
 const OPERATION_METRICS = Object.fromEntries(
   FLOW_OPERATION_METRIC_DEFS.map((definition) => [
     definition.metricKey,
@@ -174,14 +208,7 @@ function countOperation(operation, responseStatus, sessionInvalid, requestError)
 }
 
 export const options = {
-  scenarios: {
-    default: {
-      executor: 'constant-vus',
-      vus: ${config.vus},
-      duration: '${config.duration}s',
-      gracefulStop: '0s',
-    },
-  },
+  ${buildScenarioOptions(config)}
   summaryTrendStats: ['avg', 'min', 'med', 'p(50)', 'p(90)', 'p(95)', 'p(99)', 'max', 'count'],
 };
 
@@ -212,6 +239,17 @@ for (const operation of MODULE_OPS) {
 
 const LOGIN_SIGNATURE = AUTH_OPS.length > 0 ? buildUrlSignature(AUTH_OPS[0].url) : null;
 let vuState = null;
+
+function getInitialDeterministicFlowIndex(vuNumber, flowCount) {
+  if (DETERMINISTIC_START_OFFSET_STRATEGY !== 'per-vu' || flowCount <= 0) {
+    return 0;
+  }
+
+  const normalizedVuNumber =
+    Number.isFinite(vuNumber) && vuNumber > 0 ? Math.trunc(vuNumber) - 1 : 0;
+
+  return normalizedVuNumber % flowCount;
+}
 
 function buildUrlSignature(urlText) {
   try {
@@ -274,7 +312,10 @@ function ensureState() {
       vars: {},
       cookies: {},
       authenticated: false,
-      nextFlowIndex: 0,
+      nextFlowIndex: getInitialDeterministicFlowIndex(
+        typeof __VU === 'number' ? __VU : 1,
+        MODULE_FLOWS.length,
+      ),
     };
   }
   return vuState;

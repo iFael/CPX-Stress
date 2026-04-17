@@ -1,4 +1,5 @@
 import type {
+  DeterministicStartOffsetStrategy,
   ExternalOperationStats,
   FlowSelectionMode,
 } from "../../src/shared/benchmark-comparison";
@@ -10,6 +11,7 @@ export interface LocustConfig {
   host?: string;
   method?: "GET" | "POST" | "PUT" | "DELETE";
   flowSelectionMode?: FlowSelectionMode;
+  deterministicStartOffsetStrategy?: DeterministicStartOffsetStrategy;
   requestTimeoutMs?: number;
   headers?: Record<string, string>;
   body?: string;
