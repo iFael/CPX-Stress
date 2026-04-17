@@ -729,6 +729,7 @@ export function TestResults() {
           Benchmarks Externos
         </div>
         <BenchmarkConsensusPanel
+          resultId={result.id}
           runKey={benchmarkContextRunKey}
           autoStartOnMount={shouldAutoStartBenchmarks}
           executionMode="sequential"

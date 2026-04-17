@@ -10,12 +10,14 @@ import { useTestStore } from "@/stores/test-store";
 import { formatMs } from "@/shared/test-analysis";
 import type {
   ExternalBenchmarkEngine,
+  ExternalBenchmarksState,
   JMeterConfig,
   JMeterSummary,
   K6Config,
   K6Summary,
   LocustConfig,
   LocustSummary,
+  PersistedExternalBenchmarks,
 } from "@/types";
 
 interface ComparisonInput {
@@ -29,6 +31,7 @@ interface ComparisonInput {
 }
 
 interface BenchmarkConsensusPanelProps {
+  resultId?: string | null;
   cpxResult: ComparisonInput;
   k6Config: K6Config;
   locustConfig: LocustConfig;
@@ -224,7 +227,37 @@ function latestLines(lines: string[]): string {
   return lines.slice(-10).join("");
 }
 
+function createPersistedBenchmarksSnapshot(
+  benchmarks: ExternalBenchmarksState,
+): PersistedExternalBenchmarks {
+  return {
+    started: benchmarks.started,
+    k6: {
+      available: benchmarks.k6.available,
+      status: benchmarks.k6.status,
+      error: benchmarks.k6.error,
+      progress: [...benchmarks.k6.progress],
+      summary: benchmarks.k6.summary,
+    },
+    locust: {
+      available: benchmarks.locust.available,
+      status: benchmarks.locust.status,
+      error: benchmarks.locust.error,
+      progress: [...benchmarks.locust.progress],
+      summary: benchmarks.locust.summary,
+    },
+    jmeter: {
+      available: benchmarks.jmeter.available,
+      status: benchmarks.jmeter.status,
+      error: benchmarks.jmeter.error,
+      progress: [...benchmarks.jmeter.progress],
+      summary: benchmarks.jmeter.summary,
+    },
+  };
+}
+
 export function BenchmarkConsensusPanel({
+  resultId = null,
   cpxResult,
   k6Config,
   locustConfig,
@@ -243,6 +276,9 @@ export function BenchmarkConsensusPanel({
   const setBenchmarkError = useTestStore((s) => s.setBenchmarkError);
   const setBenchmarkSummary = useTestStore((s) => s.setBenchmarkSummary);
   const resetBenchmarkEngine = useTestStore((s) => s.resetBenchmarkEngine);
+  const updateStoredResultBenchmarks = useTestStore(
+    (s) => s.updateStoredResultBenchmarks,
+  );
   const isRunContextCurrent = useCallback((expectedRunKey: string | null) => {
     if (!expectedRunKey) return true;
     return useTestStore.getState().benchmarks.runKey === expectedRunKey;
@@ -255,6 +291,27 @@ export function BenchmarkConsensusPanel({
       return true;
     },
     [isRunContextCurrent],
+  );
+
+  const persistBenchmarksSnapshot = useCallback(
+    (expectedRunKey: string | null) => {
+      if (!resultId || !isRunContextCurrent(expectedRunKey)) return;
+
+      const snapshot = createPersistedBenchmarksSnapshot(
+        useTestStore.getState().benchmarks,
+      );
+
+      updateStoredResultBenchmarks(resultId, snapshot);
+      void window.stressflow.history
+        .saveBenchmarks(resultId, snapshot)
+        .catch((error) => {
+          console.warn(
+            "[CPX-Stress] Falha ao persistir benchmarks externos no histórico:",
+            error,
+          );
+        });
+    },
+    [isRunContextCurrent, resultId, updateStoredResultBenchmarks],
   );
 
   const runEngine = useCallback(
@@ -299,6 +356,7 @@ export function BenchmarkConsensusPanel({
             `Engine ${engine} não disponível no ambiente atual.`,
           );
         });
+        persistBenchmarksSnapshot(expectedRunKey);
         return;
       }
 
@@ -328,22 +386,22 @@ export function BenchmarkConsensusPanel({
           const summary = await window.stressflow.k6Run(k6Config);
           commitForRunContext(expectedRunKey, () => {
             setBenchmarkSummary("k6", summary);
+            setBenchmarkStatus(engine, "done");
           });
         } else if (engine === "locust") {
           const summary = await window.stressflow.locustRun(locustConfig);
           commitForRunContext(expectedRunKey, () => {
             setBenchmarkSummary("locust", summary);
+            setBenchmarkStatus(engine, "done");
           });
         } else if (engine === "jmeter") {
           const summary = await window.stressflow.jmeterRun(jmeterConfig);
           commitForRunContext(expectedRunKey, () => {
             setBenchmarkSummary("jmeter", summary);
+            setBenchmarkStatus(engine, "done");
           });
         }
-
-        commitForRunContext(expectedRunKey, () => {
-          setBenchmarkStatus(engine, "done");
-        });
+        persistBenchmarksSnapshot(expectedRunKey);
       } catch (cause) {
         commitForRunContext(expectedRunKey, () => {
           setBenchmarkStatus(engine, "error");
@@ -354,6 +412,7 @@ export function BenchmarkConsensusPanel({
               : `Falha ao executar ${engine}.`,
           );
         });
+        persistBenchmarksSnapshot(expectedRunKey);
       } finally {
         unsubscribe();
       }
@@ -365,6 +424,7 @@ export function BenchmarkConsensusPanel({
       jmeterConfig,
       k6Config,
       locustConfig,
+      persistBenchmarksSnapshot,
       resetBenchmarkEngine,
       runKey,
       setBenchmarkAvailable,

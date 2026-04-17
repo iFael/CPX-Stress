@@ -299,7 +299,7 @@ export function HistoryPanel() {
   /** Abre os detalhes de um teste específico */
   const handleView = useCallback(
     (result: TestResult) => {
-      setBenchmarkRun(`result-${result.id}`);
+      setBenchmarkRun(`result-${result.id}`, result.externalBenchmarks);
       setCurrentResult(result);
       setStatus("completed");
       setView("results");

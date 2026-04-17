@@ -56,6 +56,7 @@ import type {
   ExternalBenchmarkEngine,
   ExternalBenchmarkStatus,
   ExternalBenchmarksState,
+  PersistedExternalBenchmarks,
   JMeterSummary,
   K6Summary,
   LocustSummary,
@@ -63,6 +64,7 @@ import type {
 import {
   buildMistertOperations,
   MISTERT_DEFAULT_BASE_URL,
+  normalizePresetConfig,
 } from "@/constants/test-presets";
 
 // ---------------------------------------------------------------------------
@@ -237,7 +239,14 @@ interface TestActions {
 
   // -- Benchmarks externos ----------------------------------------------------
 
-  setBenchmarkRun: (runKey: string | null) => void;
+  setBenchmarkRun: (
+    runKey: string | null,
+    persisted?: PersistedExternalBenchmarks,
+  ) => void;
+  updateStoredResultBenchmarks: (
+    resultId: string,
+    benchmarks: PersistedExternalBenchmarks,
+  ) => void;
   markBenchmarksStarted: () => void;
   setBenchmarkAvailable: (
     engine: ExternalBenchmarkEngine,
@@ -345,6 +354,59 @@ const ESTADO_INICIAL: TestState = {
     },
   },
 };
+
+function cloneBenchmarkEntry<TSummary>(
+  entry: PersistedExternalBenchmarks["k6"] | PersistedExternalBenchmarks["locust"] | PersistedExternalBenchmarks["jmeter"],
+) {
+  return {
+    available: entry.available,
+    status: entry.status,
+    error: entry.error,
+    progress: [...entry.progress],
+    summary: entry.summary,
+  };
+}
+
+function buildBenchmarksState(
+  runKey: string | null,
+  persisted?: PersistedExternalBenchmarks,
+): ExternalBenchmarksState {
+  if (!persisted) {
+    return {
+      runKey,
+      started: false,
+      k6: {
+        available: null,
+        status: "idle",
+        error: null,
+        progress: [],
+        summary: null,
+      },
+      locust: {
+        available: null,
+        status: "idle",
+        error: null,
+        progress: [],
+        summary: null,
+      },
+      jmeter: {
+        available: null,
+        status: "idle",
+        error: null,
+        progress: [],
+        summary: null,
+      },
+    };
+  }
+
+  return {
+    runKey,
+    started: persisted.started,
+    k6: cloneBenchmarkEntry(persisted.k6),
+    locust: cloneBenchmarkEntry(persisted.locust),
+    jmeter: cloneBenchmarkEntry(persisted.jmeter),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // 3. Criacao do store
@@ -454,7 +516,7 @@ export const useTestStore = create<TestStore>((set) => ({
 
   applyPreset: (config, presetInfo) =>
     set({
-      config: { ...config },
+      config: normalizePresetConfig(config),
       activePreset: presetInfo,
     }),
 
@@ -473,33 +535,22 @@ export const useTestStore = create<TestStore>((set) => ({
       // do preset ativo para um teste específico (D4 de 04-CONTEXT.md)
     })),
 
-  setBenchmarkRun: (runKey) =>
+  setBenchmarkRun: (runKey, persisted) =>
+    set({
+      benchmarks: buildBenchmarksState(runKey, persisted),
+    }),
+
+  updateStoredResultBenchmarks: (resultId, benchmarks) =>
     set((state) => ({
-      benchmarks: {
-        runKey,
-        started: false,
-        k6: {
-          ...state.benchmarks.k6,
-          error: null,
-          progress: [],
-          summary: null,
-          status: "idle",
-        },
-        locust: {
-          ...state.benchmarks.locust,
-          error: null,
-          progress: [],
-          summary: null,
-          status: "idle",
-        },
-        jmeter: {
-          ...state.benchmarks.jmeter,
-          error: null,
-          progress: [],
-          summary: null,
-          status: "idle",
-        },
-      },
+      currentResult:
+        state.currentResult?.id === resultId
+          ? { ...state.currentResult, externalBenchmarks: benchmarks }
+          : state.currentResult,
+      history: state.history.map((result) =>
+        result.id === resultId
+          ? { ...result, externalBenchmarks: benchmarks }
+          : result,
+      ),
     })),
 
   markBenchmarksStarted: () =>
