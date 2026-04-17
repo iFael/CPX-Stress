@@ -18,6 +18,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Save, Loader2 } from "lucide-react";
 import { useTestStore } from "@/stores/test-store";
 import { useToast } from "@/components/Toast";
+import { normalizePresetConfig } from "@/constants/test-presets";
 import type { ActivePresetInfo, TestPreset } from "@/types";
 
 /* =====================================================================
@@ -134,7 +135,8 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
 
       setIsSaving(true);
       try {
-        const configJson = JSON.stringify(config);
+        const normalizedConfig = normalizePresetConfig(config);
+        const configJson = JSON.stringify(normalizedConfig);
         const saved = (await window.stressflow.presets.save({
           id: presetId,
           name: trimmedName,
@@ -146,7 +148,7 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
         storeSetPresets(updatedPresets);
 
         // Marcar como preset ativo
-        applyPreset(config, {
+        applyPreset(normalizedConfig, {
           id: saved.id,
           name: saved.name,
           isBuiltin: false,
@@ -178,7 +180,8 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
 
     setIsSaving(true);
     try {
-      const configJson = JSON.stringify(config);
+      const normalizedConfig = normalizePresetConfig(config);
+      const configJson = JSON.stringify(normalizedConfig);
       await window.stressflow.presets.save({
         id: activePreset.id,
         name: activePreset.name,
@@ -325,7 +328,6 @@ export function SavePresetDialog({ isOpen, onClose, activePreset }: SavePresetDi
                 placeholder="Ex: MisterT - Apenas Estoque"
                 maxLength={MAX_PRESET_NAME_LENGTH}
                 className={inputBaseClass}
-                aria-invalid={!!nameError}
                 aria-describedby={nameError ? "preset-name-error" : undefined}
               />
               {nameError && (

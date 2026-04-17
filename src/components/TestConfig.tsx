@@ -30,6 +30,9 @@ import {
   isMistertModuleOperationName,
   MISTERT_DEFAULT_BASE_URL,
   buildMistertOperations,
+  formatFlowSelectionModeLabel,
+  formatPresetTimeoutLabel,
+  formatRampUpLabel,
   MISTERT_MODULE_METADATA,
 } from "@/constants/test-presets";
 import compexLogo from "@/assets/compex-logo.gif";
@@ -91,7 +94,7 @@ const helpTextClass = "text-xs text-sf-textMuted mt-1";
 
 const advancedInputClass =
   "w-full px-4 py-3 bg-sf-bg border border-sf-border rounded-xl text-sf-text " +
-  "focus:outline-none focus:ring-2 focus:ring-sf-primary/30 transition-all";
+  "focus:outline-none focus:ring-2 focus:ring-sf-primary/30 transition-all disabled:cursor-not-allowed disabled:opacity-60";
 
 /* =====================================================================
    COMPONENTE PRINCIPAL — Configuração do Teste MisterT ERP
@@ -113,6 +116,7 @@ export function TestConfig() {
   const setError = useTestStore((s) => s.setError);
   const credentialStatus = useTestStore((s) => s.credentialStatus);
   const activePreset = useTestStore((s) => s.activePreset);
+  const clearActivePreset = useTestStore((s) => s.clearActivePreset);
   const setPresets = useTestStore((s) => s.setPresets);
   const updateModuleSelection = useTestStore((s) => s.updateModuleSelection);
 
@@ -187,6 +191,7 @@ export function TestConfig() {
   const hasValidationFailures =
     validationResult !== null && !validationResult.canRunStressTest;
   const isBusy = isValidating || isStarting;
+  const isAdvancedLocked = activePreset !== null;
   const effectiveFlowSelectionMode = config.flowSelectionMode ?? "random";
   const currentBenchmarkProfile =
     BENCHMARK_PROFILES.find(
@@ -194,6 +199,15 @@ export function TestConfig() {
         profile.flowSelectionMode === effectiveFlowSelectionMode &&
         profile.requestTimeoutMs === config.requestTimeoutMs,
     ) ?? null;
+  const activePresetSummary = activePreset
+    ? {
+        flowSelectionModeLabel: formatFlowSelectionModeLabel(
+          config.flowSelectionMode,
+        ),
+        requestTimeoutLabel: formatPresetTimeoutLabel(config.requestTimeoutMs),
+        rampUpLabel: formatRampUpLabel(config.rampUp),
+      }
+    : null;
 
   useEffect(() => {
     setValidationResult(null);
@@ -273,6 +287,11 @@ export function TestConfig() {
     },
     [updateConfig],
   );
+
+  const handleDisablePreset = useCallback(() => {
+    clearActivePreset();
+    setShowAdvanced(true);
+  }, [clearActivePreset]);
 
   /* ---------------------------------------------------------------
      handleStart — Valida e inicia o teste de estresse MisterT.
@@ -413,13 +432,41 @@ export function TestConfig() {
           <Save size={16} aria-hidden="true" />
           Salvar Preset
         </button>
-
-        {activePreset && (
-          <span className="text-xs text-sf-textMuted ml-auto">
-            Preset ativo: <span className="text-sf-text font-semibold">{activePreset.name}</span>
-          </span>
-        )}
       </div>
+
+      {activePreset && activePresetSummary && (
+        <div className="mb-4 rounded-xl border border-sf-primary/20 bg-sf-primary/5 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm text-sf-text">
+                Preset ativo: <span className="font-semibold">{activePreset.name}</span>
+              </p>
+              <p className="mt-1 text-xs text-sf-textMuted">
+                As configurações avançadas foram bloqueadas para preservar o cenário selecionado.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="rounded-md border border-sf-primary/20 bg-sf-surface/80 px-2 py-1 text-[10px] font-medium text-sf-textSecondary">
+                  {activePresetSummary.flowSelectionModeLabel}
+                </span>
+                <span className="rounded-md border border-sf-primary/20 bg-sf-surface/80 px-2 py-1 text-[10px] font-medium text-sf-textSecondary">
+                  Timeout {activePresetSummary.requestTimeoutLabel}
+                </span>
+                <span className="rounded-md border border-sf-primary/20 bg-sf-surface/80 px-2 py-1 text-[10px] font-medium text-sf-textSecondary">
+                  {activePresetSummary.rampUpLabel}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleDisablePreset}
+              className="rounded-xl border border-sf-border bg-sf-surface px-4 py-2 text-sm font-medium text-sf-textSecondary transition-all hover:border-sf-textMuted hover:text-sf-text"
+            >
+              Desabilitar preset
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ---- AMBIENTE MISTERT ---- */}
       <fieldset className="mb-4">
@@ -552,6 +599,11 @@ export function TestConfig() {
             <ChevronDown className="w-4 h-4" aria-hidden="true" />
           )}
           Configurações Avançadas
+          {isAdvancedLocked && (
+            <span className="text-[11px] text-sf-primary/80">
+              bloqueadas pelo preset
+            </span>
+          )}
         </button>
 
         {showAdvanced && (
@@ -559,6 +611,21 @@ export function TestConfig() {
             id="advanced-settings"
             className="mt-3 space-y-4 p-4 bg-sf-surface border border-sf-border rounded-xl animate-slide-up"
           >
+            {isAdvancedLocked && activePreset && (
+              <div className="rounded-xl border border-sf-primary/20 bg-sf-primary/5 p-3">
+                <p className="text-sm text-sf-text">
+                  O preset <span className="font-semibold">{activePreset.name}</span> está controlando ramp-up, modo de fluxo e timeout.
+                </p>
+                <p className="mt-1 text-xs text-sf-textMuted">
+                  Use o botão &quot;Desabilitar preset&quot; acima para editar essas opções manualmente.
+                </p>
+              </div>
+            )}
+
+            <fieldset
+              disabled={isAdvancedLocked}
+              className={`space-y-4 ${isAdvancedLocked ? "opacity-60" : ""}`}
+            >
             <div>
               <label
                 htmlFor="input-rampup"
@@ -605,6 +672,7 @@ export function TestConfig() {
                       key={profile.id}
                       type="button"
                       onClick={() => handleBenchmarkProfileSelect(profile.id)}
+                      disabled={isAdvancedLocked}
                       className={`rounded-xl border px-3 py-3 text-left transition-all ${
                         isSelected
                           ? "border-sf-primary bg-sf-primary/10 text-sf-text ring-1 ring-sf-primary/30"
@@ -690,6 +758,7 @@ export function TestConfig() {
                 </p>
               </div>
             </div>
+            </fieldset>
           </div>
         )}
       </div>

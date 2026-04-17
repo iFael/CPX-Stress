@@ -5,8 +5,19 @@ import {
   MISTERT_SPECIAL_SESSIONS_TEMPLATE,
 } from "@/constants/mistert-preset-templates";
 import { buildOperationsFromTemplate } from "@/constants/mistert-preset-utils";
+import type {
+  DeterministicStartOffsetStrategy,
+  FlowSelectionMode,
+  TestConfig,
+} from "@/types";
 
 export { MISTERT_DEFAULT_BASE_URL, MISTERT_MODULE_METADATA };
+
+export const DEFAULT_PRESET_FLOW_SELECTION_MODE: FlowSelectionMode = "random";
+export const DEFAULT_PRESET_DETERMINISTIC_START_OFFSET_STRATEGY: DeterministicStartOffsetStrategy =
+  "none";
+export const DEFAULT_PRESET_REQUEST_TIMEOUT_MS = 30_000;
+export const DEFAULT_PRESET_RAMP_UP = 0;
 
 const MISTERT_MODULE_BY_NAME = new Map(
   MISTERT_MODULE_METADATA.map((module) => [module.name, module]),
@@ -60,4 +71,37 @@ export function buildMistertSpecialSessionsOperations(baseUrl?: string) {
     MISTERT_DEFAULT_BASE_URL,
     baseUrl,
   );
+}
+
+export function normalizePresetConfig(config: TestConfig): TestConfig {
+  return {
+    ...config,
+    flowSelectionMode:
+      config.flowSelectionMode ?? DEFAULT_PRESET_FLOW_SELECTION_MODE,
+    deterministicStartOffsetStrategy:
+      config.deterministicStartOffsetStrategy ??
+      DEFAULT_PRESET_DETERMINISTIC_START_OFFSET_STRATEGY,
+    requestTimeoutMs:
+      config.requestTimeoutMs ?? DEFAULT_PRESET_REQUEST_TIMEOUT_MS,
+    rampUp: config.rampUp ?? DEFAULT_PRESET_RAMP_UP,
+  };
+}
+
+export function formatFlowSelectionModeLabel(
+  flowSelectionMode?: FlowSelectionMode,
+): string {
+  return (flowSelectionMode ?? DEFAULT_PRESET_FLOW_SELECTION_MODE) === "deterministic"
+    ? "Determinístico"
+    : "Aleatório";
+}
+
+export function formatPresetTimeoutLabel(requestTimeoutMs?: number): string {
+  const resolvedTimeout =
+    requestTimeoutMs ?? DEFAULT_PRESET_REQUEST_TIMEOUT_MS;
+  return `${resolvedTimeout.toLocaleString("pt-BR")} ms`;
+}
+
+export function formatRampUpLabel(rampUp?: number): string {
+  const resolvedRampUp = rampUp ?? DEFAULT_PRESET_RAMP_UP;
+  return `Ramp-up ${resolvedRampUp}s`;
 }

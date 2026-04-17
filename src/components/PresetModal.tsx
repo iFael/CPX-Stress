@@ -6,7 +6,7 @@
  * O usuário pode carregar presets (built-in ou user-created),
  * renomear e deletar presets do usuário.
  *
- * O preset built-in "MisterT Completo" não pode ser editado ou deletado.
+ * Presets built-in não podem ser editados ou deletados.
  * Ao carregar um preset, a URL base e substituida pela do ambiente
  * atualmente selecionado no TestConfig (decisao D5).
  *
@@ -26,7 +26,13 @@ import {
 } from "lucide-react";
 import { useTestStore } from "@/stores/test-store";
 import { useToast } from "@/components/Toast";
-import { MISTERT_DEFAULT_BASE_URL } from "@/constants/test-presets";
+import {
+  formatFlowSelectionModeLabel,
+  formatPresetTimeoutLabel,
+  formatRampUpLabel,
+  MISTERT_DEFAULT_BASE_URL,
+  normalizePresetConfig,
+} from "@/constants/test-presets";
 import type { TestPreset, TestConfig, TestOperation } from "@/types";
 
 /* =====================================================================
@@ -164,7 +170,9 @@ export function PresetModal({ isOpen, onClose, currentBaseUrl }: PresetModalProp
     async (preset: TestPreset) => {
       setLoadingPresetId(preset.id);
       try {
-        const adjustedConfig = replaceBaseUrl(preset.config, currentBaseUrl);
+        const adjustedConfig = normalizePresetConfig(
+          replaceBaseUrl(preset.config, currentBaseUrl),
+        );
         applyPreset(adjustedConfig, {
           id: preset.id,
           name: preset.name,
@@ -435,9 +443,15 @@ function PresetCard({
   onConfirmDelete,
   onCancelDelete,
 }: PresetCardProps) {
-  const opsCount = preset.config.operations?.length ?? 0;
-  const vus = preset.config.virtualUsers;
-  const duration = preset.config.duration;
+  const resolvedConfig = normalizePresetConfig(preset.config);
+  const opsCount = resolvedConfig.operations?.length ?? 0;
+  const vus = resolvedConfig.virtualUsers;
+  const duration = resolvedConfig.duration;
+  const flowSelectionModeLabel = formatFlowSelectionModeLabel(
+    resolvedConfig.flowSelectionMode,
+  );
+  const timeoutLabel = formatPresetTimeoutLabel(resolvedConfig.requestTimeoutMs);
+  const rampUpLabel = formatRampUpLabel(resolvedConfig.rampUp);
 
   return (
     <div
@@ -450,13 +464,6 @@ function PresetCard({
       aria-label={preset.name}
       aria-current={isActive ? "true" : undefined}
     >
-      {/* Badge Built-in */}
-      {preset.isBuiltin && (
-        <span className="absolute top-3 right-3 text-xs font-semibold uppercase tracking-wider bg-sf-primary/10 text-sf-primary px-2 py-1 rounded-md">
-          Built-in
-        </span>
-      )}
-
       {/* Conteúdo do card */}
       {isRenaming ? (
         /* ---- Modo de renomeacao inline ---- */
@@ -541,11 +548,29 @@ function PresetCard({
       ) : (
         /* ---- Modo normal ---- */
         <>
-          <div className="text-sm font-semibold text-sf-text mt-1">
-            {preset.name}
+          <div className="mt-1 flex items-start gap-2">
+            <div className="min-w-0 flex-1 text-sm font-semibold leading-tight text-sf-text pr-2">
+              {preset.name}
+            </div>
+            {preset.isBuiltin && (
+              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider bg-sf-primary/10 text-sf-primary px-2 py-1 rounded-md leading-none">
+                Built-in
+              </span>
+            )}
           </div>
           <div className="text-xs text-sf-textMuted mt-1">
             {opsCount} operações | {vus} VUs | {duration}s
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-md border border-sf-border bg-sf-bg/60 px-2 py-1 text-[10px] font-medium text-sf-textSecondary">
+              {flowSelectionModeLabel}
+            </span>
+            <span className="rounded-md border border-sf-border bg-sf-bg/60 px-2 py-1 text-[10px] font-medium text-sf-textSecondary">
+              Timeout {timeoutLabel}
+            </span>
+            <span className="rounded-md border border-sf-border bg-sf-bg/60 px-2 py-1 text-[10px] font-medium text-sf-textSecondary">
+              {rampUpLabel}
+            </span>
           </div>
 
           {/* Ações */}

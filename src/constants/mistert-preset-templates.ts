@@ -55,7 +55,7 @@ export const MISTERT_MODULE_METADATA = [
   },
   {
     name: "Sessões Especiais",
-    code: "R=864 -> POST R=2",
+    code: "R=865 -> POST R=2",
     accessMode: "action-driven",
     operationNames: [
       "Sessões Especiais",
@@ -239,7 +239,7 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
       notes: "Página replayable por URL dentro da sessão do mesmo VU.",
     },
     validation: {
-      expectedAnyText: ["Financeiro"],
+      expectedAnyText: ["Financeiro", "Painel das Ordens"],
       rejectLoginLikeContent: true,
       rejectOnAnyText: ["Este erro nunca deve ocorrer"],
     },
@@ -247,7 +247,7 @@ export const MISTERT_OPERATIONS_TEMPLATE: readonly TestOperation[] = [
   {
     name: "Sessões Especiais",
     moduleGroup: "Sessões Especiais",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=864",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=865",
     method: "GET",
     captureSession: true,
     extract: {
@@ -344,7 +344,7 @@ export const MISTERT_SPECIAL_SESSIONS_TEMPLATE: readonly TestOperation[] = [
   {
     name: "Sessões Especiais",
     moduleGroup: "Sessões Especiais",
-    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=864",
+    url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=865",
     method: "GET",
     captureSession: true,
     extract: {
