@@ -58,24 +58,28 @@ export function closeDatabase(): void {
 }
 
 // ============================================================================
-// Built-in Preset: MisterT Completo
+// Built-in Presets: MisterT
 // ============================================================================
 // CRITICO: Este JSON e definido inline no código do electron/.
 // NUNCA importar de src/constants/test-presets.ts — quebraria no build empacotado.
-// O conteúdo e uma copia serializada das 10 operações padrão do MisterT ERP.
+// O conteúdo e uma copia serializada das operações padrão do MisterT ERP.
 // ============================================================================
 
-/** Versão atual do preset built-in. Incrementar quando o template mudar. */
-const CURRENT_BUILTIN_VERSION = 7;
+/** Versão atual dos presets built-in. Incrementar quando o seed mudar. */
+const CURRENT_BUILTIN_VERSION = 13;
+const BUILTIN_EXPLICIT_REQUEST_TIMEOUT_MS = 30_000;
 
-/** ID fixo do preset built-in (não muda entre versões). */
+/** ID fixo do preset legado "MisterT Completo" (não muda entre versões). */
 const BUILTIN_PRESET_ID = "builtin-mistert-completo";
 
-/** Configuração completa do preset built-in serializada como JSON. */
+/** Configuração completa do preset legado serializada como JSON. */
 const BUILTIN_CONFIG_JSON = JSON.stringify({
   url: "https://dev-mistert.compex.com.br/MisterT.asp?MF=Y",
   virtualUsers: 150,
   duration: 60,
+  rampUp: 0,
+  flowSelectionMode: "random",
+  requestTimeoutMs: BUILTIN_EXPLICIT_REQUEST_TIMEOUT_MS,
   method: "GET",
   operations: [
     {
@@ -244,7 +248,7 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
         notes: "Página replayable por URL dentro da sessão do mesmo VU.",
       },
       validation: {
-        expectedAnyText: ["Financeiro"],
+        expectedAnyText: ["Financeiro", "Painel das Ordens"],
         rejectLoginLikeContent: true,
         rejectOnAnyText: ["Este erro nunca deve ocorrer"],
       },
@@ -252,7 +256,7 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     {
       name: "Sessões Especiais",
       moduleGroup: "Sessões Especiais",
-      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=864",
+      url: "https://dev-mistert.compex.com.br/MisterT.asp?CTRL={{SESSION_CTRL}}&R=865",
       method: "GET",
       captureSession: true,
       extract: {
@@ -300,6 +304,144 @@ const BUILTIN_CONFIG_JSON = JSON.stringify({
     },
   ],
 });
+
+type BuiltinOperation = {
+  name: string;
+  moduleGroup?: string;
+  [key: string]: unknown;
+};
+
+const BUILTIN_BASE_CONFIG = JSON.parse(BUILTIN_CONFIG_JSON) as {
+  url: string;
+  method: "GET" | "POST" | "PUT" | "DELETE";
+  virtualUsers: number;
+  duration: number;
+  rampUp?: number;
+  flowSelectionMode?: "random" | "deterministic";
+  deterministicStartOffsetStrategy?: "none" | "per-vu";
+  requestTimeoutMs?: number;
+  operations: BuiltinOperation[];
+};
+
+function anchorMenuBeforeEachModuleFlow(
+  operations: BuiltinOperation[],
+): BuiltinOperation[] {
+  const firstModuleIndex = operations.findIndex(
+    (operation) =>
+      typeof operation.moduleGroup === "string" &&
+      operation.moduleGroup.trim() !== "",
+  );
+
+  if (firstModuleIndex === -1) {
+    return operations.map((operation) => ({ ...operation }));
+  }
+
+  const authOperations = operations
+    .slice(0, firstModuleIndex)
+    .map((operation) => ({ ...operation }));
+  const moduleOperations = operations.slice(firstModuleIndex);
+  const menuOperation = authOperations.find(
+    (operation) => operation.name === "Menu Principal",
+  );
+
+  if (!menuOperation) {
+    return operations.map((operation) => ({ ...operation }));
+  }
+
+  const flows: BuiltinOperation[][] = [];
+
+  for (const operation of moduleOperations) {
+    const groupName = operation.moduleGroup || operation.name;
+    const currentFlow = flows[flows.length - 1];
+    const currentGroupName =
+      currentFlow && currentFlow.length > 0
+        ? currentFlow[0].moduleGroup || currentFlow[0].name
+        : null;
+
+    if (currentFlow && currentGroupName === groupName) {
+      currentFlow.push({ ...operation });
+      continue;
+    }
+
+    flows.push([{ ...operation }]);
+  }
+
+  return [
+    ...authOperations,
+    ...flows.flatMap((flow) => {
+      const groupName = flow[0]?.moduleGroup || flow[0]?.name || "Fluxo";
+      return [
+        {
+          ...menuOperation,
+          name: `Menu Principal -> ${groupName}`,
+          moduleGroup: groupName,
+        },
+        ...flow,
+      ];
+    }),
+  ];
+}
+
+function createBuiltinBateriaConfig(params: {
+  virtualUsers: number;
+  duration: number;
+  rampUp: number;
+}) {
+  return JSON.stringify({
+    ...BUILTIN_BASE_CONFIG,
+    virtualUsers: params.virtualUsers,
+    duration: params.duration,
+    rampUp: params.rampUp,
+    flowSelectionMode: "deterministic",
+    deterministicStartOffsetStrategy: "per-vu",
+    requestTimeoutMs: BUILTIN_EXPLICIT_REQUEST_TIMEOUT_MS,
+    operations: anchorMenuBeforeEachModuleFlow(BUILTIN_BASE_CONFIG.operations),
+  });
+}
+
+const BUILTIN_PRESETS = [
+  {
+    id: "builtin-mistert-01-baseline-10vus",
+    name: "MisterT 01 - Baseline (10 VUs)",
+    configJson: createBuiltinBateriaConfig({
+      virtualUsers: 10,
+      duration: 120,
+      rampUp: 10,
+    }),
+  },
+  {
+    id: "builtin-mistert-02-carga-inicial-50vus",
+    name: "MisterT 02 - Carga Inicial (50 VUs)",
+    configJson: createBuiltinBateriaConfig({
+      virtualUsers: 50,
+      duration: 180,
+      rampUp: 30,
+    }),
+  },
+  {
+    id: "builtin-mistert-03-capacidade-100vus",
+    name: "MisterT 03 - Capacidade (100 VUs)",
+    configJson: createBuiltinBateriaConfig({
+      virtualUsers: 100,
+      duration: 240,
+      rampUp: 60,
+    }),
+  },
+  {
+    id: "builtin-mistert-04-stress-inicial-150vus",
+    name: "MisterT 04 - Stress Inicial (150 VUs)",
+    configJson: createBuiltinBateriaConfig({
+      virtualUsers: 150,
+      duration: 300,
+      rampUp: 90,
+    }),
+  },
+  {
+    id: BUILTIN_PRESET_ID,
+    name: "MisterT Completo",
+    configJson: BUILTIN_CONFIG_JSON,
+  },
+] as const;
 
 /**
  * Aplica migrations incrementais no banco.
@@ -430,13 +572,19 @@ function applyMigrations(database: Database.Database): void {
         )
       `);
 
-      // Seed do preset built-in "MisterT Completo" via prepared statement
-      database
-        .prepare(
-          `INSERT INTO test_presets (id, name, config_json, is_builtin, builtin_version)
-           VALUES (?, ?, ?, 1, ?)`
-        )
-        .run(BUILTIN_PRESET_ID, "MisterT Completo", BUILTIN_CONFIG_JSON, CURRENT_BUILTIN_VERSION);
+      const seedBuiltinPresetStmt = database.prepare(
+        `INSERT INTO test_presets (id, name, config_json, is_builtin, builtin_version)
+         VALUES (?, ?, ?, 1, ?)`
+      );
+
+      for (const preset of BUILTIN_PRESETS) {
+        seedBuiltinPresetStmt.run(
+          preset.id,
+          preset.name,
+          preset.configJson,
+          CURRENT_BUILTIN_VERSION,
+        );
+      }
 
       database
         .prepare("INSERT INTO schema_version (version) VALUES (?)")
@@ -468,31 +616,73 @@ function applyMigrations(database: Database.Database): void {
         .run(5);
     })();
   }
+
+  if (version < 6) {
+    database.transaction(() => {
+      database.exec(`
+        ALTER TABLE test_results ADD COLUMN external_benchmarks_json TEXT
+      `);
+      database
+        .prepare("INSERT INTO schema_version (version) VALUES (?)")
+        .run(6);
+    })();
+  }
 }
 
 /**
- * Verifica se o preset built-in está na versão mais recente.
+ * Verifica se os presets built-in estão na versão mais recente.
  * Se a versão no banco for inferior a CURRENT_BUILTIN_VERSION,
- * atualiza o config_json e a builtin_version automaticamente.
+ * insere os presets ausentes e atualiza config_json/builtin_version automaticamente.
  * Chamado a cada inicialização da aplicação (após migrations).
  */
 export function ensureBuiltinPresetVersion(): void {
   const database = getDatabase();
-  const row = database
-    .prepare("SELECT builtin_version FROM test_presets WHERE id = ?")
-    .get(BUILTIN_PRESET_ID) as { builtin_version: number } | undefined;
+  const selectBuiltinVersionStmt = database.prepare(
+    "SELECT builtin_version FROM test_presets WHERE id = ?",
+  );
+  const insertBuiltinPresetStmt = database.prepare(
+    `INSERT INTO test_presets (
+      id, name, config_json, is_builtin, builtin_version, created_at, updated_at
+    ) VALUES (?, ?, ?, 1, ?, datetime('now'), datetime('now'))`,
+  );
+  const updateBuiltinPresetStmt = database.prepare(
+    `UPDATE test_presets
+     SET name = ?, config_json = ?, is_builtin = 1, builtin_version = ?, updated_at = datetime('now')
+     WHERE id = ?`,
+  );
 
-  if (!row || row.builtin_version < CURRENT_BUILTIN_VERSION) {
-    database
-      .prepare(
-        `UPDATE test_presets
-         SET config_json = ?, builtin_version = ?, updated_at = datetime('now')
-         WHERE id = ?`
-      )
-      .run(BUILTIN_CONFIG_JSON, CURRENT_BUILTIN_VERSION, BUILTIN_PRESET_ID);
+  let updatedBuiltins = 0;
 
+  for (const preset of BUILTIN_PRESETS) {
+    const row = selectBuiltinVersionStmt.get(preset.id) as
+      | { builtin_version: number | null }
+      | undefined;
+
+    if (!row) {
+      insertBuiltinPresetStmt.run(
+        preset.id,
+        preset.name,
+        preset.configJson,
+        CURRENT_BUILTIN_VERSION,
+      );
+      updatedBuiltins += 1;
+      continue;
+    }
+
+    if ((row.builtin_version ?? 0) < CURRENT_BUILTIN_VERSION) {
+      updateBuiltinPresetStmt.run(
+        preset.name,
+        preset.configJson,
+        CURRENT_BUILTIN_VERSION,
+        preset.id,
+      );
+      updatedBuiltins += 1;
+    }
+  }
+
+  if (updatedBuiltins > 0) {
     console.log(
-      `[CPX-Stress DB] Preset built-in atualizado para versão ${CURRENT_BUILTIN_VERSION}.`
+      `[CPX-Stress DB] ${updatedBuiltins} preset(s) built-in sincronizado(s) para a versão ${CURRENT_BUILTIN_VERSION}.`,
     );
   }
 }

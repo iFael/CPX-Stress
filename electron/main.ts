@@ -181,6 +181,7 @@ import {
 } from "./database/database";
 import {
   saveTestResult,
+  saveTestResultExternalBenchmarks,
   listTestResults,
   getTestResult,
   deleteTestResult,
@@ -653,6 +654,34 @@ if (canUseElectronMainApis) {
     );
   }
   });
+
+  ipcMain.handle(
+    "history:saveBenchmarks",
+    async (_event, id: string, benchmarks: unknown) => {
+    try {
+      if (!id || typeof id !== "string") {
+        throw new Error("Identificador do teste não informado.");
+      }
+      if (!benchmarks || typeof benchmarks !== "object") {
+        throw new Error("Snapshot de benchmarks inválido.");
+      }
+
+      initializeDatabase();
+      return saveTestResultExternalBenchmarks(
+        id,
+        benchmarks as import("./engine/stress-engine").PersistedExternalBenchmarks,
+      );
+    } catch (error) {
+      console.error(
+        "[CPX-Stress] Erro ao salvar benchmarks externos no histórico:",
+        error,
+      );
+      throw new Error(
+        "Não foi possível salvar os benchmarks externos no histórico.",
+      );
+    }
+    },
+  );
 
 /**
  * Canal: history:delete

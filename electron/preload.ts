@@ -28,6 +28,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { IpcRendererEvent } from "electron";
 import type {
+  PersistedExternalBenchmarks,
   TestConfig,
   ProgressData,
   TestResult,
@@ -51,6 +52,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   "validation:run",
   "history:list",
   "history:get",
+  "history:saveBenchmarks",
   "history:delete",
   "history:clear",
   "pdf:save",
@@ -178,6 +180,13 @@ const api = {
     /** Busca um resultado específico pelo seu identificador */
     get: (id: string): Promise<TestResult | null> =>
       safeInvoke("history:get", id) as Promise<TestResult | null>,
+
+    /** Persiste o snapshot atual dos benchmarks externos em um resultado salvo. */
+    saveBenchmarks: (
+      id: string,
+      benchmarks: PersistedExternalBenchmarks,
+    ): Promise<boolean> =>
+      safeInvoke("history:saveBenchmarks", id, benchmarks) as Promise<boolean>,
 
     /** Exclui um resultado específico do histórico */
     delete: (id: string): Promise<boolean> =>

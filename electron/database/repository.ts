@@ -10,6 +10,7 @@ import { getDatabase } from "./database";
 import { v4 as uuidv4 } from "uuid";
 import type Database from "better-sqlite3";
 import type {
+  PersistedExternalBenchmarks,
   SecondMetrics,
   TestConfig,
   TestResult,
@@ -64,6 +65,7 @@ export interface TestResultRow {
   measurement_reliability_json: string | null;
   operational_warnings_json: string | null;
   error_breakdown_json: string | null;
+  external_benchmarks_json: string | null;
   created_at: string;
 }
 
@@ -141,6 +143,10 @@ function rowToTestResult(row: TestResultRow): TestResult {
       undefined,
     ),
     errorBreakdown: safeJsonParse(row.error_breakdown_json, undefined),
+    externalBenchmarks: safeJsonParse(
+      row.external_benchmarks_json,
+      undefined,
+    ),
   };
 }
 
@@ -159,9 +165,10 @@ export function saveTestResult(result: TestResult): void {
       error_rate, throughput_bytes_per_sec, total_bytes, status_codes_json,
       timeline_json, status, error_message, protection_report_json,
       operation_metrics_json, vu_results_json, measurement_reliability_json,
-      operational_warnings_json, error_breakdown_json, created_at
+      operational_warnings_json, error_breakdown_json, external_benchmarks_json,
+      created_at
     ) VALUES (
-      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
     )
   `,
   ).run(
@@ -198,8 +205,28 @@ export function saveTestResult(result: TestResult): void {
       ? JSON.stringify(result.operationalWarnings)
       : null,
     result.errorBreakdown ? JSON.stringify(result.errorBreakdown) : null,
+    result.externalBenchmarks
+      ? JSON.stringify(result.externalBenchmarks)
+      : null,
     (result.startTime as string) || new Date().toISOString(),
   );
+}
+
+/** Persiste o snapshot dos benchmarks externos para um resultado já salvo. */
+export function saveTestResultExternalBenchmarks(
+  id: string,
+  externalBenchmarks: PersistedExternalBenchmarks,
+): boolean {
+  const db = getDatabase();
+  const result = db
+    .prepare(
+      `UPDATE test_results
+       SET external_benchmarks_json = ?
+       WHERE id = ?`,
+    )
+    .run(JSON.stringify(externalBenchmarks), id);
+
+  return result.changes > 0;
 }
 
 /** Lista todos os resultados de testes ordenados por data (mais recente primeiro). */
